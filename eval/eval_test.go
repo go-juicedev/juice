@@ -771,7 +771,7 @@ func BenchmarkStaticExpr(b *testing.B) {
 	})
 
 	b.Run("with_optimization", func(b *testing.B) {
-		compiler := &goExprCompiler{pretreatment: exprPretreatmentChain}
+		compiler := &goExprCompiler{}
 		for _, tt := range tests {
 			b.Run(tt.name, func(b *testing.B) {
 				// Pre-compile the expression
@@ -849,7 +849,7 @@ func BenchmarkStaticExprOptimizer(b *testing.B) {
 
 	// Test full compilation and optimization process
 	b.Run("full_compile_and_optimize", func(b *testing.B) {
-		compiler := &goExprCompiler{pretreatment: exprPretreatmentChain}
+		compiler := &goExprCompiler{}
 		for _, bm := range benchmarks {
 			b.Run(bm.name, func(b *testing.B) {
 				b.ResetTimer()
@@ -920,6 +920,73 @@ func TestStaticExprOptimizer(t *testing.T) {
 
 			if actual != tt.expected {
 				t.Errorf("got %v, want %v", actual, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLexer_Tokenize(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		expected bool
+	}{
+		// Basic logical operations
+		{"simple_and", "true and true", true},
+		{"simple_or", "true or false", true},
+		{"simple_not", "not false", true},
+
+		// Compound expressions
+		{"compound_and", "true and true and true", true},
+		{"compound_or", "false or false or true", true},
+		{"compound_mixed", "true and false or true", true},
+
+		// Parentheses
+		{"parentheses", "(true and false) or true", true},
+		{"nested_parentheses", "((true and true) or false) and true", true},
+
+		// Not operator
+		{"not_with_and", "not false and true", true},
+		{"not_with_or", "not true or true", true},
+		{"not_with_parentheses", "not (false and false)", true},
+
+		// Complex expressions
+		{"complex_1", "true and not false", true},
+		{"complex_2", "not (true and false) or true", true},
+		{"complex_3", "(not false and true) or (true and not false)", true},
+
+		// False cases
+		{"false_and", "true and false", false},
+		{"false_or", "false or false", false},
+		{"false_not", "not true", false},
+		{"false_complex", "not true and not true or false", false},
+
+		// Edge cases
+		{"all_operators", "not true and false or true and not false", true},
+		{"multiple_nots", "not not true", true},
+		{"triple_not", "not not not false", true},
+
+		// Precedence tests
+		{"precedence_1", "true or false and false", true}, // and has higher precedence
+		{"precedence_2", "false and true or true", true},  // demonstrates left-to-right evaluation
+		{"precedence_3", "not false and true", true},      // not has highest precedence
+
+		// Spacing variations
+		{"extra_spaces", "true  and  false  or  true", true},
+		{"minimal_spaces", "true and false or true", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Eval(tt.expr, nil)
+			if err != nil {
+				t.Fatalf("failed to eval expression: %v", err)
+			}
+			if result.Kind() != reflect.Bool {
+				t.Fatalf("unexpected result type: %v", result.Kind())
+			}
+			if tt.expected != result.Bool() {
+				t.Errorf("got %v, want %v", result, tt.expected)
 			}
 		})
 	}
