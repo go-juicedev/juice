@@ -19,15 +19,13 @@ package eval
 import (
 	"errors"
 	"fmt"
+	"github.com/go-juicedev/juice/eval/expr"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"reflect"
 	"strconv"
-	"strings"
-
-	"github.com/go-juicedev/juice/eval/expr"
-	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 // SyntaxError represents a syntax error.
@@ -46,59 +44,6 @@ func (s *SyntaxError) Unwrap() error {
 	return s.err
 }
 
-// ExprPretreatment is an expression pretreatment.
-// It is used to pretreatment the expression before parsing.
-type ExprPretreatment interface {
-	PretreatmentExpr(expr string) (string, error)
-}
-
-// ExprPretreatmentChain is an expression pretreatment chain.
-type ExprPretreatmentChain []ExprPretreatment
-
-// PretreatmentExpr implements the ExprPretreatment interface.
-func (e ExprPretreatmentChain) PretreatmentExpr(expr string) (string, error) {
-	var err error
-	for _, pretreatment := range e {
-		expr, err = pretreatment.PretreatmentExpr(expr)
-		if err != nil {
-			return "", err
-		}
-	}
-	return expr, nil
-}
-
-// exprKeyWordReplacePretreatment is an expression pretreatment that replaces the keyword.
-type exprKeyWordReplacePretreatment struct {
-	keyword string
-	replace string
-}
-
-// PretreatmentExpr implements the ExprPretreatment interface.
-func (e *exprKeyWordReplacePretreatment) PretreatmentExpr(expr string) (string, error) {
-	return strings.Replace(expr, e.keyword, e.replace, -1), nil
-}
-
-var (
-	// FIXME: use a better way to replace the keyword.
-
-	// andReplacePretreatment is an expression pretreatment that replaces "and" with "&&".
-	andReplacePretreatment ExprPretreatment = &exprKeyWordReplacePretreatment{
-		keyword: " and ", // must have space
-		replace: " && ",
-	}
-	// orReplacePretreatment is an expression pretreatment that replaces "or" with "||".
-	orReplacePretreatment ExprPretreatment = &exprKeyWordReplacePretreatment{
-		keyword: " or ", // must have space
-		replace: " || ",
-	}
-
-	// exprPretreatmentChain is an expression pretreatment chain.
-	exprPretreatmentChain ExprPretreatment = ExprPretreatmentChain{
-		andReplacePretreatment,
-		orReplacePretreatment,
-	}
-)
-
 // ExprCompiler is an evaluator of the expression.
 type ExprCompiler interface {
 	// Compile compiles the expression and returns the expression.
@@ -116,19 +61,18 @@ type Expression interface {
 }
 
 // goExprCompiler is an evaluator of the expression who uses the go/ast package.
-type goExprCompiler struct {
-	pretreatment ExprPretreatment
-}
+type goExprCompiler struct{}
 
 // Compile compiles the expression and returns the expression.
 func (e *goExprCompiler) Compile(expr string) (Expression, error) {
-	// pretreatment the expression first.
-	expr_, err := e.pretreatment.PretreatmentExpr(expr)
-	if err != nil {
-		return nil, err
-	}
-	// parse the expression with go/ast.
-	exp, err := parser.ParseExpr(expr_)
+	// Create a new lexer and convert logical operators (and, or, not) to Go operators (&&, ||, !)
+	lexer := NewLexer(expr)
+	// Tokenize the expression, replacing operators while preserving other tokens
+	expr = lexer.Tokenize()
+
+	// Parse the processed expression into an AST (Abstract Syntax Tree)
+	// This converts the string expression into a structured format that can be evaluated
+	exp, err := parser.ParseExpr(expr)
 	if err != nil {
 		return nil, &SyntaxError{err}
 	}
@@ -144,7 +88,7 @@ func (e *goExprCompiler) Compile(expr string) (Expression, error) {
 		return nil, err
 	}
 
-	return &goExpression{optimizedExp}, nil
+	return &goExpression{Expr: optimizedExp}, nil
 }
 
 // goExpression is an expression who uses the go/ast package.
@@ -157,28 +101,13 @@ func (e *goExpression) Execute(params Parameter) (Value, error) {
 	return eval(e.Expr, params)
 }
 
-var (
-	// DefaultExprCompiler is the default evaluator.
-	// Reset it to change the default behavior.
-	DefaultExprCompiler ExprCompiler = &goExprCompiler{pretreatment: exprPretreatmentChain}
-
-	// ErrNilExprCompiler returns when DefaultExprCompiler is changed to nil.
-	ErrNilExprCompiler = errors.New("expression compiler is nil")
-)
-
 // Compile compiles the expression and returns the expression.
 func Compile(expr string) (Expression, error) {
-	return DefaultExprCompiler.Compile(expr)
+	return new(goExprCompiler).Compile(expr)
 }
 
-// Eval is a shortcut of DefaultEvaluator.Compiler(expr).Execute(params).
 func Eval(expr string, params Parameter) (Value, error) {
-	// cache the compiler, incase the DefaultExprCompiler is changed by other goroutine.
-	compiler := DefaultExprCompiler
-	if compiler == nil {
-		return reflect.Value{}, ErrNilExprCompiler
-	}
-	expression, err := compiler.Compile(expr)
+	expression, err := Compile(expr)
 	if err != nil {
 		return reflect.Value{}, err
 	}
