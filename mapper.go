@@ -171,7 +171,7 @@ func (m *Mappers) GetStatement(v any) (Statement, error) {
 		rv := reflect.Indirect(reflect.ValueOf(v))
 		switch rv.Kind() {
 		case reflect.Func:
-			id = runtimeFuncName(rv)
+			id = cachedRuntimeFuncName(rv.Pointer())
 		case reflect.Struct:
 			id = rv.Type().PkgPath() + "." + rv.Type().Name()
 		default:
