@@ -11,7 +11,6 @@ type testStruct struct{}
 
 func (t testStruct) testMethod() {}
 
-func (t testStruct) anotherMethod()  {}
 func (t *testStruct) pointerMethod() {}
 
 func helperFunc1() {}
