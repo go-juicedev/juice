@@ -682,10 +682,17 @@ func (s SetNode) Accept(translator driver.Translator, p Parameter) (query string
 	if err != nil {
 		return "", nil, err
 	}
-	if query != "" {
+	if len(query) == 0 {
+		return "", args, nil
+	}
+	// Remove trailing comma
+	query = strings.TrimSuffix(query, ",")
+
+	// Ensure SET prefix if not present
+	if !(strings.HasPrefix(query, "set ") || strings.HasPrefix(query, "SET ")) {
 		query = "SET " + query
 	}
-	query = strings.TrimSuffix(query, ",")
+
 	return query, args, nil
 }
 
