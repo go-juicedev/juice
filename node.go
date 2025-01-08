@@ -18,8 +18,10 @@ package juice
 
 import (
 	"fmt"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-juicedev/juice/eval"
@@ -1031,4 +1033,31 @@ func (s SelectFieldAliasNode) Accept(_ driver.Translator, _ Parameter) (query st
 		fields = append(fields, field)
 	}
 	return strings.Join(fields, ", "), nil, nil
+}
+
+// reflectValueToString converts reflect.Value to string
+func reflectValueToString(v reflect.Value) string {
+	v = reflectlite.Unwrap(v)
+	switch t := v.Interface().(type) {
+	case nil:
+		return ""
+	case string:
+		return t
+	case []byte:
+		return string(v.Bytes())
+	case fmt.Stringer:
+		return t.String()
+	case int, int8, int16, int32, int64:
+		return strconv.FormatInt(v.Int(), 10)
+	case uint, uint8, uint16, uint32, uint64:
+		return strconv.FormatUint(v.Uint(), 10)
+	case float32:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 32)
+	case float64:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
+	case bool:
+		return strconv.FormatBool(v.Bool())
+	default:
+		return fmt.Sprintf("%v", t)
+	}
 }
