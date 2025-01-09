@@ -65,7 +65,7 @@ func (n *TrieNode[T]) insertChild(child *TrieNode[T]) {
 		n.children[idx] = child // Replace existing node
 		return
 	}
-	
+
 	// Insert at the correct position
 	n.children = append(n.children, nil)
 	copy(n.children[idx+1:], n.children[idx:])
@@ -108,28 +108,34 @@ func (t *Trie[T]) Insert(key string, value T) {
 // Time complexity: O(k * log n) where k is the number of parts in the key
 // and n is the average number of children per node
 func (t *Trie[T]) Get(key string) (T, bool) {
+	var (
+		current *TrieNode[T]
+		parts   []string
+	)
+
 	if key == "" {
-		var zero T
-		return zero, false
+		goto notFound
 	}
 
-	parts := strings.Split(key, ".")
-	current := t.root
+	parts = strings.Split(key, ".")
+	current = t.root
 
 	for _, part := range parts {
 		idx, found := current.findChild(part)
 		if !found {
-			var zero T
-			return zero, false
+			goto notFound
 		}
 		current = current.children[idx]
 	}
 
 	if !current.hasValue {
-		var zero T
-		return zero, false
+		goto notFound
 	}
 	return current.value, true
+
+notFound:
+	var zero T
+	return zero, false
 }
 
 // removeChild removes a child node at the specified index
@@ -177,7 +183,7 @@ func (t *Trie[T]) Delete(key string) bool {
 		node := nodes[i]
 		parent := nodes[i-1]
 		idx := indices[i-1]
-		
+
 		if !node.hasValue && len(node.children) == 0 {
 			parent.removeChild(idx)
 		} else {
