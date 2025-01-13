@@ -540,8 +540,20 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 		return "", nil, nil
 	}
 
+	// Pre-allocate args slice capacity to avoid multiple growths
+	// Estimate: number of slice elements * number of nodes
+	estimatedArgsLen := sliceLength * len(f.Nodes)
+
+	args = make([]any, 0, estimatedArgsLen)
+
+	// Pre-allocate string builder capacity to minimize buffer reallocations
+	// Capacity = open + items + separators + close
+	estimatedBuilderCap := len(f.Open) + (2 * sliceLength) + (len(f.Separator) * (sliceLength - 1)) + len(f.Close)
+
 	var builder = getStringBuilder()
 	defer putStringBuilder(builder)
+
+	builder.Grow(estimatedBuilderCap)
 
 	builder.WriteString(f.Open)
 
@@ -551,11 +563,15 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 	// nil is for placeholder
 	group := eval.ParamGroup{nil, p}
 
+	h := make(eval.H, 2)
+
 	for i := 0; i < sliceLength; i++ {
 
 		item := value.Index(i).Interface()
 
-		group[0] = eval.H{f.Item: item, f.Index: i}.AsParam()
+		h[f.Item] = item
+		h[f.Index] = i
+		group[0] = h.AsParam()
 
 		for _, node := range f.Nodes {
 			q, a, err := node.Accept(translator, group)
@@ -588,8 +604,20 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 		return "", nil, nil
 	}
 
+	// Pre-allocate args slice capacity to avoid multiple growths
+	// Estimate: number of slice elements * number of nodes
+	estimatedArgsLen := len(keys) * len(f.Nodes)
+
+	args = make([]any, 0, estimatedArgsLen)
+
+	// Pre-allocate string builder capacity to minimize buffer reallocations
+	// Capacity = open + items + separators + close
+	estimatedBuilderCap := len(f.Open) + (2 * len(keys)) + (len(f.Separator) * (len(keys) - 1)) + len(f.Close)
+
 	var builder = getStringBuilder()
 	defer putStringBuilder(builder)
+
+	builder.Grow(estimatedBuilderCap)
 
 	builder.WriteString(f.Open)
 
@@ -601,11 +629,15 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 	// nil is for placeholder
 	group := eval.ParamGroup{nil, p}
 
+	h := make(eval.H, 2)
+
 	for _, key := range keys {
 
 		item := value.MapIndex(key).Interface()
 
-		group[0] = eval.H{f.Item: item, f.Index: key.Interface()}.AsParam()
+		h[f.Item] = item
+		h[f.Index] = key.Interface()
+		group[0] = h.AsParam()
 
 		for _, node := range f.Nodes {
 			q, a, err := node.Accept(translator, group)
