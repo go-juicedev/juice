@@ -182,38 +182,80 @@ func (c *TextNode) Accept(translator driver.Translator, p Parameter) (query stri
 	return query, args, nil
 }
 
-func (c *TextNode) replaceHolder(query string, args []interface{}, translator driver.Translator, p Parameter) (string, []any, error) {
+func (c *TextNode) replaceHolder(query string, args []any, translator driver.Translator, p Parameter) (string, []any, error) {
+	if len(c.placeholder) == 0 {
+		return query, args, nil
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(query))
+
+	lastIndex := 0
+	newArgs := make([]any, 0, len(args)+len(c.placeholder))
+	newArgs = append(newArgs, args...)
+
 	for _, param := range c.placeholder {
 		if len(param) != 2 {
 			return "", nil, fmt.Errorf("invalid parameter %v", param)
 		}
 		matched, name := param[0], param[1]
 
-		// try to get value from parameter
 		value, exists := p.Get(name)
 		if !exists {
 			return "", nil, fmt.Errorf("parameter %s not found", name)
 		}
-		query = strings.Replace(query, matched, translator.Translate(name), 1)
-		args = append(args, value.Interface())
+
+		pos := strings.Index(query[lastIndex:], matched)
+		if pos == -1 {
+			continue
+		}
+		pos += lastIndex
+
+		builder.WriteString(query[lastIndex:pos])
+		builder.WriteString(translator.Translate(name))
+		lastIndex = pos + len(matched)
+
+		newArgs = append(newArgs, value.Interface())
 	}
-	return query, args, nil
+
+	builder.WriteString(query[lastIndex:])
+	return builder.String(), newArgs, nil
 }
 
 // replaceTextSubstitution replaces text substitution.
 func (c *TextNode) replaceTextSubstitution(query string, p Parameter) (string, error) {
+	if len(c.textSubstitution) == 0 {
+		return query, nil
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(query))
+
+	lastIndex := 0
 	for _, sub := range c.textSubstitution {
 		if len(sub) != 2 {
 			return "", fmt.Errorf("invalid text substitution %v", sub)
 		}
 		matched, name := sub[0], sub[1]
+
 		value, exists := p.Get(name)
 		if !exists {
 			return "", fmt.Errorf("parameter %s not found", name)
 		}
-		query = strings.Replace(query, matched, reflectValueToString(value), 1)
+
+		pos := strings.Index(query[lastIndex:], matched)
+		if pos == -1 {
+			continue
+		}
+		pos += lastIndex
+
+		builder.WriteString(query[lastIndex:pos])
+		builder.WriteString(reflectValueToString(value))
+		lastIndex = pos + len(matched)
 	}
-	return query, nil
+
+	builder.WriteString(query[lastIndex:])
+	return builder.String(), nil
 }
 
 // NewTextNode creates a new text node based on the input string.
