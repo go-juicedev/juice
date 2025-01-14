@@ -18,13 +18,12 @@ package eval
 
 import (
 	"context"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 // Param is an alias of any type.
@@ -104,21 +103,42 @@ var _ Parameter = (*structParameter)(nil)
 // structParameter is a parameter that wraps a struct.
 type structParameter struct {
 	reflect.Value
+	fieldIndexes map[string][]int
 }
 
 // Get implements Parameter.
-func (p structParameter) Get(name string) (reflect.Value, bool) {
+func (p *structParameter) Get(name string) (reflect.Value, bool) {
 	if len(name) == 0 {
 		return reflect.Value{}, false
 	}
+	// Check type cache first
+	if indexes, ok := p.fieldIndexes[name]; ok {
+		return p.FieldByIndex(indexes), true
+	}
+
 	// if isPublic it means that the name is exported
 	isPublic := unicode.IsUpper(rune(name[0]))
+	var indexes []int
 	if !isPublic {
+		var ok bool
 		// try to find the field by tag
-		value := reflectlite.ValueFrom(p.Value).FindFieldFromTag(defaultParamKey, name)
-		return value.Value, value.IsValid()
+		indexes, ok = reflectlite.TypeFrom(p.Value.Type()).GetFieldIndexesFromTag(defaultParamKey, name)
+		if !ok {
+			return reflect.Value{}, false
+		}
+	} else {
+		// Find field index by name
+		field, ok := p.Type().FieldByName(name)
+		if !ok {
+			return reflect.Value{}, false
+		}
+		indexes = field.Index
 	}
-	value := p.FieldByName(name)
+
+	// Cache the field index for future use
+	p.fieldIndexes[name] = indexes
+
+	value := p.FieldByIndex(indexes)
 	return value, value.IsValid()
 }
 
@@ -162,17 +182,28 @@ func (p sliceParameter) Get(name string) (reflect.Value, bool) {
 
 // GenericParameter is a parameter that wraps a generic value.
 type GenericParameter struct {
+	// Value is the wrapped value
 	Value reflect.Value
 
-	// cache is used to cache the value of the parameter.
+	// cache is used to cache the final value of the parameter path.
+	// For example, if the path is "user.address.street",
+	// it will cache the final street value to avoid parsing the path again.
 	cache map[string]reflect.Value
+
+	// structFieldIndex caches the field indexes for struct types at each path level.
+	// The first key is the position in the path (e.g., for "user.address.street": 0 for user, 1 for address).
+	// The second key is the concrete type of the struct, which ensures correct field lookup for different struct types.
+	// The third key is the field name, and the value is the field index slice.
+	// This three-level cache design ensures that field indexes are not mixed between different struct types,
+	// which is particularly important when dealing with slices of different struct types.
+	structFieldIndex map[int]map[reflect.Type]map[string][]int
 }
 
 func (g *GenericParameter) get(name string) (value reflect.Value, exists bool) {
 	value = g.Value
 	items := strings.Split(name, ".")
 	var param Parameter
-	for _, item := range items {
+	for i, item := range items {
 
 		// only unwrap when the value need to call Get method
 		value = reflectlite.Unwrap(value)
@@ -187,7 +218,31 @@ func (g *GenericParameter) get(name string) (value reflect.Value, exists bool) {
 			}
 			param = mapParameter{Value: value}
 		case reflect.Struct:
-			param = structParameter{Value: value}
+			// Initialize the three-level cache if not exists:
+			// Level 1: path position -> to handle different levels in the path (e.g., user.address.street)
+			// Level 2: concrete type -> to handle different struct types at the same position
+			// Level 3: field name -> to cache the actual field indexes
+			if g.structFieldIndex == nil {
+				g.structFieldIndex = make(map[int]map[reflect.Type]map[string][]int)
+			}
+			
+			// Cache the type to avoid multiple calls to Type()
+			valueType := value.Type()
+			
+			// Get or create the type-level cache for current path position
+			structFieldIndex, in := g.structFieldIndex[i]
+			if !in {
+				// Initialize with the current type to avoid another map lookup
+				structFieldIndex = map[reflect.Type]map[string][]int{
+					valueType: {},
+				}
+				g.structFieldIndex[i] = structFieldIndex
+			}
+			
+			// Create a new structParameter with its field cache pointing to 
+			// the cached indexes for its specific type, ensuring different 
+			// struct types don't share the same field index cache
+			param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
 		case reflect.Slice, reflect.Array:
 			param = sliceParameter{Value: value}
 		default:
