@@ -559,11 +559,12 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 
 	end := sliceLength - 1
 
-	// group wraps parameter
-	// nil is for placeholder
-	group := eval.ParamGroup{nil, p}
-
 	h := make(eval.H, 2)
+
+	// Create and reuse GenericParameter outside the loop to avoid allocations per iteration
+	genericParameter := &eval.GenericParameter{Value: reflect.ValueOf(h)}
+
+	group := eval.ParamGroup{genericParameter, p}
 
 	for i := 0; i < sliceLength; i++ {
 
@@ -571,7 +572,6 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 
 		h[f.Item] = item
 		h[f.Index] = i
-		group[0] = h.AsParam()
 
 		for _, node := range f.Nodes {
 			q, a, err := node.Accept(translator, group)
@@ -589,6 +589,7 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 		if i < end {
 			builder.WriteString(f.Separator)
 		}
+		genericParameter.Clear()
 	}
 
 	// if sliceLength is not zero, add close
@@ -625,11 +626,12 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 
 	var index int
 
-	// group wraps parameter
-	// nil is for placeholder
-	group := eval.ParamGroup{nil, p}
-
 	h := make(eval.H, 2)
+
+	// Create and reuse GenericParameter outside the loop to avoid allocations per iteration
+	genericParameter := &eval.GenericParameter{Value: reflect.ValueOf(h)}
+
+	group := eval.ParamGroup{genericParameter, p}
 
 	for _, key := range keys {
 
@@ -637,7 +639,6 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 
 		h[f.Item] = item
 		h[f.Index] = key.Interface()
-		group[0] = h.AsParam()
 
 		for _, node := range f.Nodes {
 			q, a, err := node.Accept(translator, group)
@@ -655,6 +656,8 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 		if index < end {
 			builder.WriteString(f.Separator)
 		}
+
+		genericParameter.Clear()
 
 		index++
 	}
