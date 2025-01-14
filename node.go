@@ -187,7 +187,8 @@ func (c *TextNode) replaceHolder(query string, args []any, translator driver.Tra
 		return query, args, nil
 	}
 
-	var builder strings.Builder
+	builder := getStringBuilder()
+	defer putStringBuilder(builder)
 	builder.Grow(len(query))
 
 	lastIndex := 0
@@ -228,7 +229,8 @@ func (c *TextNode) replaceTextSubstitution(query string, p Parameter) (string, e
 		return query, nil
 	}
 
-	var builder strings.Builder
+	builder := getStringBuilder()
+	defer putStringBuilder(builder)
 	builder.Grow(len(query))
 
 	lastIndex := 0
