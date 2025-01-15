@@ -19,7 +19,6 @@ package juice
 import (
 	"context"
 	"database/sql"
-
 	"github.com/go-juicedev/juice/cache"
 	"github.com/go-juicedev/juice/driver"
 )
@@ -36,6 +35,11 @@ type Engine struct {
 
 	// db is the database connection
 	db *sql.DB
+
+	// current using of environment id
+	using string
+
+	manager *DBManager
 
 	// rw is the read write lock
 	// default use the no-op locker
@@ -117,6 +121,38 @@ func (e *Engine) Use(middleware Middleware) {
 	e.middlewares = append(e.middlewares, middleware)
 }
 
+func (e *Engine) clone() *Engine {
+	return &Engine{
+		configuration: e.configuration,
+		manager:       e.manager,
+		rw:            e.rw,
+		middlewares:   e.middlewares,
+	}
+}
+
+// With creates a new Engine instance with the specified environment name.
+// If the requested environment name matches the current one, it returns the same engine.
+// Otherwise, it creates a cloned engine with the new database connection and driver.
+// Returns an error if the specified environment is not found or connection fails.
+func (e *Engine) With(name string) (*Engine, error) {
+	if e.using == name {
+		return e, nil
+	}
+	db, drv, err := e.manager.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	engine := e.clone()
+	engine.db, engine.driver = db, drv
+	engine.using = name
+	return engine, nil
+}
+
+// EnvID returns the identifier of the currently active database environment.
+func (e *Engine) EnvID() string {
+	return e.using
+}
+
 // DB returns the database connection of the engine
 func (e *Engine) DB() *sql.DB {
 	return e.db
@@ -127,12 +163,10 @@ func (e *Engine) Driver() driver.Driver {
 	return e.driver
 }
 
-// Close closes the database connection if it is not nil.
+// Close gracefully shuts down all managed database connections
+// all cloned engines share the same DBManager
 func (e *Engine) Close() error {
-	if e.db != nil {
-		return e.db.Close()
-	}
-	return nil
+	return e.manager.Close()
 }
 
 // SetLocker sets the locker of the engine
@@ -145,23 +179,17 @@ func (e *Engine) SetLocker(locker RWLocker) {
 }
 
 // init initializes the engine
-func (e *Engine) init() error {
-	// one the default environment from the configuration
-	envs := e.configuration.Environments()
-	defaultEnvName := envs.Attribute("default")
-	env, err := envs.Use(defaultEnvName)
+func (e *Engine) init() (err error) {
+	e.manager, err = newDBManagerFromConfiguration(e.configuration)
 	if err != nil {
-		return err
+		return
 	}
-	// try to one the driver from the configuration
-	drv, err := driver.Get(env.Driver)
+	e.using = e.configuration.Environments().Attribute("default")
+	e.db, e.driver, err = e.manager.Get(e.using)
 	if err != nil {
-		return err
+		return
 	}
-	e.driver = drv
-	// open the database connection
-	e.db, err = ConnectFromEnv(env)
-	return err
+	return
 }
 
 // New is the alias of NewEngine

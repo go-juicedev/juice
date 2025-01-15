@@ -19,6 +19,7 @@ package juice
 import (
 	"database/sql"
 	"fmt"
+	"iter"
 	"os"
 	"time"
 
@@ -92,6 +93,8 @@ type EnvironmentProvider interface {
 
 	// Use returns the environment specified by the identifier.
 	Use(id string) (*Environment, error)
+
+	Iter() iter.Seq2[string, *Environment]
 }
 
 // environments is a collection of environments.
@@ -124,6 +127,17 @@ func (e *environments) Use(id string) (*Environment, error) {
 		return nil, fmt.Errorf("environment %s not found", id)
 	}
 	return env, nil
+}
+
+// Iter returns a sequence of environments.
+func (e *environments) Iter() iter.Seq2[string, *Environment] {
+	return func(yield func(string, *Environment) bool) {
+		for key, env := range e.envs {
+			if ok := yield(key, env); !ok {
+				return
+			}
+		}
+	}
 }
 
 // EnvValueProvider defines a environment value provider.
