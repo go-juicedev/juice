@@ -21,7 +21,9 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"math/rand"
 	"reflect"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -260,5 +262,113 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, next ExecHandle
 			return nil, err
 		}
 		return result, nil
+	}
+}
+
+// isInTransaction checks if the current context is within a transaction
+func isInTransaction(ctx context.Context) bool {
+	manager := ManagerFromContext(ctx)
+	return IsTxManager(manager)
+}
+
+// TransactionSensitiveDataSourceSwitchMiddleware provides dynamic database routing capabilities
+// while maintaining transaction safety. It supports explicit datasource naming,
+// random selection from secondary sources (?), and random selection from all sources (!).
+type TransactionSensitiveDataSourceSwitchMiddleware struct{}
+
+// selectRandomDataSource randomly selects a datasource from all available sources.
+// If only one source is available, returns the current source.
+func (t *TransactionSensitiveDataSourceSwitchMiddleware) selectRandomDataSource(engine *Engine) string {
+	registeredEnvIds := engine.manager.Registered()
+	if len(registeredEnvIds) == 1 {
+		return engine.EnvID()
+	}
+	return registeredEnvIds[rand.Intn(len(registeredEnvIds))]
+}
+
+// selectRandomSecondaryDataSource randomly selects a datasource from secondary (non-primary) sources.
+// If only primary source is available, returns the primary source.
+func (t *TransactionSensitiveDataSourceSwitchMiddleware) selectRandomSecondaryDataSource(engine *Engine) string {
+	registeredEnvIds := engine.manager.Registered()
+	if len(registeredEnvIds) == 1 {
+		return engine.EnvID()
+	}
+	registeredEnvIds = slices.DeleteFunc(registeredEnvIds, func(envId string) bool {
+		return envId == engine.EnvID()
+	})
+	return registeredEnvIds[rand.Intn(len(registeredEnvIds))]
+}
+
+// chooseDataSourceName selects the appropriate datasource based on the strategy:
+// "?" - random secondary source
+// "!" - random from all sources
+// otherwise - use the specified source
+func (t *TransactionSensitiveDataSourceSwitchMiddleware) chooseDataSourceName(dataSourceName string, engine *Engine) string {
+	switch dataSourceName {
+	case "?":
+		return t.selectRandomSecondaryDataSource(engine)
+	case "!":
+		return t.selectRandomDataSource(engine)
+	default:
+		return dataSourceName
+	}
+}
+
+// switchDataSource handles the datasource switching logic.
+// It returns the original context if:
+// - The manager is not an Engine
+// - The chosen datasource is the same as the requested one
+func (t *TransactionSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Context, dataSourceName string) (context.Context, error) {
+	manager := ManagerFromContext(ctx)
+	engine, ok := manager.(*Engine)
+	if !ok {
+		return ctx, nil
+	}
+	chosenDataSourceName := t.chooseDataSourceName(dataSourceName, engine)
+	if chosenDataSourceName == dataSourceName {
+		return ctx, nil
+	}
+	engine, err := engine.With(chosenDataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	return ContextWithManager(ctx, engine), nil
+}
+
+// QueryContext implements Middleware.QueryContext.
+// It handles datasource switching for query operations while respecting transaction boundaries.
+func (t *TransactionSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
+	dataSource := stmt.Attribute("dataSource")
+	if dataSource == "" {
+		return next
+	}
+	return func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+		if isInTransaction(ctx) {
+			return next(ctx, query, args...)
+		}
+		ctx, err := t.switchDataSource(ctx, dataSource)
+		if err != nil {
+			return nil, err
+		}
+		return next(ctx, query, args...)
+	}
+}
+
+// ExecContext implements Middleware.ExecContext.
+// It handles datasource switching for exec operations while respecting transaction boundaries.
+func (t *TransactionSensitiveDataSourceSwitchMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
+	dataSource := stmt.Attribute("dataSource")
+	if dataSource == "" {
+		return next
+	}
+	return func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+		if isInTransaction(ctx) {
+			return next(ctx, query, args...)
+		}
+		ctx, err := t.switchDataSource(ctx, dataSource)
+		if err != nil {
+			return nil, err
+		}
+		return next(ctx, query, args...)
 	}
 }
