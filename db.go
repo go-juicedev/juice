@@ -55,6 +55,7 @@ type DBManager struct {
 	sources map[string]Source // connection sources
 	mu      sync.RWMutex      // protects sources map
 	closed  atomic.Bool       // manager state
+	names   []string          // sorted list of registered sources
 }
 
 var (
@@ -159,7 +160,14 @@ func (m *DBManager) Add(name string, source Source) error {
 	}
 
 	m.sources[name] = source
+	m.names = append(m.names, name)
 	return nil
+}
+
+func (m *DBManager) Registered() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.names
 }
 
 // Close gracefully shuts down all managed database connections.
