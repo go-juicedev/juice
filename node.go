@@ -101,17 +101,24 @@ type NodeGroup []Node
 // If the group is empty or no nodes produce output, it returns empty results.
 func (g NodeGroup) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
 	// Return early if group is empty
-	if len(g) == 0 {
+	nodeLength := len(g)
+	switch nodeLength {
+	case 0:
 		return "", nil, nil
+	case 1:
+		return g[0].Accept(translator, p)
 	}
 
 	var builder = getStringBuilder()
 	defer putStringBuilder(builder)
 
-	// Pre-allocate args slice to avoid reallocations
-	args = make([]any, 0, len(g))
+	// Pre-allocate string builder capacity to minimize buffer reallocations
+	builder.Grow(nodeLength * 4)
 
-	lastIdx := len(g) - 1
+	// Pre-allocate args slice to avoid reallocations
+	args = make([]any, 0, nodeLength)
+
+	lastIdx := nodeLength - 1
 
 	// Process each node in the group
 	for i, node := range g {
