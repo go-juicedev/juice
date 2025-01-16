@@ -303,15 +303,15 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) selectRandomSecondaryDataSource(
 }
 
 // chooseDataSourceName selects the appropriate datasource based on the strategy:
-// "?" - random secondary source
-// "!" - random from all sources
+// "?!" - random secondary source
+// "?" - random from all sources
 // otherwise - use the specified source
 func (t *TxSensitiveDataSourceSwitchMiddleware) chooseDataSourceName(dataSourceName string, engine *Engine) string {
 	switch dataSourceName {
-	case "?":
-		return t.selectRandomSecondaryDataSource(engine)
-	case "!":
+	case "?": // select a random source
 		return t.selectRandomDataSource(engine)
+	case "?!": // ignore the primary source when selecting
+		return t.selectRandomSecondaryDataSource(engine)
 	default:
 		return dataSourceName
 	}
