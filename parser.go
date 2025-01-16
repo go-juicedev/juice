@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	gotoken "go/token"
 	"io"
 	"io/fs"
 	"net/http"
@@ -115,7 +116,12 @@ func (p *XMLEnvironmentsElementParser) parseEnvironment(decoder *xml.Decoder, to
 	for _, attr := range token.Attr {
 		env.setAttr(attr.Name.Local, attr.Value)
 	}
-	if env.ID() == "" {
+	id := env.ID()
+	if id != "" {
+		if !gotoken.IsIdentifier(id) {
+			return nil, fmt.Errorf("environment id is invalid: %s", id)
+		}
+	} else {
 		return nil, errors.New("environment id is required")
 	}
 	provider := env.provider()
