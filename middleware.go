@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/go-juicedev/juice/session"
 	"log"
 	"math/rand"
 	"reflect"
@@ -322,17 +323,19 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 	manager := ManagerFromContext(ctx)
 	engine, ok := manager.(*Engine)
 	if !ok {
+		logger.Printf("[juice]: failed to switch datasource: %s, the manager is not an Engine", dataSourceName)
 		return ctx, nil
 	}
 	chosenDataSourceName := t.chooseDataSourceName(dataSourceName, engine)
 	if chosenDataSourceName == dataSourceName {
 		return ctx, nil
 	}
-	engine, err := engine.With(chosenDataSourceName)
+	db, _, err := engine.manager.Get(chosenDataSourceName)
 	if err != nil {
 		return nil, err
 	}
-	return ContextWithManager(ctx, engine), nil
+	// inject the new session into the context
+	return session.WithContext(ctx, db), nil
 }
 
 // QueryContext implements Middleware.QueryContext.
