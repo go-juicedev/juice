@@ -17,13 +17,9 @@ limitations under the License.
 package juice
 
 import (
-	"database/sql"
 	"fmt"
 	"iter"
 	"os"
-	"time"
-
-	"github.com/go-juicedev/juice/driver"
 )
 
 // Environment defines a environment.
@@ -73,18 +69,6 @@ func (e *Environment) ID() string {
 // It provides a value of the environment variable.
 func (e *Environment) provider() EnvValueProvider {
 	return GetEnvValueProvider(e.Attr("provider"))
-}
-
-// ConnectFromEnv connects to the database using the environment configuration.
-func ConnectFromEnv(env *Environment) (*sql.DB, error) {
-	return driver.Connect(
-		env.Driver,
-		env.DataSource,
-		driver.ConnectWithMaxOpenConnNum(env.MaxOpenConnNum),
-		driver.ConnectWithMaxIdleConnNum(env.MaxIdleConnNum),
-		driver.ConnectWithMaxConnLifetime(time.Duration(env.MaxConnLifetime)*time.Second),
-		driver.ConnectWithMaxIdleConnLifetime(time.Duration(env.MaxIdleConnLifetime)*time.Second),
-	)
 }
 
 type EnvironmentProvider interface {
