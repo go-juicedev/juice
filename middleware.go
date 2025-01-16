@@ -347,7 +347,7 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
 	dataSource := stmt.Attribute("dataSource")
 	if dataSource == "" {
-		dataSource = stmt.Configuration().Settings().Get("dataSource").String()
+		dataSource = stmt.Configuration().Settings().Get("selectDataSource").String()
 	}
 	if dataSource == "" {
 		return next
