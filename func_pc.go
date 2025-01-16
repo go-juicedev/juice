@@ -17,6 +17,7 @@ limitations under the License.
 package juice
 
 import (
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -39,20 +40,23 @@ func runtimeFuncName(addr uintptr) string {
 // This pattern keeps the initialization logic private while exposing
 // only the necessary functionality.
 func _cachedRuntimeFuncName() func(addr uintptr) string {
-	var cache sync.Map
-	return func(addr uintptr) string {
-		// Although this implementation is not atomic between Load and Store,
-		// the cost of proper synchronization (like singleflight) would be
-		// higher than the cost of occasionally recomputing the same name.
-		// Benchmark results show that the simple approach is about 20x faster
-		// and eliminates memory allocations entirely.
-		if name, ok := cache.Load(addr); ok {
-			return name.(string)
+	if os.Getenv("JUICE_NO_PC_FUNC_CACHE") == "" {
+		var cache sync.Map
+		return func(addr uintptr) string {
+			// Although this implementation is not atomic between Load and Store,
+			// the cost of proper synchronization (like singleflight) would be
+			// higher than the cost of occasionally recomputing the same name.
+			// Benchmark results show that the simple approach is about 20x faster
+			// and eliminates memory allocations entirely.
+			if name, ok := cache.Load(addr); ok {
+				return name.(string)
+			}
+			name := runtimeFuncName(addr)
+			cache.Store(addr, name)
+			return name
 		}
-		name := runtimeFuncName(addr)
-		cache.Store(addr, name)
-		return name
 	}
+	return runtimeFuncName
 }
 
 // cachedRuntimeFuncName is a cached version of runtimeFuncName
