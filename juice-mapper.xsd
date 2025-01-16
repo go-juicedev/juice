@@ -261,6 +261,8 @@
             </xs:choice>
             <xs:attribute name="id" type="xs:string" use="required"/>
             <xs:attribute name="resultMap" type="xs:string"/>
+            <xs:attribute name="dataSource" type="xs:string"/>
+            <xs:attribute name="useCache" type="xs:boolean"/>
         </xs:complexType>
     </xs:element>
 

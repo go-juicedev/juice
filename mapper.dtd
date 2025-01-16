@@ -70,6 +70,7 @@
                 resultMap CDATA #IMPLIED
                 useCache CDATA #IMPLIED
                 paramName CDATA #IMPLIED
+                dataSource CDATA #IMPLIED
                 >
 
         <!ELEMENT update (#PCDATA | include | trim | where | set | foreach | choose | if )*>
@@ -94,6 +95,7 @@
                 flushCache CDATA #IMPLIED
                 paramName CDATA #IMPLIED
                 batchSize CDATA #IMPLIED
+                batchInsertIDGenerateStrategy CDATA #IMPLIED
                 >
 
         <!ELEMENT id EMPTY>
