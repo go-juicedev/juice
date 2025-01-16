@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/session"
 	"log"
 	"math/rand"
@@ -227,14 +229,32 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, next ExecHandle
 			return nil, errors.New("useGeneratedKeys is true, but the param is nil")
 		}
 
-		// checkout the input param
+		// Handle special case where the input parameter might be wrapped in a map.
+		// This allows for flexible parameter passing patterns, supporting both direct and wrapped formats.
 		rv := reflect.ValueOf(param)
+
+		// If the parameter is a map, we expect it to contain exactly one key-value pair
+		// This restriction ensures unambiguous parameter extraction
+		if rv.Kind() == reflect.Map {
+			// Validate that the map contains exactly one entry
+			// Multiple entries would create ambiguity about which value to use
+			if rv.Len() != 1 {
+				return nil, fmt.Errorf("useGeneratedKeys is true, map must contain exactly one key-value pair, got %d", rv.Len())
+			}
+			// Extract the single key and get its corresponding value
+			// This value will be used for further processing
+			key := rv.MapKeys()[0]
+			rv = rv.MapIndex(key)
+		}
+
+		// unwrap the pointer, interface
+		rv = reflectlite.Unwrap(rv)
 
 		keyProperty := stmt.Attribute("keyProperty")
 
 		var keyGenerator selectKeyGenerator
 
-		switch reflect.Indirect(rv).Kind() {
+		switch rv.Kind() {
 		case reflect.Struct:
 			keyGenerator = &singleKeyGenerator{
 				keyProperty: keyProperty,
