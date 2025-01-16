@@ -294,10 +294,12 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) selectRandomSecondaryDataSource(
 	if len(registeredEnvIds) == 1 {
 		return engine.EnvID()
 	}
-	registeredEnvIds = slices.DeleteFunc(registeredEnvIds, func(envId string) bool {
+	var registeredEnvIdsReplica = make([]string, len(registeredEnvIds))
+	copy(registeredEnvIdsReplica, registeredEnvIds)
+	registeredEnvIdsReplica = slices.DeleteFunc(registeredEnvIdsReplica, func(envId string) bool {
 		return envId == engine.EnvID()
 	})
-	return registeredEnvIds[rand.Intn(len(registeredEnvIds))]
+	return registeredEnvIdsReplica[rand.Intn(len(registeredEnvIdsReplica))]
 }
 
 // chooseDataSourceName selects the appropriate datasource based on the strategy:
