@@ -233,17 +233,37 @@ func (p *XMLSettingsElementParser) ParseElement(parser *XMLParser, decoder *xml.
 }
 
 func (p *XMLSettingsElementParser) parseSettings(decoder *xml.Decoder) (keyValueSettingProvider, error) {
-	var setting []settingItem
-	if err := decoder.DecodeElement(&setting, nil); err != nil {
-		return nil, err
-	}
-	var settings = make(keyValueSettingProvider, len(setting))
-	for _, s := range setting {
-		if _, ok := settings[s.Name]; ok {
-			return nil, fmt.Errorf("duplicate setting name: %s", s.Name)
+	var settings = make(keyValueSettingProvider)
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
 		}
-		settings[s.Name] = s.Value
+
+		switch t := token.(type) {
+		case xml.EndElement:
+			if t.Name.Local == "settings" {
+				return settings, nil
+			}
+		case xml.StartElement:
+			if t.Name.Local != "setting" {
+				continue
+			}
+			var item settingItem
+			if err := decoder.DecodeElement(&item, &t); err != nil {
+				return nil, err
+			}
+			if _, ok := settings[item.Name]; ok {
+				return nil, fmt.Errorf("duplicate setting name: %s", item.Name)
+			}
+			settings[item.Name] = item.Value
+		}
 	}
+
 	return settings, nil
 }
 
