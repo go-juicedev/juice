@@ -130,6 +130,9 @@ func (m *Mappers) getMapperAndKey(id string) (mapper *Mapper, key string, err er
 // The id should be in the format of "namespace.statementName"
 // For example: "main.UserMapper.SelectUser"
 func (m *Mappers) GetStatementByID(id string) (Statement, error) {
+	if m == nil {
+		return nil, fmt.Errorf("%w: statement '%s' not found in mapper configuration", ErrNoStatementFound, id)
+	}
 	mapper, key, err := m.getMapperAndKey(id)
 	if err != nil {
 		return nil, err
