@@ -18,6 +18,7 @@ package juice
 
 import (
 	"database/sql"
+	"iter"
 	"reflect"
 	"time"
 )
@@ -176,4 +177,65 @@ func List2[T any](rows *sql.Rows) ([]*T, error) {
 		result[i] = &items[i]
 	}
 	return result, nil
+}
+
+// Iter creates an iterator over SQL rows that yields values of type T.
+// It handles both pointer and non-pointer types automatically and provides
+// proper memory management for each iteration.
+//
+// Note: This function does not close the sql.Rows. The caller is responsible
+// for closing the rows when iteration is complete. This design allows for more
+// flexible resource management, especially when using the iterator in different
+// contexts or when early termination is needed.
+func Iter[T any](rows *sql.Rows) (iter.Seq2[T, error], error) {
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	columnDest := &rowDestination{}
+	t := reflect.TypeFor[T]()
+
+	// Default object factory for non-pointer types
+	var objectFactory = func() T {
+		var t T
+		return t
+	}
+
+	isPtr := t.Kind() == reflect.Ptr
+
+	// Override object factory for pointer types to properly allocate memory
+	if isPtr {
+		objectFactory = func() T { return reflect.New(t.Elem()).Interface().(T) }
+	}
+	return func(yield func(T, error) bool) {
+
+		// handler encapsulates the row scanning logic and object creation
+		handler := func() (T, error) {
+			var t = objectFactory()
+
+			var v reflect.Value
+
+			if isPtr {
+				v = reflect.ValueOf(t)
+			} else {
+				v = reflect.ValueOf(&t)
+			}
+
+			// Create destination slice for scanning row values
+			dest, err := columnDest.Destination(v.Elem(), columns)
+			if err != nil {
+				return t, err
+			}
+			if err := rows.Scan(dest...); err != nil {
+				return t, err
+			}
+			return t, nil
+		}
+
+		for rows.Next() {
+			if !yield(handler()) {
+				return
+			}
+		}
+	}, nil
 }
