@@ -43,6 +43,9 @@ var (
 
 	// errSliceOrArrayRequired is an error that is returned when the destination is not a slice or array.
 	errSliceOrArrayRequired = errors.New("type must be a slice or array")
+
+	// ErrNoStatementFound is an error that is returned when the statement is not found.
+	ErrNoStatementFound = errors.New("no statement found")
 )
 
 // nodeUnclosedError is an error that is returned when the node is not closed.
