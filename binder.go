@@ -187,34 +187,6 @@ func List2[T any](rows *sql.Rows) ([]*T, error) {
 // for closing the rows when iteration is complete. This design allows for more
 // flexible resource management, especially when using the iterator in different
 // contexts or when early termination is needed.
-
-// Example_iter shows how to use the Iter function:
-
-//	type User struct {
-//	    ID   int    `column:"id"`
-//	    Name string `column:"name"`
-//	}
-//
-// rows, err := db.Query("SELECT id, name FROM users")
-//
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//
-// defer rows.Close()
-//
-// iterator, err := Iter[User](rows)
-//
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//
-//	for user, err := range iterator {
-//	    if err != nil {
-//	        log.Fatal(err)
-//	    }
-//	    fmt.Println(user.ID, user.Name)
-//	}
 func Iter[T any](rows *sql.Rows) (iter.Seq2[T, error], error) {
 	columns, err := rows.Columns()
 	if err != nil {
