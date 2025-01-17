@@ -121,9 +121,12 @@ func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
 		return err
 	}
 	target := rv.Elem()
-	// create slice with proper capacity and set the values
-	result := reflect.MakeSlice(target.Type(), 0, len(values))
-	target.Set(reflect.Append(result, values...))
+
+	// Since we've already verified the type compatibility above,
+	// we can safely grow the slice without additional type checks.
+	target.Grow(len(values))
+
+	target.Set(reflect.Append(target, values...))
 	return nil
 }
 
