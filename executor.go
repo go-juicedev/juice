@@ -23,6 +23,7 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"github.com/go-juicedev/juice/cache"
 	"github.com/go-juicedev/juice/driver"
@@ -153,16 +154,9 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result 
 		return result, exe.err
 	}
 	statement := e.Statement()
-	// build the query and args
-	query, args, err := statement.Build(e.Driver().Translator(), p)
-	if err != nil {
-		return
-	}
+
 	// if cache enabled
 	cacheEnabled := e.cache != nil && statement.Attribute("useCache") != "false"
-
-	// cacheKey is the key which is used to get the result and put the result to the scopeCache.
-	var cacheKey string
 
 	if cacheEnabled {
 		// cached this function in case the CacheKeyFunc is changed by other goroutines.
@@ -170,8 +164,13 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result 
 
 		// check the keyFunc variable
 		if keyFunc == nil {
-			err = errCacheKeyFuncNil
-			return
+			return result, errCacheKeyFuncNil
+		}
+
+		// build the query and args
+		query, args, err := statement.Build(e.Driver().Translator(), p)
+		if err != nil {
+			return result, err
 		}
 
 		// get the type identify of the result
@@ -179,56 +178,55 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result 
 		// CacheKeyFunc is the function which is used to generate the scopeCache key.
 		// default is the md5 of the query and args and the type identify.
 		// reset the CacheKeyFunc variable to change the default behavior.
-		cacheKey, err = keyFunc(statement, query+typeIdentify, args)
+		cacheKey, err := keyFunc(statement, query+typeIdentify, args)
 		if err != nil {
-			return
+			return result, err
 		}
 
 		// try to get the result from the scopeCache
 		if err = e.cache.Get(ctx, cacheKey, &result); err == nil {
-			return
+			return result, err
 		}
 		// if we can not get the result from the scopeCache, continue with the next handler.
 		if !errors.Is(err, cache.ErrCacheNotFound) {
-			return
+			return result, err
 		}
-	}
 
-	// execute the query directly.
-	result, err = e.queryContext(p)(ctx, query, args...)
-	if err != nil {
-		return
-	}
-	// if cache enabled
-	if cacheEnabled {
+		// execute the query directly.
+		result, err = e.queryContext(ctx, p)
+		if err != nil {
+			return result, err
+		}
 		// put the result to the scopeCache
-		err = e.cache.Set(ctx, cacheKey, result)
+		if err = e.cache.Set(ctx, cacheKey, result); err != nil {
+			return result, fmt.Errorf("failed to set cache: %w", err)
+		}
+	} else {
+		result, err = e.queryContext(ctx, p)
 	}
 	return
 }
 
-func (e *GenericExecutor[T]) queryContext(param Param) GenericQueryHandler[T] {
-	return func(ctx context.Context, query string, args ...any) (result T, err error) {
-		statement := e.Statement()
+func (e *GenericExecutor[T]) queryContext(ctx context.Context, param Param) (result T, err error) {
+	statement := e.Statement()
 
-		retMap, err := statement.ResultMap()
+	retMap, err := statement.ResultMap()
 
-		// ErrResultMapNotSet means the result map is not set, use the default result map.
-		if err != nil {
-			if !errors.Is(err, ErrResultMapNotSet) {
-				return result, err
-			}
-		}
-
-		// try to query the database.
-		rows, err := e.SQLRowsExecutor.QueryContext(ctx, param)
-		if err != nil {
+	// ErrResultMapNotSet means the result map is not set, use the default result map.
+	if err != nil {
+		if !errors.Is(err, ErrResultMapNotSet) {
 			return result, err
 		}
-		defer func() { _ = rows.Close() }()
-
-		return BindWithResultMap[T](rows, retMap)
 	}
+
+	// try to query the database.
+	rows, err := e.SQLRowsExecutor.QueryContext(ctx, param)
+	if err != nil {
+		return result, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	return BindWithResultMap[T](rows, retMap)
 }
 
 // ExecContext executes the query and returns the result.
