@@ -247,14 +247,14 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, next ExecHandle
 			rv = rv.MapIndex(key)
 		}
 
-		// unwrap the pointer, interface
-		rv = reflectlite.Unwrap(rv)
+		// unpack interface value
+		rv = reflectlite.Unpack(rv)
 
 		keyProperty := stmt.Attribute("keyProperty")
 
 		var keyGenerator selectKeyGenerator
 
-		switch rv.Kind() {
+		switch reflectlite.Unwrap(rv).Kind() {
 		case reflect.Struct:
 			keyGenerator = &singleKeyGenerator{
 				keyProperty: keyProperty,
