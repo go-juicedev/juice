@@ -19,7 +19,6 @@ package juice
 import (
 	"context"
 	"database/sql"
-	"github.com/go-juicedev/juice/cache"
 	"github.com/go-juicedev/juice/driver"
 )
 
@@ -89,17 +88,6 @@ func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxMana
 		txOptions: opt,
 		ctx:       ctx,
 	}
-}
-
-// CacheTx returns a TxCacheManager.
-func (e *Engine) CacheTx() *TxCacheManager {
-	return e.ContextCacheTx(context.Background(), nil)
-}
-
-// ContextCacheTx returns a TxCacheManager with the given context.
-func (e *Engine) ContextCacheTx(ctx context.Context, opt *sql.TxOptions) *TxCacheManager {
-	tx := e.ContextTx(ctx, opt)
-	return NewTxCacheManager(tx, cache.InMemoryScopeCache())
 }
 
 // GetConfiguration returns the configuration of the engine
