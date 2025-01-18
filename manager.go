@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/go-juicedev/juice/cache"
 	"github.com/go-juicedev/juice/session"
 )
 
@@ -40,26 +39,17 @@ type GenericManager[T any] interface {
 
 // NewGenericManager returns a new GenericManager.
 func NewGenericManager[T any](manager Manager) GenericManager[T] {
-	g := &genericManager[T]{Manager: manager}
-	txCacheManager, ok := manager.(*TxCacheManager)
-	if ok {
-		g.ScopeCache = txCacheManager.Cache()
-	}
-	return g
+	return &genericManager[T]{Manager: manager}
 }
 
 // genericManager implements the GenericManager interface.
 type genericManager[T any] struct {
 	Manager
-	cache.ScopeCache
 }
 
 // Object implements the GenericManager interface.
 func (s *genericManager[T]) Object(v any) Executor[T] {
-	exe := &GenericExecutor[T]{
-		SQLRowsExecutor: s.Manager.Object(v),
-		cache:           s.ScopeCache,
-	}
+	exe := &GenericExecutor[T]{SQLRowsExecutor: s.Manager.Object(v)}
 	return exe
 }
 
@@ -146,45 +136,6 @@ func (t *BasicTxManager) Rollback() error {
 		return session.ErrTransactionNotBegun
 	}
 	return t.tx.Rollback()
-}
-
-// TxCacheManager is a wrapper around TxManager that adds caching capabilities.
-// It implements transaction management with an additional layer of caching
-// to improve performance for frequently accessed data.
-type TxCacheManager struct {
-	manager TxManager
-	cache   cache.ScopeCache
-}
-
-// Object implements the Manager interface.
-func (t *TxCacheManager) Object(v any) SQLRowsExecutor {
-	return t.manager.Object(v)
-}
-
-func (t *TxCacheManager) Begin() error {
-	return t.manager.Begin()
-}
-
-// Commit commits the transaction and flushes the scopeCache.
-func (t *TxCacheManager) Commit() error {
-	defer func() { _ = t.cache.Flush(context.Background()) }()
-	return t.manager.Commit()
-}
-
-// Rollback rollbacks the transaction and flushes the scopeCache.
-func (t *TxCacheManager) Rollback() error {
-	defer func() { _ = t.cache.Flush(context.Background()) }()
-	return t.manager.Rollback()
-}
-
-// Cache returns the scopeCache of the TxCacheManager.
-func (t *TxCacheManager) Cache() cache.ScopeCache {
-	return t.cache
-}
-
-// NewTxCacheManager returns a new TxCacheManager.
-func NewTxCacheManager(manager TxManager, cache cache.ScopeCache) *TxCacheManager {
-	return &TxCacheManager{manager: manager, cache: cache}
 }
 
 type managerKey struct{}
