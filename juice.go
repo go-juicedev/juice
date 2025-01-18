@@ -78,13 +78,13 @@ func (e *Engine) Object(v any) SQLRowsExecutor {
 }
 
 // Tx returns a TxManager
-func (e *Engine) Tx() TxManager {
+func (e *Engine) Tx() *BasicTxManager {
 	return e.ContextTx(context.Background(), nil)
 }
 
 // ContextTx returns a TxManager with the given context
-func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) TxManager {
-	return &txManager{
+func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxManager {
+	return &BasicTxManager{
 		engine:    e,
 		txOptions: opt,
 		ctx:       ctx,
@@ -92,12 +92,12 @@ func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) TxManager {
 }
 
 // CacheTx returns a TxCacheManager.
-func (e *Engine) CacheTx() TxCacheManager {
+func (e *Engine) CacheTx() *TxCacheManager {
 	return e.ContextCacheTx(context.Background(), nil)
 }
 
 // ContextCacheTx returns a TxCacheManager with the given context.
-func (e *Engine) ContextCacheTx(ctx context.Context, opt *sql.TxOptions) TxCacheManager {
+func (e *Engine) ContextCacheTx(ctx context.Context, opt *sql.TxOptions) *TxCacheManager {
 	tx := e.ContextTx(ctx, opt)
 	return NewTxCacheManager(tx, cache.InMemoryScopeCache())
 }
