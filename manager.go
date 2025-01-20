@@ -98,7 +98,7 @@ func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 		return inValidExecutor(err)
 	}
 	drv := t.engine.driver
-	handler := NewDefaultStatementHandler(drv, t.tx, t.engine.middlewares...)
+	handler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
 	return &sqlRowsExecutor{
 		statement:        stat,
 		statementHandler: handler,
