@@ -30,25 +30,19 @@ type Manager interface {
 	Object(v any) SQLRowsExecutor
 }
 
-// GenericManager is an interface for managing database operations with type safety.
-// It's a generic version of Manager that provides type-safe database operations
-// for a specific type T.
-type GenericManager[T any] interface {
-	Object(v any) Executor[T]
-}
-
 // NewGenericManager returns a new GenericManager.
-func NewGenericManager[T any](manager Manager) GenericManager[T] {
-	return &genericManager[T]{Manager: manager}
+func NewGenericManager[T any](manager Manager) *GenericManager[T] {
+	return &GenericManager[T]{Manager: manager}
 }
 
-// genericManager implements the GenericManager interface.
-type genericManager[T any] struct {
+// GenericManager is a generic manager for a specific type T
+// that provides type-safe database operations.
+type GenericManager[T any] struct {
 	Manager
 }
 
 // Object implements the GenericManager interface.
-func (s *genericManager[T]) Object(v any) Executor[T] {
+func (s *GenericManager[T]) Object(v any) Executor[T] {
 	exe := &GenericExecutor[T]{SQLRowsExecutor: s.Manager.Object(v)}
 	return exe
 }
