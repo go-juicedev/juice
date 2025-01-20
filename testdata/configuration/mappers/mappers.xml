@@ -3,7 +3,7 @@
         "https://raw.githubusercontent.com/eatmoreapple/juice/main/mapper.dtd">
 
 <mapper namespace="main.Repository">
-    <select id="HelloWorld">
+    <select id="Hello,World">
         <if test="1 == 1">  <!-- always be true -->
             select "hello world !"
         </if>
