@@ -20,74 +20,76 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/go-juicedev/juice/cache"
 	"github.com/go-juicedev/juice/session"
 )
 
 // Manager is an interface for managing database operations.
+// It provides a high-level abstraction for executing SQL operations
+// through the Object method which returns a SQLRowsExecutor.
 type Manager interface {
 	Object(v any) SQLRowsExecutor
 }
 
-// GenericManager is an interface for managing database operations.
+// GenericManager is an interface for managing database operations with type safety.
+// It's a generic version of Manager that provides type-safe database operations
+// for a specific type T.
 type GenericManager[T any] interface {
 	Object(v any) Executor[T]
 }
 
 // NewGenericManager returns a new GenericManager.
 func NewGenericManager[T any](manager Manager) GenericManager[T] {
-	m := &genericManager[T]{Manager: manager}
-	if tcm, ok := manager.(TxCacheManager); ok {
-		m.cache = tcm.Cache()
-	}
-	return m
+	return &genericManager[T]{Manager: manager}
 }
 
 // genericManager implements the GenericManager interface.
 type genericManager[T any] struct {
 	Manager
-	cache cache.ScopeCache
 }
 
 // Object implements the GenericManager interface.
 func (s *genericManager[T]) Object(v any) Executor[T] {
-	exe := &GenericExecutor[T]{
-		SQLRowsExecutor: s.Manager.Object(v),
-		cache:           s.cache,
-	}
+	exe := &GenericExecutor[T]{SQLRowsExecutor: s.Manager.Object(v)}
 	return exe
 }
 
-// TxManager is a transactional mapper sqlRowsExecutor
+// TxManager is a transactional manager that extends the base Manager interface
+// with transaction control capabilities. It provides methods for beginning,
+// committing, and rolling back database transactions.
 type TxManager interface {
 	Manager
 
-	// Begin begins the transaction.
+	// Begin begins a new database transaction.
+	// Returns an error if transaction is already started or if there's a database error.
 	Begin() error
 
-	// Commit commits the transaction.
+	// Commit commits the current transaction.
+	// Returns an error if there's no active transaction or if commit fails.
 	Commit() error
 
-	// Rollback rollbacks the transaction.
+	// Rollback aborts the current transaction.
+	// Returns an error if there's no active transaction or if rollback fails.
 	Rollback() error
 }
 
-// txManager is a transaction xmlSQLStatement
-type txManager struct {
-	// engine is the engine of the transaction.
+// BasicTxManager implements the TxManager interface providing basic
+// transaction management functionality.
+type BasicTxManager struct {
+	// engine is the database engine instance that handles database operations
 	engine *Engine
 
-	// txOptions is the transaction options.
-	// If nil, the default options will be used.
+	// txOptions configures the transaction behavior
+	// If nil, default database transaction options are used
 	txOptions *sql.TxOptions
 
-	// tx is the transaction session if the transaction is begun.
+	// tx holds the current transaction session
+	// It's nil if no transaction is active
 	tx  session.TransactionSession
 	ctx context.Context
 }
 
 // Object implements the Manager interface
-func (t *txManager) Object(v any) SQLRowsExecutor {
+func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 	if t.tx == nil {
 		return inValidExecutor(session.ErrTransactionNotBegun)
 	}
@@ -96,7 +98,7 @@ func (t *txManager) Object(v any) SQLRowsExecutor {
 		return inValidExecutor(err)
 	}
 	drv := t.engine.driver
-	handler := NewDefaultStatementHandler(drv, t.tx, t.engine.middlewares...)
+	handler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
 	return &sqlRowsExecutor{
 		statement:        stat,
 		statementHandler: handler,
@@ -105,7 +107,7 @@ func (t *txManager) Object(v any) SQLRowsExecutor {
 }
 
 // Begin begins the transaction
-func (t *txManager) Begin() error {
+func (t *BasicTxManager) Begin() error {
 	// If the transaction is already begun, return an error directly.
 	if t.tx != nil {
 		return session.ErrTransactionAlreadyBegun
@@ -119,7 +121,7 @@ func (t *txManager) Begin() error {
 }
 
 // Commit commits the transaction
-func (t *txManager) Commit() error {
+func (t *BasicTxManager) Commit() error {
 	// If the transaction is not begun, return an error directly.
 	if t.tx == nil {
 		return session.ErrTransactionNotBegun
@@ -128,57 +130,12 @@ func (t *txManager) Commit() error {
 }
 
 // Rollback rollbacks the transaction
-func (t *txManager) Rollback() error {
+func (t *BasicTxManager) Rollback() error {
 	// If the transaction is not begun, return an error directly.
 	if t.tx == nil {
 		return session.ErrTransactionNotBegun
 	}
 	return t.tx.Rollback()
-}
-
-// TxCacheManager defines a transactional scopeCache manager whose scopeCache can be accessed.
-// All queries in the transaction will be cached.
-// scopeCache.Flush() will be called after Commit() or Rollback().
-type TxCacheManager interface {
-	TxManager
-	Cache() cache.ScopeCache
-}
-
-// txCacheManager implements the TxCacheManager interface.
-type txCacheManager struct {
-	manager TxManager
-	cache   cache.ScopeCache
-}
-
-// Object implements the Manager interface.
-func (t *txCacheManager) Object(v any) SQLRowsExecutor {
-	return t.manager.Object(v)
-}
-
-func (t *txCacheManager) Begin() error {
-	return t.manager.Begin()
-}
-
-// Commit commits the transaction and flushes the scopeCache.
-func (t *txCacheManager) Commit() error {
-	defer func() { _ = t.cache.Flush(context.Background()) }()
-	return t.manager.Commit()
-}
-
-// Rollback rollbacks the transaction and flushes the scopeCache.
-func (t *txCacheManager) Rollback() error {
-	defer func() { _ = t.cache.Flush(context.Background()) }()
-	return t.manager.Rollback()
-}
-
-// Cache returns the scopeCache of the TxCacheManager.
-func (t *txCacheManager) Cache() cache.ScopeCache {
-	return t.cache
-}
-
-// NewTxCacheManager returns a new TxCacheManager.
-func NewTxCacheManager(manager TxManager, cache cache.ScopeCache) TxCacheManager {
-	return &txCacheManager{manager: manager, cache: cache}
 }
 
 type managerKey struct{}

@@ -19,7 +19,6 @@ package juice
 import (
 	"context"
 	"database/sql"
-	"github.com/go-juicedev/juice/cache"
 	"github.com/go-juicedev/juice/driver"
 )
 
@@ -60,7 +59,7 @@ func (e *Engine) executor(v any) (*sqlRowsExecutor, error) {
 	if err != nil {
 		return nil, err
 	}
-	handler := NewDefaultStatementHandler(e.driver, e.DB(), e.middlewares...)
+	handler := NewBatchStatementHandler(e.driver, e.DB(), e.middlewares...)
 	return &sqlRowsExecutor{
 		statement:        stat,
 		statementHandler: handler,
@@ -78,28 +77,17 @@ func (e *Engine) Object(v any) SQLRowsExecutor {
 }
 
 // Tx returns a TxManager
-func (e *Engine) Tx() TxManager {
+func (e *Engine) Tx() *BasicTxManager {
 	return e.ContextTx(context.Background(), nil)
 }
 
 // ContextTx returns a TxManager with the given context
-func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) TxManager {
-	return &txManager{
+func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxManager {
+	return &BasicTxManager{
 		engine:    e,
 		txOptions: opt,
 		ctx:       ctx,
 	}
-}
-
-// CacheTx returns a TxCacheManager.
-func (e *Engine) CacheTx() TxCacheManager {
-	return e.ContextCacheTx(context.Background(), nil)
-}
-
-// ContextCacheTx returns a TxCacheManager with the given context.
-func (e *Engine) ContextCacheTx(ctx context.Context, opt *sql.TxOptions) TxCacheManager {
-	tx := e.ContextTx(ctx, opt)
-	return NewTxCacheManager(tx, cache.InMemoryScopeCache())
 }
 
 // GetConfiguration returns the configuration of the engine
