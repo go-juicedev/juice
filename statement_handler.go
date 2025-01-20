@@ -51,11 +51,13 @@ type StatementHandler interface {
 // It maintains the pre-built query and arguments to avoid rebuilding them
 // for each execution, improving performance for frequently used queries.
 type CompiledStatementHandler struct {
-	query       string
-	args        []any
-	middlewares MiddlewareGroup
-	driver      driver.Driver
-	session     session.Session
+	query        string
+	args         []any
+	middlewares  MiddlewareGroup
+	driver       driver.Driver
+	session      session.Session
+	queryHandler QueryHandler
+	execHandler  ExecHandler
 }
 
 // QueryContext executes a query that returns rows. It enriches the context with
@@ -67,7 +69,10 @@ func (s *CompiledStatementHandler) QueryContext(ctx context.Context, statement S
 		ctxreducer.NewParamContextReducer(param),
 	}
 	ctx = contextReducer.Reduce(ctx)
-	return s.middlewares.QueryContext(statement, SessionQueryHandler)(ctx, s.query, s.args...)
+	if s.queryHandler == nil {
+		s.queryHandler = SessionQueryHandler
+	}
+	return s.middlewares.QueryContext(statement, s.queryHandler)(ctx, s.query, s.args...)
 }
 
 // ExecContext executes a non-query SQL statement (such as INSERT, UPDATE, DELETE)
@@ -79,7 +84,10 @@ func (s *CompiledStatementHandler) ExecContext(ctx context.Context, statement St
 		ctxreducer.NewParamContextReducer(param),
 	}
 	ctx = contextReducer.Reduce(ctx)
-	return s.middlewares.ExecContext(statement, SessionExecHandler)(ctx, s.query, s.args...)
+	if s.execHandler == nil {
+		s.execHandler = SessionExecHandler
+	}
+	return s.middlewares.ExecContext(statement, s.execHandler)(ctx, s.query, s.args...)
 }
 
 // PreparedStatementHandler implements the StatementHandler interface.
@@ -118,19 +126,22 @@ func (s *PreparedStatementHandler) QueryContext(ctx context.Context, statement S
 	if err != nil {
 		return nil, err
 	}
-	contextReducer := ctxreducer.G{
-		ctxreducer.NewSessionContextReducer(s.session),
-		ctxreducer.NewParamContextReducer(param),
-	}
-	ctx = contextReducer.Reduce(ctx)
-	next := func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	queryHandler := func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 		preparedStmt, err := s.getOrPrepare(ctx, query)
 		if err != nil {
 			return nil, err
 		}
 		return preparedStmt.QueryContext(ctx, args...)
 	}
-	return s.middlewares.QueryContext(statement, next)(ctx, query, args...)
+	statementHandler := CompiledStatementHandler{
+		query:        query,
+		args:         args,
+		middlewares:  s.middlewares,
+		driver:       s.driver,
+		session:      s.session,
+		queryHandler: queryHandler,
+	}
+	return statementHandler.QueryContext(ctx, statement, param)
 }
 
 // ExecContext executes a query that doesn't return rows. It builds the query
@@ -141,19 +152,22 @@ func (s *PreparedStatementHandler) ExecContext(ctx context.Context, statement St
 	if err != nil {
 		return nil, err
 	}
-	contextReducer := ctxreducer.G{
-		ctxreducer.NewSessionContextReducer(s.session),
-		ctxreducer.NewParamContextReducer(param),
-	}
-	ctx = contextReducer.Reduce(ctx)
-	next := func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	execHandler := func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 		preparedStmt, err := s.getOrPrepare(ctx, query)
 		if err != nil {
 			return nil, err
 		}
 		return preparedStmt.ExecContext(ctx, args...)
 	}
-	return s.middlewares.ExecContext(statement, next)(ctx, query, args...)
+	statementHandler := CompiledStatementHandler{
+		query:       query,
+		args:        args,
+		middlewares: s.middlewares,
+		driver:      s.driver,
+		session:     s.session,
+		execHandler: execHandler,
+	}
+	return statementHandler.ExecContext(ctx, statement, param)
 }
 
 // Close closes all prepared statements in the pool and returns any error
