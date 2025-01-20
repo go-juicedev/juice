@@ -5,7 +5,7 @@
 <mapper namespace="main.Repository">
     <select id="HelloWorld">
         <if test="1 == 1">  <!-- always be true -->
-            select "hello world"
+            select "hello world !"
         </if>
     </select>
 </mapper>
