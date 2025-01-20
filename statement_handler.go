@@ -24,11 +24,10 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/go-juicedev/juice/internal/stmt"
-
-	"github.com/go-juicedev/juice/ctxreducer"
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/internal/ctxreducer"
 	"github.com/go-juicedev/juice/internal/reflectlite"
+	"github.com/go-juicedev/juice/internal/stmt"
 	"github.com/go-juicedev/juice/session"
 )
 
