@@ -223,7 +223,7 @@ func (s batchKeyGenerator) GenerateKeyTo(v reflect.Value) error {
 
 	// determine the batch insert id strategy
 	if s.batchInsertIDGenerateStrategy == "" {
-		s.batchInsertIDGenerateStrategy = _INCREMENTAL
+		s.batchInsertIDGenerateStrategy = _DECREMENTAL
 	}
 
 	var batchInsertIDGenerateStrategy BatchInsertIDGenerateStrategy
