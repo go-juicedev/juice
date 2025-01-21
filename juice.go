@@ -180,6 +180,10 @@ func (e *Engine) init() (err error) {
 	return
 }
 
+func (e *Engine) Raw(query string) Runner {
+	return NewRunner(query, e, e.DB())
+}
+
 // New is the alias of NewEngine
 func New(configuration IConfiguration) (*Engine, error) {
 	engine := &Engine{}
