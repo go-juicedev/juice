@@ -821,9 +821,8 @@ var _ Node = (*SetNode)(nil)
 // Note: The id must be unique within its mapper context to allow
 // proper statement lookup and execution.
 type SQLNode struct {
-	id     string    // Unique identifier for the SQL statement
-	nodes  NodeGroup // Child nodes forming the SQL statement
-	mapper *Mapper   // Parent mapper reference
+	id    string    // Unique identifier for the SQL statement
+	nodes NodeGroup // Child nodes forming the SQL statement
 }
 
 // ID returns the id of the node.

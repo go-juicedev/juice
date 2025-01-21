@@ -395,8 +395,8 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 				mapper.statements[key] = stmt
 			case "sql":
 				// parse sql node
-				sqlNode := &SQLNode{mapper: mapper}
-				if err = p.parseSQLNode(sqlNode, decoder, token); err != nil {
+				sqlNode, err := p.parseSQLNode(mapper, decoder, token)
+				if err != nil {
 					return nil, err
 				}
 				if err = mapper.setSqlNode(sqlNode); err != nil {
@@ -893,7 +893,8 @@ func (p *XMLMappersElementParser) parseChoose(mapper *Mapper, decoder *xml.Decod
 	return nil, &nodeUnclosedError{nodeName: "choose"}
 }
 
-func (p *XMLMappersElementParser) parseSQLNode(sqlNode *SQLNode, decoder *xml.Decoder, token xml.StartElement) error {
+func (p *XMLMappersElementParser) parseSQLNode(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (*SQLNode, error) {
+	var sqlNode = &SQLNode{}
 	for _, attr := range token.Attr {
 		if attr.Name.Local == "id" {
 			sqlNode.id = attr.Value
@@ -901,10 +902,10 @@ func (p *XMLMappersElementParser) parseSQLNode(sqlNode *SQLNode, decoder *xml.De
 		}
 	}
 	if sqlNode.id == "" {
-		return &nodeAttributeRequiredError{nodeName: "sql", attrName: "id"}
+		return nil, &nodeAttributeRequiredError{nodeName: "sql", attrName: "id"}
 	}
 	if strings.Contains(sqlNode.id, ".") {
-		return fmt.Errorf("sql id can not contain '.' %s", sqlNode.id)
+		return nil, fmt.Errorf("sql id can not contain '.' %s", sqlNode.id)
 	}
 	for {
 		token, err := decoder.Token()
@@ -912,13 +913,13 @@ func (p *XMLMappersElementParser) parseSQLNode(sqlNode *SQLNode, decoder *xml.De
 			if err == io.EOF {
 				break
 			}
-			return err
+			return nil, err
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
-			tags, err := p.parseTags(sqlNode.mapper, decoder, token)
+			tags, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			sqlNode.nodes = append(sqlNode.nodes, tags)
 		case xml.CharData:
@@ -929,11 +930,11 @@ func (p *XMLMappersElementParser) parseSQLNode(sqlNode *SQLNode, decoder *xml.De
 			}
 		case xml.EndElement:
 			if token.Name.Local == "sql" {
-				return nil
+				return sqlNode, nil
 			}
 		}
 	}
-	return &nodeUnclosedError{nodeName: "sql"}
+	return nil, &nodeUnclosedError{nodeName: "sql"}
 }
 
 func (p *XMLMappersElementParser) parseWhen(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (Node, error) {
