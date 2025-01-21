@@ -30,25 +30,19 @@ type Manager interface {
 	Object(v any) SQLRowsExecutor
 }
 
-// GenericManager is an interface for managing database operations with type safety.
-// It's a generic version of Manager that provides type-safe database operations
-// for a specific type T.
-type GenericManager[T any] interface {
-	Object(v any) Executor[T]
-}
-
 // NewGenericManager returns a new GenericManager.
-func NewGenericManager[T any](manager Manager) GenericManager[T] {
-	return &genericManager[T]{Manager: manager}
+func NewGenericManager[T any](manager Manager) *GenericManager[T] {
+	return &GenericManager[T]{Manager: manager}
 }
 
-// genericManager implements the GenericManager interface.
-type genericManager[T any] struct {
+// GenericManager is a generic manager for a specific type T
+// that provides type-safe database operations.
+type GenericManager[T any] struct {
 	Manager
 }
 
 // Object implements the GenericManager interface.
-func (s *genericManager[T]) Object(v any) Executor[T] {
+func (s *GenericManager[T]) Object(v any) Executor[T] {
 	exe := &GenericExecutor[T]{SQLRowsExecutor: s.Manager.Object(v)}
 	return exe
 }
@@ -93,17 +87,13 @@ func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 	if t.tx == nil {
 		return inValidExecutor(session.ErrTransactionNotBegun)
 	}
-	stat, err := t.engine.GetConfiguration().GetStatement(v)
+	statement, err := t.engine.GetConfiguration().GetStatement(v)
 	if err != nil {
 		return inValidExecutor(err)
 	}
-	drv := t.engine.driver
-	handler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
-	return &sqlRowsExecutor{
-		statement:        stat,
-		statementHandler: handler,
-		driver:           drv,
-	}
+	drv := t.engine.Driver()
+	statementHandler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
+	return NewSQLRowsExecutor(statement, statementHandler, drv)
 }
 
 // Begin begins the transaction
@@ -136,6 +126,13 @@ func (t *BasicTxManager) Rollback() error {
 		return session.ErrTransactionNotBegun
 	}
 	return t.tx.Rollback()
+}
+
+func (t *BasicTxManager) Raw(query string) Runner {
+	if t.tx == nil {
+		return NewErrorRunner(session.ErrTransactionNotBegun)
+	}
+	return NewRunner(query, t.engine, t.tx)
 }
 
 type managerKey struct{}

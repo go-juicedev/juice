@@ -17,6 +17,9 @@ limitations under the License.
 package juice
 
 import (
+	"hash/fnv"
+	"strconv"
+
 	"github.com/go-juicedev/juice/driver"
 )
 
@@ -112,4 +115,75 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (quer
 		return "", nil, ErrEmptyQuery
 	}
 	return query, args, nil
+}
+
+// rawSQLStatement represents a raw SQL query with its parameters and action type.
+// It implements the Statement interface and provides methods for query execution.
+type rawSQLStatement struct {
+	query  string
+	cfg    IConfiguration
+	action Action
+}
+
+// hash generates a unique 64-bit FNV-1a hash of the SQL query.
+// This hash is used for both ID and Name generation.
+func (s rawSQLStatement) hash() uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(s.query))
+	return h.Sum64()
+}
+
+// ID returns a unique identifier for the statement.
+// Format: "id:" + hexadecimal hash of the query
+func (s rawSQLStatement) ID() string {
+	return "id:" + strconv.FormatUint(s.hash(), 16)
+}
+
+// Name returns a hexadecimal representation of the query hash.
+// Used for identifying the statement in logs and debugging.
+func (s rawSQLStatement) Name() string {
+	return strconv.FormatUint(s.hash(), 16)
+}
+
+// Attribute returns an empty string as rawSQLStatement does not support attributes.
+func (s rawSQLStatement) Attribute(_ string) string {
+	return ""
+}
+
+// Action returns the action of the rawSQLStatement.
+func (s rawSQLStatement) Action() Action {
+	return s.action
+}
+
+// Configuration returns the configuration of the rawSQLStatement.
+func (s rawSQLStatement) Configuration() IConfiguration {
+	return s.cfg
+}
+
+// ResultMap returns the ResultMap of the rawSQLStatement.
+func (s rawSQLStatement) ResultMap() (ResultMap, error) {
+	// TODO: implement the ResultMap method.
+	return nil, ErrResultMapNotSet
+}
+
+// Build builds the rawSQLStatement with the given parameter.
+func (s rawSQLStatement) Build(translator driver.Translator, param Param) (query string, args []any, err error) {
+	value := newGenericParam(param, "")
+	query, args, err = NewTextNode(s.query).Accept(translator, value)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(query) == 0 {
+		return "", nil, ErrEmptyQuery
+	}
+	return query, args, nil
+}
+
+// NewRawSQLStatement creates a new raw SQL statement with the given query, configuration, and action.
+func NewRawSQLStatement(query string, cfg IConfiguration, action Action) Statement {
+	return &rawSQLStatement{
+		query:  query,
+		cfg:    cfg,
+		action: action,
+	}
 }

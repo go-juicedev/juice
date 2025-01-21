@@ -46,7 +46,7 @@ func WithReadOnly(readOnly bool) TransactionOptionFunc {
 	}
 }
 
-// BasicTxManager executes a transaction with the given handler.
+// Transaction executes a transaction with the given handler.
 // If the manager is not an instance of Engine, it will return ErrInvalidManager.
 // If the handler returns an error, the transaction will be rolled back.
 // Otherwise, the transaction will be committed.

@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/go-juicedev/juice/driver"
 )
 
@@ -109,6 +110,14 @@ func (e *sqlRowsExecutor) Statement() Statement { return e.statement }
 
 // Driver returns the driver of the sqlRowsExecutor.
 func (e *sqlRowsExecutor) Driver() driver.Driver { return e.driver }
+
+func NewSQLRowsExecutor(statement Statement, statementHandler StatementHandler, driver driver.Driver) SQLRowsExecutor {
+	return &sqlRowsExecutor{
+		statement:        statement,
+		statementHandler: statementHandler,
+		driver:           driver,
+	}
+}
 
 // ensure that the sqlRowsExecutor implements the SQLRowsExecutor interface.
 var _ SQLRowsExecutor = (*sqlRowsExecutor)(nil)

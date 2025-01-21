@@ -225,10 +225,10 @@ func (g *GenericParameter) get(name string) (value reflect.Value, exists bool) {
 			if g.structFieldIndex == nil {
 				g.structFieldIndex = make(map[int]map[reflect.Type]map[string][]int)
 			}
-			
+
 			// Cache the type to avoid multiple calls to Type()
 			valueType := value.Type()
-			
+
 			// Get or create the type-level cache for current path position
 			structFieldIndex, in := g.structFieldIndex[i]
 			if !in {
@@ -238,9 +238,9 @@ func (g *GenericParameter) get(name string) (value reflect.Value, exists bool) {
 				}
 				g.structFieldIndex[i] = structFieldIndex
 			}
-			
-			// Create a new structParameter with its field cache pointing to 
-			// the cached indexes for its specific type, ensuring different 
+
+			// Create a new structParameter with its field cache pointing to
+			// the cached indexes for its specific type, ensuring different
 			// struct types don't share the same field index cache
 			param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
 		case reflect.Slice, reflect.Array:
