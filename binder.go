@@ -184,8 +184,8 @@ func List2[T any](rows *sql.Rows) ([]*T, error) {
 // It implements Go's built-in iter.Seq interface for type-safe iteration over database rows.
 // Type parameter T represents the type of values that will be yielded during iteration.
 type RowsIter[T any] struct {
-	rows *sql.Rows  // The underlying sql.Rows to iterate over
-	err  error      // Stores any error that occurs during iteration
+	rows *sql.Rows // The underlying sql.Rows to iterate over
+	err  error     // Stores any error that occurs during iteration
 }
 
 // Err returns any error that occurred during iteration.
@@ -230,30 +230,31 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 	if isPtr {
 		objectFactory = func() T { return reflect.New(t.Elem()).Interface().(T) }
 	}
-	return func(yield func(T) bool) {
 
-		// handler encapsulates the row scanning logic and object creation
-		handler := func() (T, error) {
-			var t = objectFactory()
+	// handler encapsulates the row scanning logic and object creation
+	handler := func() (T, error) {
+		var t = objectFactory()
 
-			var v reflect.Value
+		var v reflect.Value
 
-			if isPtr {
-				v = reflect.ValueOf(t)
-			} else {
-				v = reflect.ValueOf(&t)
-			}
-
-			// Create destination slice for scanning row values
-			dest, err := columnDest.Destination(v.Elem(), columns)
-			if err != nil {
-				return t, err
-			}
-			if err := r.rows.Scan(dest...); err != nil {
-				return t, err
-			}
-			return t, nil
+		if isPtr {
+			v = reflect.ValueOf(t)
+		} else {
+			v = reflect.ValueOf(&t)
 		}
+
+		// Create destination slice for scanning row values
+		dest, err := columnDest.Destination(v.Elem(), columns)
+		if err != nil {
+			return t, err
+		}
+		if err := r.rows.Scan(dest...); err != nil {
+			return t, err
+		}
+		return t, nil
+	}
+
+	return func(yield func(T) bool) {
 
 		for r.rows.Next() {
 			value, err := handler()
