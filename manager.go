@@ -87,17 +87,13 @@ func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 	if t.tx == nil {
 		return inValidExecutor(session.ErrTransactionNotBegun)
 	}
-	stat, err := t.engine.GetConfiguration().GetStatement(v)
+	statement, err := t.engine.GetConfiguration().GetStatement(v)
 	if err != nil {
 		return inValidExecutor(err)
 	}
 	drv := t.engine.driver
-	handler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
-	return &sqlRowsExecutor{
-		statement:        stat,
-		statementHandler: handler,
-		driver:           drv,
-	}
+	statementHandler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
+	return NewSQLRowsExecutor(statement, statementHandler, t.engine.driver)
 }
 
 // Begin begins the transaction
