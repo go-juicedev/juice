@@ -132,6 +132,13 @@ func (t *BasicTxManager) Rollback() error {
 	return t.tx.Rollback()
 }
 
+func (t *BasicTxManager) Raw(query string) Runner {
+	if t.tx == nil {
+		return NewErrorRunner(session.ErrTransactionNotBegun)
+	}
+	return NewRunner(query, t.engine, t.tx)
+}
+
 type managerKey struct{}
 
 // managerFromContext returns the Manager from the context.

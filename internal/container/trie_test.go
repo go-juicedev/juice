@@ -122,10 +122,10 @@ func TestTrie_GetByPrefix(t *testing.T) {
 
 	// Test prefix search
 	testCases := []struct {
-		prefix         string
-		expectedCount  int
-		expectedPairs  map[string]string
-		description    string
+		prefix        string
+		expectedCount int
+		expectedPairs map[string]string
+		description   string
 	}{
 		{
 			prefix:        "app.config",
@@ -150,22 +150,22 @@ func TestTrie_GetByPrefix(t *testing.T) {
 			prefix:        "nonexistent",
 			expectedCount: 0,
 			expectedPairs: map[string]string{},
-			description:  "no matches",
+			description:   "no matches",
 		},
 		{
 			prefix:        "",
 			expectedCount: 0,
 			expectedPairs: map[string]string{},
-			description:  "empty prefix",
+			description:   "empty prefix",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run("GetByPrefix_"+tc.description, func(t *testing.T) {
 			results := trie.GetByPrefix(tc.prefix)
-			
+
 			if len(results) != tc.expectedCount {
-				t.Errorf("GetByPrefix(%s) returned %d results, want %d", 
+				t.Errorf("GetByPrefix(%s) returned %d results, want %d",
 					tc.prefix, len(results), tc.expectedCount)
 			}
 
@@ -177,7 +177,7 @@ func TestTrie_GetByPrefix(t *testing.T) {
 					continue
 				}
 				if result.Value != expectedValue {
-					t.Errorf("For key %s, got value %s, want %s", 
+					t.Errorf("For key %s, got value %s, want %s",
 						result.Key, result.Value, expectedValue)
 				}
 			}
