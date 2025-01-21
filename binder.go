@@ -18,6 +18,7 @@ package juice
 
 import (
 	"database/sql"
+	"errors"
 	"iter"
 	"reflect"
 	"time"
@@ -179,18 +180,40 @@ func List2[T any](rows *sql.Rows) ([]*T, error) {
 	return result, nil
 }
 
-// Iter creates an iterator over SQL rows that yields values of type T.
-// It handles both pointer and non-pointer types automatically and provides
-// proper memory management for each iteration.
+// RowsIter provides an iterator interface for sql.Rows.
+// It implements Go's built-in iter.Seq interface for type-safe iteration over database rows.
+// Type parameter T represents the type of values that will be yielded during iteration.
+type RowsIter[T any] struct {
+	rows *sql.Rows  // The underlying sql.Rows to iterate over
+	err  error      // Stores any error that occurs during iteration
+}
+
+// Err returns any error that occurred during iteration.
+// This method should be checked after iteration is complete to ensure
+// no errors occurred while processing the rows.
+func (r *RowsIter[T]) Err() error {
+	return errors.Join(r.err, r.rows.Err())
+}
+
+// Iter implements the iter.Seq interface for row iteration.
+// It yields values of type T, automatically handling memory allocation
+// and type conversion for each row.
 //
-// Note: This function does not close the sql.Rows. The caller is responsible
-// for closing the rows when iteration is complete. This design allows for more
-// flexible resource management, especially when using the iterator in different
-// contexts or when early termination is needed.
-func Iter[T any](rows *sql.Rows) (iter.Seq2[T, error], error) {
-	columns, err := rows.Columns()
+// Example usage:
+//
+//	iter := Iter[User](rows)
+//	for v := range iter.Iter() {
+//	    // Process each user
+//	    fmt.Println(v.Name)
+//	}
+//	if err := iter.Err(); err != nil {
+//	    // Handle error
+//	}
+func (r *RowsIter[T]) Iter() iter.Seq[T] {
+	columns, err := r.rows.Columns()
 	if err != nil {
-		return nil, err
+		r.err = err
+		return nil
 	}
 	columnDest := &rowDestination{}
 	t := reflect.TypeFor[T]()
@@ -207,7 +230,7 @@ func Iter[T any](rows *sql.Rows) (iter.Seq2[T, error], error) {
 	if isPtr {
 		objectFactory = func() T { return reflect.New(t.Elem()).Interface().(T) }
 	}
-	return func(yield func(T, error) bool) {
+	return func(yield func(T) bool) {
 
 		// handler encapsulates the row scanning logic and object creation
 		handler := func() (T, error) {
@@ -226,16 +249,33 @@ func Iter[T any](rows *sql.Rows) (iter.Seq2[T, error], error) {
 			if err != nil {
 				return t, err
 			}
-			if err := rows.Scan(dest...); err != nil {
+			if err := r.rows.Scan(dest...); err != nil {
 				return t, err
 			}
 			return t, nil
 		}
 
-		for rows.Next() {
-			if !yield(handler()) {
+		for r.rows.Next() {
+			value, err := handler()
+			if err != nil {
+				r.err = err
+				return
+			}
+			if !yield(value) {
 				return
 			}
 		}
-	}, nil
+	}
+}
+
+// Iter creates an iterator over SQL rows that yields values of type T.
+// It handles both pointer and non-pointer types automatically and provides
+// proper memory management for each iteration.
+//
+// Note: This function does not close the sql.Rows. The caller is responsible
+// for closing the rows when iteration is complete. This design allows for more
+// flexible resource management, especially when using the iterator in different
+// contexts or when early termination is needed.
+func Iter[T any](rows *sql.Rows) *RowsIter[T] {
+	return &RowsIter[T]{rows: rows}
 }
