@@ -103,10 +103,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	
 	engine, err := juice.Default(cfg)
 	if err != nil {
 		panic(err)
 	}
+	defer engine.Close()
+	
 	ctx := juice.ContextWithManager(context.Background(), engine)
 	repo := RepositoryImpl{}
 	result, err := repo.HelloWorld(ctx)
