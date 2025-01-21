@@ -183,9 +183,9 @@ func (r *GenericRunner[T]) List2(ctx context.Context, param Param) (result []*T,
 	return List2[T](rows)
 }
 
-// NewGenericRunner creates a new GenericRunner instance with the specified query, engine, and session.
-func NewGenericRunner[T any](query string, engine *Engine, session session.Session) *GenericRunner[T] {
+// NewGenericRunner creates a new GenericRunner instance with the specified Runner.
+func NewGenericRunner[T any](runner Runner) *GenericRunner[T] {
 	return &GenericRunner[T]{
-		Runner: NewRunner(query, engine, session),
+		Runner: runner,
 	}
 }
