@@ -19,6 +19,7 @@ package juice
 import (
 	"context"
 	"database/sql"
+
 	"github.com/go-juicedev/juice/driver"
 )
 
@@ -54,17 +55,13 @@ type Engine struct {
 }
 
 // sqlRowsExecutor represents a mapper sqlRowsExecutor with the given parameters
-func (e *Engine) executor(v any) (*sqlRowsExecutor, error) {
-	stat, err := e.GetConfiguration().GetStatement(v)
+func (e *Engine) executor(v any) (SQLRowsExecutor, error) {
+	statement, err := e.GetConfiguration().GetStatement(v)
 	if err != nil {
 		return nil, err
 	}
-	handler := NewBatchStatementHandler(e.driver, e.DB(), e.middlewares...)
-	return &sqlRowsExecutor{
-		statement:        stat,
-		statementHandler: handler,
-		driver:           e.driver,
-	}, nil
+	statementHandler := NewBatchStatementHandler(e.driver, e.DB(), e.middlewares...)
+	return NewSQLRowsExecutor(statement, statementHandler, e.driver), nil
 }
 
 // Object implements the Manager interface
