@@ -60,8 +60,8 @@ func (e *Engine) executor(v any) (SQLRowsExecutor, error) {
 	if err != nil {
 		return nil, err
 	}
-	statementHandler := NewBatchStatementHandler(e.driver, e.DB(), e.middlewares...)
-	return NewSQLRowsExecutor(statement, statementHandler, e.driver), nil
+	statementHandler := NewBatchStatementHandler(e.Driver(), e.DB(), e.middlewares...)
+	return NewSQLRowsExecutor(statement, statementHandler, e.Driver()), nil
 }
 
 // Object implements the Manager interface
@@ -171,10 +171,7 @@ func (e *Engine) init() (err error) {
 	}
 	e.using = e.configuration.Environments().Attribute("default")
 	e.db, e.driver, err = e.manager.Get(e.using)
-	if err != nil {
-		return
-	}
-	return
+	return err
 }
 
 func (e *Engine) Raw(query string) Runner {

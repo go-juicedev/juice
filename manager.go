@@ -91,9 +91,9 @@ func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 	if err != nil {
 		return inValidExecutor(err)
 	}
-	drv := t.engine.driver
+	drv := t.engine.Driver()
 	statementHandler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
-	return NewSQLRowsExecutor(statement, statementHandler, t.engine.driver)
+	return NewSQLRowsExecutor(statement, statementHandler, drv)
 }
 
 // Begin begins the transaction
