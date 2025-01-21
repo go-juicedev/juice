@@ -178,3 +178,12 @@ func (s rawSQLStatement) Build(translator driver.Translator, param Param) (query
 	}
 	return query, args, nil
 }
+
+// NewRawSQLStatement creates a new raw SQL statement with the given query, configuration, and action.
+func NewRawSQLStatement(query string, cfg IConfiguration, action Action) Statement {
+	return &rawSQLStatement{
+		query:  query,
+		cfg:    cfg,
+		action: action,
+	}
+}
