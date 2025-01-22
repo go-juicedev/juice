@@ -33,11 +33,12 @@ type BatchInsertIDGenerateStrategy interface {
 }
 
 type IncrementalBatchInsertIDStrategy struct {
-	ID           int64
-	isPtr        bool
 	indexes      []int
-	keyIncrement int64
 	keyProperty  string
+	ID           int64
+	keyIncrement int64
+	isPtr        bool
+	_            [7]byte // Padding to ensure proper memory alignment (7 bytes).
 }
 
 func (in IncrementalBatchInsertIDStrategy) BatchInsertID(v reflect.Value) error {
@@ -66,11 +67,12 @@ func (in IncrementalBatchInsertIDStrategy) BatchInsertID(v reflect.Value) error 
 }
 
 type DecrementalBatchInsertIDStrategy struct {
-	ID           int64
-	isPtr        bool
 	indexes      []int
-	keyIncrement int64
 	keyProperty  string
+	ID           int64
+	keyIncrement int64
+	isPtr        bool
+	_            [7]byte // Padding to ensure proper memory alignment (7 bytes).
 }
 
 func (in DecrementalBatchInsertIDStrategy) BatchInsertID(v reflect.Value) error {
@@ -182,10 +184,10 @@ func (s singleKeyGenerator) GenerateKeyTo(v reflect.Value) error {
 
 // batchKeyGenerator is a struct that holds an id, a key property, and a key increment for generating keys in batch.
 type batchKeyGenerator struct {
-	id                            int64
 	keyProperty                   string
-	keyIncrement                  int64
 	batchInsertIDGenerateStrategy string
+	id                            int64
+	keyIncrement                  int64
 }
 
 // GenerateKeyTo generates keys for each element in the given reflect.Value slice based on the key property and sets them to the id.
