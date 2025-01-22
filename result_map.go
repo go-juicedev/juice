@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 )
 
 // ErrTooManyRows is returned when the result set has too many rows but excepted only one row.
@@ -327,12 +328,7 @@ func (s *rowDestination) findFromStruct(tp reflect.Type, columns []string, colum
 
 	// finished is a helper function to check if the indexes completed or not.
 	finished := func() bool {
-		for i := range columns {
-			if len(s.indexes[i]) == 0 {
-				return false
-			}
-		}
-		return true
+		return slices.IndexFunc(s.indexes, func(v []int) bool { return len(v) == 0 }) == -1
 	}
 
 	// walk into the struct
