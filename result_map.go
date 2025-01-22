@@ -254,6 +254,28 @@ type rowDestination struct {
 	// checked indicates whether the destination has been validated for sql.RawBytes.
 	// This flag helps avoid redundant checks for the same rowDestination instance.
 	checked bool
+
+	// dest is a slice of interface{} values used to store pointers to the target struct fields.
+	// Each element in dest is a pointer to a field in the target struct, which is used
+	// by the database/sql package to scan query results directly into the struct fields.
+	//
+	// - If a column has no corresponding struct field, the element is set to &sink (a discard variable).
+	// - If a column maps to a struct field, the element is set to the address of that field.
+	//
+	// Example:
+	//   For a struct with fields ID and Name, and columns "id" and "name":
+	//   dest will be []any{&ID, &Name}.
+	//
+	// dest is reused across multiple scans to avoid repeated memory allocations.
+	// Before each use, it is reset (e.g., using clear or manually setting elements to nil)
+	// to ensure no stale pointers are left from previous scans.
+	dest []any
+}
+
+func (s *rowDestination) resetDest() {
+	for i := range s.dest {
+		s.dest[i] = nil
+	}
 }
 
 // Destination returns the destination for the given reflect value and column.
@@ -297,15 +319,19 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	if len(s.indexes) == 0 {
 		s.setIndexes(rv, columns)
 	}
-	dest := make([]any, len(columns))
+	if s.dest == nil {
+		s.dest = make([]any, len(columns))
+	} else {
+		s.resetDest()
+	}
 	for i, indexes := range s.indexes {
 		if len(indexes) == 0 {
-			dest[i] = &sink
+			s.dest[i] = &sink
 		} else {
-			dest[i] = rv.FieldByIndex(indexes).Addr().Interface()
+			s.dest[i] = rv.FieldByIndex(indexes).Addr().Interface()
 		}
 	}
-	return dest, nil
+	return s.dest, nil
 }
 
 // setIndexes sets the indexes for the given reflect value and columns.
