@@ -313,14 +313,12 @@ func (s *rowDestination) setIndexes(rv reflect.Value, columns []string) {
 	s.indexes = make([][]int, len(columns))
 
 	// columnIndex is a map to store the index of the column.
-	columnIndex := func() map[string]int {
-		m := make(map[string]int)
-		for i, column := range columns {
-			m[column] = i
-		}
-		return m
-	}()
+	columnIndex := make(map[string]int, len(columns))
+	for i, column := range columns {
+		columnIndex[column] = i
+	}
 
+	// walk into the struct
 	s.findFromStruct(tp, columns, columnIndex, nil)
 }
 
