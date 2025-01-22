@@ -219,10 +219,7 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 	t := reflect.TypeFor[T]()
 
 	// Default object factory for non-pointer types
-	var objectFactory = func() T {
-		var t T
-		return t
-	}
+	var objectFactory = func() T { return *new(T) }
 
 	isPtr := t.Kind() == reflect.Ptr
 
@@ -248,7 +245,7 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 		if err != nil {
 			return t, err
 		}
-		if err := r.rows.Scan(dest...); err != nil {
+		if err = r.rows.Scan(dest...); err != nil {
 			return t, err
 		}
 		return t, nil
