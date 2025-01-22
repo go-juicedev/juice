@@ -233,6 +233,12 @@ type ColumnDestination interface {
 	Destination(rv reflect.Value, column []string) ([]any, error)
 }
 
+// sink is a shared variable used to discard unmapped columns during scanning.
+// It's safe to use a global variable here because:
+// 1. It's write-only - we never read from it
+// 2. Concurrent writes are acceptable since we don't care about its value
+var sink any
+
 // rowDestination implements ColumnDestination interface for mapping SQL query results
 // to struct fields. It handles the mapping between database columns and struct fields
 // by maintaining the field indexes and managing unmapped columns.
@@ -247,11 +253,6 @@ type rowDestination struct {
 	// checked indicates whether the destination has been validated for sql.RawBytes.
 	// This flag helps avoid redundant checks for the same rowDestination instance.
 	checked bool
-
-	// discard is a placeholder destination for SQL columns that don't have
-	// corresponding struct fields. Each rowDestination instance maintains its
-	// own discard variable to ensure thread safety during concurrent scans.
-	discard any
 }
 
 // Destination returns the destination for the given reflect value and column.
@@ -298,7 +299,7 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	dest := make([]any, len(columns))
 	for i, indexes := range s.indexes {
 		if len(indexes) == 0 {
-			dest[i] = &s.discard
+			dest[i] = &sink
 		} else {
 			dest[i] = rv.FieldByIndex(indexes).Addr().Interface()
 		}
