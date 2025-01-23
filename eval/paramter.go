@@ -293,7 +293,7 @@ func NewGenericParam(v any, wrapKey string) Parameter {
 	tp := reflectlite.IndirectType(value.Type())
 
 	switch tp.Kind() {
-	case reflect.Map, reflect.Struct:
+	case reflect.Map, reflect.Struct, reflect.Slice, reflect.Array:
 		// do nothing
 	default:
 		// if the value is not a map, struct, slice or array, then wrap it as a map
