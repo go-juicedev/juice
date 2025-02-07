@@ -20,19 +20,19 @@ import (
 	"io/fs"
 	"os"
 	unixpath "path"
-	"path/filepath"
 )
 
 // localFS is a file system.
 type localFS struct {
-	baseDir string
+	root *os.Root
 }
 
 // Open implements fs.FS.
-func (f localFS) Open(name string) (fs.File, error) {
-	path := filepath.Join(f.baseDir, name)
-	return os.Open(path)
+func (f *localFS) Open(name string) (fs.File, error) {
+	return f.root.Open(name)
 }
+
+var _ fs.FS = (*localFS)(nil)
 
 type fsWrapper struct {
 	fs      fs.FS
@@ -46,3 +46,5 @@ func (f fsWrapper) Open(name string) (fs.File, error) {
 	path := unixpath.Join(f.baseDir, name)
 	return f.fs.Open(path)
 }
+
+var _ fs.FS = (*fsWrapper)(nil)

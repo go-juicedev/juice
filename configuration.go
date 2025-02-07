@@ -18,6 +18,7 @@ package juice
 
 import (
 	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
 )
@@ -67,9 +68,12 @@ func NewXMLConfiguration(filename string) (IConfiguration, error) {
 
 // for go linkname
 func newLocalXMLConfiguration(filename string, ignoreEnv bool) (IConfiguration, error) {
-	baseDir := filepath.Dir(filename)
 	filename = filepath.Base(filename)
-	return newXMLConfigurationParser(localFS{baseDir: baseDir}, filename, ignoreEnv)
+	root, err := os.OpenRoot(filepath.Dir(filename))
+	if err != nil {
+		return nil, err
+	}
+	return newXMLConfigurationParser(&localFS{root: root}, filename, ignoreEnv)
 }
 
 // NewXMLConfigurationWithFS creates a new Configuration from an XML file.
