@@ -56,7 +56,7 @@ func WithReadOnly(readOnly bool) TransactionOptionFunc {
 //		var engine *juice.Engine
 //		// ... initialize engine
 //		ctx := juice.ContextWithManager(context.Background(), engine)
-//	    if err := juice.BasicTxManager(ctx, func(ctx context.Context) error {
+//	    if err := juice.Transaction(ctx, func(ctx context.Context) error {
 //			// ... do something
 //			return nil
 //		}); err != nil {
