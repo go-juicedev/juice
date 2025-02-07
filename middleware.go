@@ -17,18 +17,20 @@ limitations under the License.
 package juice
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-juicedev/juice/internal/reflectlite"
-	"github.com/go-juicedev/juice/session"
 	"log"
 	"math/rand"
 	"reflect"
 	"slices"
 	"strconv"
 	"time"
+
+	"github.com/go-juicedev/juice/internal/reflectlite"
+	"github.com/go-juicedev/juice/session"
 )
 
 // Middleware is a wrapper of QueryHandler and ExecHandler.
@@ -265,9 +267,7 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, next ExecHandle
 			// if the keyIncrement is not set or invalid, use the default value 1
 			keyIncrementValue := stmt.Attribute("keyIncrement")
 			keyIncrement, _ := strconv.ParseInt(keyIncrementValue, 10, 64)
-			if keyIncrement == 0 {
-				keyIncrement = 1
-			}
+			keyIncrement = cmp.Or(keyIncrement, 1)
 			// batchInsertIDGenerateStrategy is the strategy to generate the key in batch insert
 			batchInsertIDStrategy := stmt.Attribute("batchInsertIDGenerateStrategy")
 			keyGenerator = &batchKeyGenerator{
