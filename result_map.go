@@ -371,7 +371,7 @@ func (s *rowDestination) findFromStruct(tp reflect.Type, columns []string, colum
 		}
 		// if the field is anonymous and the type is struct, we can walk into it.
 		if deepScan := field.Anonymous && field.Type.Kind() == reflect.Struct && len(tag) == 0; deepScan {
-			s.findFromStruct(field.Type, columns, columnIndex, append(walk, i))
+			s.findFromStruct(field.Type, columns, columnIndex, append(append([]int(nil), walk...), i))
 			continue
 		}
 		// find the index of the column
