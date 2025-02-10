@@ -18,7 +18,8 @@ package driver
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 )
 
@@ -66,10 +67,5 @@ func Get(name string) (Driver, error) {
 func Drivers() []string {
 	driversMu.RLock()
 	defer driversMu.RUnlock()
-	var drivers []string
-	for driver := range registeredDrivers {
-		drivers = append(drivers, driver)
-	}
-	sort.Strings(drivers)
-	return drivers
+	return slices.Sorted(maps.Keys(registeredDrivers))
 }
