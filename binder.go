@@ -213,7 +213,7 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 	columns, err := r.rows.Columns()
 	if err != nil {
 		r.err = err
-		return nil
+		return func(func(T) bool) {}
 	}
 	columnDest := &rowDestination{}
 	t := reflect.TypeFor[T]()
