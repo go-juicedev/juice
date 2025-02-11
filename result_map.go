@@ -21,9 +21,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"slices"
 )
+
+// resultMapPreserveNilSlice is a flag that indicates whether to preserve nil slices in the result map.
+var resultMapPreserveNilSlice = os.Getenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE") == "true"
 
 // ErrTooManyRows is returned when the result set has too many rows but excepted only one row.
 var ErrTooManyRows = errors.New("juice: too many rows in result set")
@@ -103,7 +107,10 @@ func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
 	if err := m.validateInput(rv); err != nil {
 		return err
 	}
-	elementType := rv.Elem().Type().Elem()
+
+	target := rv.Elem()
+
+	elementType := target.Type().Elem()
 	// get the element type and check if it's a pointer
 	isPointer, isElementImplementsScanner := m.resolveTypes(elementType)
 
@@ -121,7 +128,6 @@ func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
 	if err != nil {
 		return err
 	}
-	target := rv.Elem()
 
 	if len(values) > 0 {
 		// Since we've already verified the type compatibility above,
@@ -129,6 +135,11 @@ func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
 		target.Grow(len(values))
 
 		target.Set(reflect.Append(target, values...))
+	} else {
+		// https://github.com/go-juicedev/juice/issues/437
+		if !resultMapPreserveNilSlice {
+			target.Set(reflect.MakeSlice(target.Type(), 0, 0))
+		}
 	}
 	return nil
 }
