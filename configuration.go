@@ -68,8 +68,9 @@ func NewXMLConfiguration(filename string) (IConfiguration, error) {
 
 // for go linkname
 func newLocalXMLConfiguration(filename string, ignoreEnv bool) (IConfiguration, error) {
+	dirname := filepath.Dir(filename)
 	filename = filepath.Base(filename)
-	root, err := os.OpenRoot(filepath.Dir(filename))
+	root, err := os.OpenRoot(dirname)
 	if err != nil {
 		return nil, err
 	}
