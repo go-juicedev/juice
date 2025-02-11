@@ -19,6 +19,7 @@ package juice
 import (
 	"fmt"
 	"iter"
+	"maps"
 	"os"
 )
 
@@ -115,13 +116,7 @@ func (e *environments) Use(id string) (*Environment, error) {
 
 // Iter returns a sequence of environments.
 func (e *environments) Iter() iter.Seq2[string, *Environment] {
-	return func(yield func(string, *Environment) bool) {
-		for key, env := range e.envs {
-			if ok := yield(key, env); !ok {
-				return
-			}
-		}
-	}
+	return maps.All(e.envs)
 }
 
 // EnvValueProvider defines a environment value provider.
