@@ -21,17 +21,21 @@ import (
 	unixpath "path"
 )
 
-type fsWrapper struct {
+type fsRoot struct {
 	fs      fs.FS
 	baseDir string
 }
 
-// Open opens the named file within the base directory of the fsWrapper.
+// Open opens the named file within the base directory of the fsRoot.
 // It joins the base directory and the name using Unix-style path separators,
 // ensuring compatibility with io/fs.Open which uses slash-separated paths on all systems.
-func (f fsWrapper) Open(name string) (fs.File, error) {
+func (f fsRoot) Open(name string) (fs.File, error) {
 	path := unixpath.Join(f.baseDir, name)
 	return f.fs.Open(path)
 }
 
-var _ fs.FS = (*fsWrapper)(nil)
+var _ fs.FS = (*fsRoot)(nil)
+
+func newFsRoot(fs fs.FS, basedir string) fs.FS {
+	return &fsRoot{fs: fs, baseDir: basedir}
+}
