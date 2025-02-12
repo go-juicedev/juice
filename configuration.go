@@ -74,7 +74,7 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (IConfiguration, 
 	if err != nil {
 		return nil, err
 	}
-	return newXMLConfigurationParser(&localFS{root: root}, filename, ignoreEnv)
+	return newXMLConfigurationParser(root.FS(), filename, ignoreEnv)
 }
 
 // NewXMLConfigurationWithFS creates a new Configuration from an XML file.
