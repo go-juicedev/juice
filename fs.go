@@ -18,21 +18,8 @@ package juice
 
 import (
 	"io/fs"
-	"os"
 	unixpath "path"
 )
-
-// localFS is a file system.
-type localFS struct {
-	root *os.Root
-}
-
-// Open implements fs.FS.
-func (f *localFS) Open(name string) (fs.File, error) {
-	return f.root.Open(name)
-}
-
-var _ fs.FS = (*localFS)(nil)
 
 type fsWrapper struct {
 	fs      fs.FS
