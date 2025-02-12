@@ -19,7 +19,7 @@ package juice
 import (
 	"io/fs"
 	"os"
-	"path"
+	unixpath "path"
 	"path/filepath"
 )
 
@@ -77,17 +77,19 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (IConfiguration, 
 	return newXMLConfigurationParser(root.FS(), filename, ignoreEnv)
 }
 
-// NewXMLConfigurationWithFS creates a new Configuration from an XML file.
-func NewXMLConfigurationWithFS(fs fs.FS, filename string) (IConfiguration, error) {
-	baseDir := path.Dir(filename)
-	filename = path.Base(filename)
-	return newXMLConfigurationParser(fsWrapper{baseDir: baseDir, fs: fs}, filename, false)
+// NewXMLConfigurationWithFS creates a new XML configuration parser with a given fs.FS and filename.
+// The filepath parameter must be a Unix-style path (using forward slashes '/'),
+// as it will be processed by path.Dir and path.Base.
+func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (IConfiguration, error) {
+	basedir := unixpath.Dir(filepath)
+	filename := unixpath.Base(filepath)
+	return newXMLConfigurationParser(newFsRoot(fs, basedir), filename, false)
 }
 
 // newXMLConfigurationParser creates a new Configuration from an XML file which ignores environment parsing.
 // for internal use only.
-func newXMLConfigurationParser(fs fs.FS, filename string, ignoreEnv bool) (IConfiguration, error) {
-	file, err := fs.Open(filename)
+func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (IConfiguration, error) {
+	file, err := fs.Open(filepath)
 	if err != nil {
 		return nil, err
 	}
