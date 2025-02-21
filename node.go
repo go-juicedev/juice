@@ -330,20 +330,7 @@ func (c *ConditionNode) Match(p Parameter) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	switch value.Kind() {
-	case reflect.Bool:
-		return value.Bool(), nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return value.Int() != 0, nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return value.Uint() != 0, nil
-	case reflect.Float32, reflect.Float64:
-		return value.Float() != 0, nil
-	case reflect.String:
-		return value.String() != "", nil
-	default:
-		return false, fmt.Errorf("unsupported type %s", value.Kind())
-	}
+	return !value.IsZero(), nil
 }
 
 var _ Node = (*ConditionNode)(nil)
