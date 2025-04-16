@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://avatars.githubusercontent.com/u/193303345" alt="Juice Logo" width="200" height="auto"/>
+</p>
+
 ## Juice SQL Mapper Framework For Golang
 
 [![Go Doc](https://pkg.go.dev/badge/github.com/go-juicedev/juice)](https://godoc.org/github.com/go-juicedev/juice)
