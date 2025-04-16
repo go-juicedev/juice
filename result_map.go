@@ -162,7 +162,7 @@ func (m MultiRowsResultMap) resolveTypes(elementType reflect.Type) (bool, bool) 
 	if !isPointer {
 		pointerType = reflect.PointerTo(elementType)
 	}
-	return isPointer, pointerType.Implements(rowScannerType)
+	return isPointer, isImplementsRowScanner(pointerType)
 }
 
 // mapRows maps the rows to a slice of reflect.Values

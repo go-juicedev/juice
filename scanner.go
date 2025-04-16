@@ -19,6 +19,7 @@ package juice
 import (
 	"database/sql"
 	"reflect"
+	"sync"
 )
 
 // RowScanner is an interface that provides a custom mechanism for mapping database rows
@@ -50,3 +51,20 @@ type RowScanner interface {
 
 // rowScannerType is the type of the RowScanner interface
 var rowScannerType = reflect.TypeOf((*RowScanner)(nil)).Elem()
+
+// rowScannerTypeImplementations is a thread-safe cache that stores information about
+// whether types implement the RowScanner interface.
+// It uses sync.Map instead of a regular map to avoid read/write conflicts in concurrent environments.
+var rowScannerTypeImplementations = sync.Map{}
+
+// isImplementsRowScanner checks if the given reflection type implements the RowScanner interface.
+func isImplementsRowScanner(t reflect.Type) bool {
+	value, exists := rowScannerTypeImplementations.Load(t)
+	if exists {
+		return value.(bool)
+	}
+	// this operation does not need to be atomic
+	implements := t.Implements(rowScannerType)
+	rowScannerTypeImplementations.Store(t, implements)
+	return implements
+}
