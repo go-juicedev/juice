@@ -18,12 +18,13 @@ package eval
 
 import (
 	"context"
-	"github.com/go-juicedev/juice/internal/reflectlite"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 // Param is an alias of any type.
