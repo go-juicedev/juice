@@ -19,13 +19,14 @@ package eval
 import (
 	"errors"
 	"fmt"
-	"github.com/go-juicedev/juice/eval/expr"
-	"github.com/go-juicedev/juice/internal/reflectlite"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"reflect"
 	"strconv"
+
+	"github.com/go-juicedev/juice/eval/expr"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 // SyntaxError represents a syntax error.

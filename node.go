@@ -18,15 +18,14 @@ package juice
 
 import (
 	"fmt"
-	"github.com/go-juicedev/juice/internal/reflectlite"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/go-juicedev/juice/eval"
-
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 var (

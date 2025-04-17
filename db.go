@@ -22,10 +22,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-juicedev/juice/driver"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-juicedev/juice/driver"
 )
 
 // Source encapsulates all configuration parameters needed for establishing
