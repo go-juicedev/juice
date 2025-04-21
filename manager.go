@@ -67,69 +67,77 @@ type TxManager interface {
 	Rollback() error
 }
 
+type basicTxManager struct {
+	// Transaction holds the current transaction session
+	// It's nil if no transaction is active
+	session.Transaction
+
+	ctx context.Context
+	// engine is the database engine instance that handles database operations
+	engine *Engine
+}
+
+func (b *basicTxManager) Object(v any) SQLRowsExecutor {
+	statement, err := b.engine.GetConfiguration().GetStatement(v)
+	if err != nil {
+		return inValidExecutor(err)
+	}
+	drv := b.engine.Driver()
+	statementHandler := NewBatchStatementHandler(drv, b.Transaction, b.engine.middlewares...)
+	return NewSQLRowsExecutor(statement, statementHandler, drv)
+}
+
 // BasicTxManager implements the TxManager interface providing basic
 // transaction management functionality.
 type BasicTxManager struct {
-	// engine is the database engine instance that handles database operations
-	engine *Engine
+	*basicTxManager
 
 	// txOptions configures the transaction behavior
 	// If nil, default database transaction options are used
 	txOptions *sql.TxOptions
-
-	// tx holds the current transaction session
-	// It's nil if no transaction is active
-	tx  session.Transaction
-	ctx context.Context
 }
 
 // Object implements the Manager interface
 func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
-	if t.tx == nil {
+	if t.Transaction == nil {
 		return inValidExecutor(tx.ErrTransactionNotBegun)
 	}
-	statement, err := t.engine.GetConfiguration().GetStatement(v)
-	if err != nil {
-		return inValidExecutor(err)
-	}
-	drv := t.engine.Driver()
-	statementHandler := NewBatchStatementHandler(drv, t.tx, t.engine.middlewares...)
-	return NewSQLRowsExecutor(statement, statementHandler, drv)
+	return t.basicTxManager.Object(v)
 }
 
 // Begin begins the transaction
 func (t *BasicTxManager) Begin() (err error) {
 	// If the transaction is already begun, return an error directly.
-	if t.tx != nil {
+	if t.Transaction != nil {
 		return tx.ErrTransactionAlreadyBegun
 	}
-	t.tx, err = t.engine.DB().BeginTx(t.ctx, t.txOptions)
+	t.Transaction, err = t.engine.DB().BeginTx(t.ctx, t.txOptions)
 	return err
 }
 
 // Commit commits the transaction
 func (t *BasicTxManager) Commit() error {
 	// If the transaction is not begun, return an error directly.
-	if t.tx == nil {
+	if t.Transaction == nil {
 		return tx.ErrTransactionNotBegun
 	}
-	return t.tx.Commit()
+	return t.Transaction.Commit()
 }
 
 // Rollback rollbacks the transaction
 func (t *BasicTxManager) Rollback() error {
 	// If the transaction is not begun, return an error directly.
-	if t.tx == nil {
+	if t.Transaction == nil {
 		return tx.ErrTransactionNotBegun
 	}
-	return t.tx.Rollback()
+	return t.Transaction.Rollback()
 }
 
 func (t *BasicTxManager) Raw(query string) Runner {
-	if t.tx == nil {
+	if t.Transaction == nil {
 		return NewErrorRunner(tx.ErrTransactionNotBegun)
 	}
-	return NewRunner(query, t.engine, t.tx)
+	return NewRunner(query, t.engine, t.Transaction)
 }
 
 type managerKey struct{}
