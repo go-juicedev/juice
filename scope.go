@@ -55,12 +55,12 @@ func Transaction(ctx context.Context, handler func(ctx context.Context) error, o
 	}
 
 	handlerFunc := tx.HandlerFunc(func(ctx context.Context, tx *sql.Tx) error {
-		basicTxManager := &BasicTxManager{
-			engine: engine,
-			ctx:    ctx,
-			tx:     tx,
+		txManager := &basicTxManager{
+			engine:      engine,
+			ctx:         ctx,
+			Transaction: tx,
 		}
-		ctx = ContextWithManager(ctx, basicTxManager)
+		ctx = ContextWithManager(ctx, txManager)
 		return handler(ctx)
 	})
 

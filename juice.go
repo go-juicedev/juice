@@ -81,9 +81,11 @@ func (e *Engine) Tx() *BasicTxManager {
 // ContextTx returns a TxManager with the given context
 func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxManager {
 	return &BasicTxManager{
-		engine:    e,
+		basicTxManager: &basicTxManager{
+			engine: e,
+			ctx:    ctx,
+		},
 		txOptions: opt,
-		ctx:       ctx,
 	}
 }
 
