@@ -21,6 +21,7 @@ import (
 	"database/sql"
 
 	"github.com/go-juicedev/juice/session"
+	"github.com/go-juicedev/juice/session/tx"
 )
 
 // Manager is an interface for managing database operations.
@@ -78,14 +79,14 @@ type BasicTxManager struct {
 
 	// tx holds the current transaction session
 	// It's nil if no transaction is active
-	tx  session.TransactionSession
+	tx  session.Transaction
 	ctx context.Context
 }
 
 // Object implements the Manager interface
 func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 	if t.tx == nil {
-		return inValidExecutor(session.ErrTransactionNotBegun)
+		return inValidExecutor(tx.ErrTransactionNotBegun)
 	}
 	statement, err := t.engine.GetConfiguration().GetStatement(v)
 	if err != nil {
@@ -97,24 +98,20 @@ func (t *BasicTxManager) Object(v any) SQLRowsExecutor {
 }
 
 // Begin begins the transaction
-func (t *BasicTxManager) Begin() error {
+func (t *BasicTxManager) Begin() (err error) {
 	// If the transaction is already begun, return an error directly.
 	if t.tx != nil {
-		return session.ErrTransactionAlreadyBegun
+		return tx.ErrTransactionAlreadyBegun
 	}
-	tx, err := t.engine.DB().BeginTx(t.ctx, t.txOptions)
-	if err != nil {
-		return err
-	}
-	t.tx = tx
-	return nil
+	t.tx, err = t.engine.DB().BeginTx(t.ctx, t.txOptions)
+	return err
 }
 
 // Commit commits the transaction
 func (t *BasicTxManager) Commit() error {
 	// If the transaction is not begun, return an error directly.
 	if t.tx == nil {
-		return session.ErrTransactionNotBegun
+		return tx.ErrTransactionNotBegun
 	}
 	return t.tx.Commit()
 }
@@ -123,14 +120,14 @@ func (t *BasicTxManager) Commit() error {
 func (t *BasicTxManager) Rollback() error {
 	// If the transaction is not begun, return an error directly.
 	if t.tx == nil {
-		return session.ErrTransactionNotBegun
+		return tx.ErrTransactionNotBegun
 	}
 	return t.tx.Rollback()
 }
 
 func (t *BasicTxManager) Raw(query string) Runner {
 	if t.tx == nil {
-		return NewErrorRunner(session.ErrTransactionNotBegun)
+		return NewErrorRunner(tx.ErrTransactionNotBegun)
 	}
 	return NewRunner(query, t.engine, t.tx)
 }

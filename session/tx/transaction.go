@@ -1,5 +1,5 @@
 /*
-Copyright 2024 eatmoreapple
+Copyright 2025 eatmoreapple
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package session
+package tx
 
 import (
-	"github.com/go-juicedev/juice/session/tx"
+	"errors"
 )
 
+var (
+	// ErrTransactionAlreadyBegun is the error that transaction already begun.
+	ErrTransactionAlreadyBegun = errors.New("tx: transaction already begun")
+
+	// ErrTransactionNotBegun is the error that transaction not begun.
+	ErrTransactionNotBegun = errors.New("tx: transaction not begun")
+)
+
+// Transaction is a interface that can be used to commit and rollback.
 type Transaction interface {
-	Session
-	tx.Transaction
+	Commit() error
+	Rollback() error
 }
