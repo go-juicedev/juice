@@ -40,7 +40,11 @@ func runtimeFuncName(addr uintptr) string {
 // This pattern keeps the initialization logic private while exposing
 // only the necessary functionality.
 func _cachedRuntimeFuncName() func(addr uintptr) string {
-	if os.Getenv("JUICE_NO_PC_FUNC_CACHE") == "" {
+	const pcFuncCacheEnvName = "JUICE_NO_PC_FUNC_CACHE"
+
+	// If the environment variable JUICE_NO_PC_FUNC_CACHE is set to "true",
+	// the cached version of runtimeFuncName is disabled.
+	if os.Getenv(pcFuncCacheEnvName) != "true" {
 		var cache sync.Map
 		return func(addr uintptr) string {
 			// Although this implementation is not atomic between Load and Store,
