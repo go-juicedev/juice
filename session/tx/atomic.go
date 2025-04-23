@@ -28,8 +28,8 @@ var ErrCommitOnSpecific = errors.New("tx: commit on specific transaction")
 // HandlerFunc is a function to execute a handler function within a database transaction.
 type HandlerFunc func(ctx context.Context, tx *sql.Tx) error
 
-// Atomic executes the given handler function within a database transaction.
-func Atomic(ctx context.Context, db *sql.DB, h HandlerFunc, opts ...TransactionOptionFunc) (err error) {
+// AtomicContext executes the given handler function within a database transaction.
+func AtomicContext(ctx context.Context, db *sql.DB, h HandlerFunc, opts ...TransactionOptionFunc) (err error) {
 	var (
 		opt *sql.TxOptions
 		tx  *sql.Tx
@@ -64,4 +64,9 @@ func Atomic(ctx context.Context, db *sql.DB, h HandlerFunc, opts ...TransactionO
 	}
 
 	return errors.Join(err, tx.Commit())
+}
+
+// Atomic executes the given handler function within a database transaction.
+func Atomic(db *sql.DB, h HandlerFunc, opts ...TransactionOptionFunc) (err error) {
+	return AtomicContext(context.Background(), db, h, opts...)
 }
