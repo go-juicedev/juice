@@ -64,7 +64,7 @@ func Transaction(ctx context.Context, handler func(ctx context.Context) error, o
 		return handler(ctx)
 	})
 
-	return tx.Atomic(ctx, engine.DB(), handlerFunc, opts...)
+	return tx.AtomicContext(ctx, engine.DB(), handlerFunc, opts...)
 }
 
 // NestedTransaction executes a handler function with transaction support.
