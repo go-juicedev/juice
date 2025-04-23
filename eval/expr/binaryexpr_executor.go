@@ -302,34 +302,48 @@ func (ORExprExecutor) Exec(x, y func() (reflect.Value, error)) (reflect.Value, e
 // ErrUnsupportedBinaryExpr is the error that the binary expression is unsupported
 var ErrUnsupportedBinaryExpr = errors.New("unsupported binary expression")
 
-// binaryExprExecutors is a map from token to BinaryExprExecutor
-var binaryExprExecutors = map[token.Token]BinaryExprExecutor{
-	token.EQL:     EQLExprExecutor{},
-	token.NEQ:     NEQExprExecutor{},
-	token.LSS:     LSSExprExecutor{},
-	token.LEQ:     LEQExprExecutor{},
-	token.GTR:     GTRExprExecutor{},
-	token.GEQ:     GEQExprExecutor{},
-	token.LAND:    LANDExprExecutor{},
-	token.LOR:     LORExprExecutor{},
-	token.ADD:     ADDExprExecutor{},
-	token.SUB:     SUBExprExecutor{},
-	token.MUL:     MULExprExecutor{},
-	token.QUO:     QUOExprExecutor{},
-	token.REM:     REMExprExecutor{},
-	token.LPAREN:  LPARENExprExecutor{},
-	token.RPAREN:  RPARENExprExecutor{},
-	token.COMMENT: COMMENTExprExecutor{},
-	token.NOT:     NOTExprExecutor{},
-	token.AND:     ANDExprExecutor{},
-	token.OR:      ORExprExecutor{},
-}
-
-// FromToken returns the BinaryExprExecutor from the token
+// FromToken returns the BinaryExprExecutor from the token.
 func FromToken(t token.Token) (BinaryExprExecutor, error) {
-	executor, ok := binaryExprExecutors[t]
-	if !ok {
+	switch t {
+	case token.EQL:
+		return EQLExprExecutor{}, nil
+	case token.NEQ:
+		return NEQExprExecutor{}, nil
+	case token.LSS:
+		return LSSExprExecutor{}, nil
+	case token.LEQ:
+		return LEQExprExecutor{}, nil
+	case token.GTR:
+		return GTRExprExecutor{}, nil
+	case token.GEQ:
+		return GEQExprExecutor{}, nil
+	case token.LAND:
+		return LANDExprExecutor{}, nil
+	case token.LOR:
+		return LORExprExecutor{}, nil
+	case token.ADD:
+		return ADDExprExecutor{}, nil
+	case token.SUB:
+		return SUBExprExecutor{}, nil
+	case token.MUL:
+		return MULExprExecutor{}, nil
+	case token.QUO:
+		return QUOExprExecutor{}, nil
+	case token.REM:
+		return REMExprExecutor{}, nil
+	case token.LPAREN:
+		return LPARENExprExecutor{}, nil
+	case token.RPAREN:
+		return RPARENExprExecutor{}, nil
+	case token.COMMENT:
+		return COMMENTExprExecutor{}, nil
+	case token.NOT:
+		return NOTExprExecutor{}, nil
+	case token.AND:
+		return ANDExprExecutor{}, nil
+	case token.OR:
+		return ORExprExecutor{}, nil
+	default:
 		return nil, ErrUnsupportedBinaryExpr
 	}
-	return executor, nil
 }
