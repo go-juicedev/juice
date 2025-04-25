@@ -102,9 +102,21 @@ func (e *goExpression) Execute(params Parameter) (Value, error) {
 	return eval(e.Expr, params)
 }
 
+// defaultComplier is the default expression compiler used by the package.
+var defaultComplier ExprCompiler = &goExprCompiler{}
+
+// WithCompiler sets the default expression compiler.
+// nil is not allowed.
+func WithCompiler(exprCompiler ExprCompiler) {
+	if exprCompiler == nil {
+		panic("exprCompiler cannot be nil")
+	}
+	defaultComplier = exprCompiler
+}
+
 // Compile compiles the expression and returns the expression.
 func Compile(expr string) (Expression, error) {
-	return new(goExprCompiler).Compile(expr)
+	return defaultComplier.Compile(expr)
 }
 
 func Eval(expr string, params Parameter) (Value, error) {
