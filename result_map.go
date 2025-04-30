@@ -261,7 +261,7 @@ var columnTagName = cmp.Or(os.Getenv("JUICE_COLUMN_TAG_NAME"), "column")
 
 // SetColumnTagName sets the tag name used to map database columns to struct fields.
 func SetColumnTagName(tagName string) {
-	if columnTagName == "" {
+	if tagName == "" {
 		panic("column tag name cannot be empty")
 	}
 	columnTagName = tagName
