@@ -167,7 +167,7 @@ func (e *Engine) SetLocker(locker RWLocker) {
 
 // init initializes the engine
 func (e *Engine) init() (err error) {
-	e.manager, err = newDBManagerFromConfiguration(e.configuration)
+	e.manager, err = NewDBManager(e.configuration)
 	if err != nil {
 		return
 	}

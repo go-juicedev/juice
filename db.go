@@ -61,13 +61,13 @@ type DBManager struct {
 
 var (
 	// ErrDBManagerClosed is returned when attempting to use a closed manager
-	ErrDBManagerClosed = errors.New("manager is closed")
+	ErrDBManagerClosed = errors.New("juice: manager is closed")
 
 	// ErrSourceExists is returned when attempting to add a duplicate source
-	ErrSourceExists = errors.New("source already exists")
+	ErrSourceExists = errors.New("juice: source already exists")
 
 	// ErrSourceNotFound is returned when attempting to access a non-existent source
-	ErrSourceNotFound = errors.New("source not found")
+	ErrSourceNotFound = errors.New("juice: source not found")
 )
 
 // Get retrieves an existing database connection or creates a new one if it doesn't exist.
@@ -204,10 +204,10 @@ func (m *DBManager) Close() error {
 	return nil
 }
 
-// newDBManagerFromConfiguration creates a new DBManager instance using the provided
+// NewDBManager creates a new DBManager instance using the provided
 // configuration. It initializes all configured database sources and validates their
 // parameters before adding them to the manager.
-func newDBManagerFromConfiguration(cfg IConfiguration) (*DBManager, error) {
+func NewDBManager(cfg IConfiguration) (*DBManager, error) {
 	m := &DBManager{
 		sources: make(map[string]Source),
 	}
