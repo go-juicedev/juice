@@ -18,6 +18,7 @@ limitations under the License.
 package juice
 
 import (
+	"cmp"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -26,11 +27,10 @@ import (
 	"slices"
 )
 
-// resultMapPreserveNilSlice is a flag that indicates whether to preserve nil slices in the result map.
-var resultMapPreserveNilSlice = os.Getenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE") == "true"
-
-// ErrTooManyRows is returned when the result set has too many rows but excepted only one row.
-var ErrTooManyRows = errors.New("juice: too many rows in result set")
+var (
+	// ErrTooManyRows is returned when the result set has too many rows but excepted only one row.
+	ErrTooManyRows = errors.New("juice: too many rows in result set")
+)
 
 // ResultMap is an interface that defines a method for mapping database query results to Go data structures.
 type ResultMap interface {
@@ -93,6 +93,9 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
 
 	return nil
 }
+
+// resultMapPreserveNilSlice is a flag that indicates whether to preserve nil slices in the result map.
+var resultMapPreserveNilSlice = os.Getenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE") == "true"
 
 // MultiRowsResultMap is a ResultMap that maps a rowDestination to a slice type.
 type MultiRowsResultMap struct {
@@ -253,6 +256,17 @@ type ColumnDestination interface {
 // 2. Concurrent writes are acceptable since we don't care about its value
 var sink any
 
+// columnTagName is the tag name used to map database columns to struct fields.
+var columnTagName = cmp.Or(os.Getenv("JUICE_COLUMN_TAG_NAME"), "column")
+
+// SetColumnTagName sets the tag name used to map database columns to struct fields.
+func SetColumnTagName(tagName string) {
+	if tagName == "" {
+		panic("column tag name cannot be empty")
+	}
+	columnTagName = tagName
+}
+
 // rowDestination implements ColumnDestination interface for mapping SQL query results
 // to struct fields. It handles the mapping between database columns and struct fields
 // by maintaining the field indexes and managing unmapped columns.
@@ -377,7 +391,7 @@ func (s *rowDestination) findFromStruct(tp reflect.Type, columns []string, colum
 			break
 		}
 		field := tp.Field(i)
-		tag := field.Tag.Get("column")
+		tag := field.Tag.Get(columnTagName)
 		// if the tag is empty or "-", we can skip it.
 		if skip := tag == "" && !field.Anonymous || tag == "-"; skip {
 			continue
