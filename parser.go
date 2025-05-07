@@ -381,7 +381,7 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
-			action := Action(token.Name.Local)
+			action := action(token.Name.Local)
 			switch action {
 			case Select, Insert, Update, Delete:
 				stmt := &xmlSQLStatement{action: action, mapper: mapper}

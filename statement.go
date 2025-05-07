@@ -27,7 +27,7 @@ type Statement interface {
 	ID() string
 	Name() string
 	Attribute(key string) string
-	Action() Action
+	Action() action
 	Configuration() IConfiguration
 	ResultMap() (ResultMap, error)
 	Build(translator driver.Translator, param Param) (query string, args []any, err error)
@@ -36,7 +36,7 @@ type Statement interface {
 // xmlSQLStatement defines a sql xmlSQLStatement.
 type xmlSQLStatement struct {
 	mapper *Mapper
-	action Action
+	action action
 	Nodes  NodeGroup
 	attrs  map[string]string
 	name   string
@@ -87,7 +87,7 @@ func (s *xmlSQLStatement) Name() string {
 }
 
 // Action returns the action of the xmlSQLStatement.
-func (s *xmlSQLStatement) Action() Action {
+func (s *xmlSQLStatement) Action() action {
 	return s.action
 }
 
@@ -122,7 +122,7 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (quer
 type rawSQLStatement struct {
 	query  string
 	cfg    IConfiguration
-	action Action
+	action action
 }
 
 // hash generates a unique 64-bit FNV-1a hash of the SQL query.
@@ -151,7 +151,7 @@ func (s rawSQLStatement) Attribute(_ string) string {
 }
 
 // Action returns the action of the rawSQLStatement.
-func (s rawSQLStatement) Action() Action {
+func (s rawSQLStatement) Action() action {
 	return s.action
 }
 
@@ -180,7 +180,7 @@ func (s rawSQLStatement) Build(translator driver.Translator, param Param) (query
 }
 
 // NewRawSQLStatement creates a new raw SQL statement with the given query, configuration, and action.
-func NewRawSQLStatement(query string, cfg IConfiguration, action Action) Statement {
+func NewRawSQLStatement(query string, cfg IConfiguration, action action) Statement {
 	return &rawSQLStatement{
 		query:  query,
 		cfg:    cfg,
