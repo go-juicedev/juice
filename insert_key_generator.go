@@ -134,7 +134,7 @@ func findFieldIndexesFromProperties(t reflect.Type, keyProperties ...string) ([]
 			t = structField.Type
 			indexes = append(indexes, structField.Index...)
 		} else {
-			fieldIndexes, ok := reflectlite.TypeFrom(t).GetFieldIndexesFromTag("column", keyProperty)
+			fieldIndexes, ok := reflectlite.TypeFrom(t).GetFieldIndexesFromTag(columnTagName, keyProperty)
 			if !ok {
 				return nil, false
 			}
