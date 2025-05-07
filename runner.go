@@ -92,7 +92,7 @@ type SQLRunner struct {
 
 // BuildExecutor creates a new SQL executor based on the given action.
 // It configures the statement handler with the necessary driver and middleware.
-func (r *SQLRunner) BuildExecutor(action Action) Executor[*sql.Rows] {
+func (r *SQLRunner) BuildExecutor(action action) Executor[*sql.Rows] {
 	driver := r.engine.Driver()
 	statement := NewRawSQLStatement(r.query, r.engine.GetConfiguration(), action)
 	statementHandler := NewQueryBuildStatementHandler(driver, r.session, r.engine.middlewares...)
@@ -112,7 +112,7 @@ func (r *SQLRunner) queryContext(ctx context.Context, param Param) (*sql.Rows, e
 
 // execContext executes a non-query SQL operation (INSERT, UPDATE, DELETE)
 // with the given context and parameters.
-func (r *SQLRunner) execContext(action Action, ctx context.Context, param Param) (sql.Result, error) {
+func (r *SQLRunner) execContext(action action, ctx context.Context, param Param) (sql.Result, error) {
 	executor := r.BuildExecutor(action)
 	return executor.ExecContext(ctx, param)
 }
