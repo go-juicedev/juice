@@ -19,6 +19,7 @@ package juice
 import (
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -44,23 +45,26 @@ func _cachedRuntimeFuncName() func(addr uintptr) string {
 
 	// If the environment variable JUICE_NO_PC_FUNC_CACHE is set to "true",
 	// the cached version of runtimeFuncName is disabled.
-	if os.Getenv(pcFuncCacheEnvName) != "true" {
-		var cache sync.Map
-		return func(addr uintptr) string {
-			// Although this implementation is not atomic between Load and Store,
-			// the cost of proper synchronization (like singleflight) would be
-			// higher than the cost of occasionally recomputing the same name.
-			// Benchmark results show that the simple approach is about 20x faster
-			// and eliminates memory allocations entirely.
-			if name, ok := cache.Load(addr); ok {
-				return name.(string)
-			}
-			name := runtimeFuncName(addr)
-			cache.Store(addr, name)
-			return name
-		}
+	if cacheDisabled, _ := strconv.ParseBool(os.Getenv(pcFuncCacheEnvName)); cacheDisabled {
+		// If the environment variable is set, we return the original runtimeFuncName
+		// to avoid using the cache.
+		return runtimeFuncName
 	}
-	return runtimeFuncName
+
+	var cache sync.Map
+	return func(addr uintptr) string {
+		// Although this implementation is not atomic between Load and Store,
+		// the cost of proper synchronization (like singleflight) would be
+		// higher than the cost of occasionally recomputing the same name.
+		// Benchmark results show that the simple approach is about 20x faster
+		// and eliminates memory allocations entirely.
+		if name, ok := cache.Load(addr); ok {
+			return name.(string)
+		}
+		name := runtimeFuncName(addr)
+		cache.Store(addr, name)
+		return name
+	}
 }
 
 // cachedRuntimeFuncName is a cached version of runtimeFuncName
