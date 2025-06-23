@@ -48,39 +48,45 @@ type Runner interface {
 // should be prevented from executing. All methods return the same error that was
 // provided during creation.
 type ErrorRunner struct {
-	err error
+	error
 }
 
 // Select implements Runner.Select by returning the stored error.
 // It ignores the context and parameters, always returning nil for rows and the stored error.
 func (r *ErrorRunner) Select(_ context.Context, _ Param) (*sql.Rows, error) {
-	return nil, r.err
+	return nil, r.error
 }
 
 // Insert implements Runner.Insert by returning the stored error.
 // It ignores the context and parameters, always returning nil for result and the stored error.
 func (r *ErrorRunner) Insert(_ context.Context, _ Param) (sql.Result, error) {
-	return nil, r.err
+	return nil, r.error
 }
 
 // Update implements Runner.Update by returning the stored error.
 // It ignores the context and parameters, always returning nil for result and the stored error.
 func (r *ErrorRunner) Update(_ context.Context, _ Param) (sql.Result, error) {
-	return nil, r.err
+	return nil, r.error
 }
 
 // Delete implements Runner.Delete by returning the stored error.
 // It ignores the context and parameters, always returning nil for result and the stored error.
 func (r *ErrorRunner) Delete(_ context.Context, _ Param) (sql.Result, error) {
-	return nil, r.err
+	return nil, r.error
 }
 
 // NewErrorRunner creates a new ErrorRunner that always returns the specified error.
 // This is useful for creating a Runner that represents a failed state, such as
 // when initialization fails or when operations should be prevented.
 func NewErrorRunner(err error) Runner {
-	return &ErrorRunner{err: err}
+	return &ErrorRunner{error: err}
 }
+
+// Ensure ErrorRunner implements the Runner interface interface.
+var (
+	_ Runner = (*ErrorRunner)(nil)
+	_ error  = (*ErrorRunner)(nil)
+)
 
 // SQLRunner is the standard implementation of Runner interface.
 // It holds the SQL query, engine configuration, and session information.
@@ -138,13 +144,15 @@ func (r *SQLRunner) Delete(ctx context.Context, param Param) (sql.Result, error)
 }
 
 // NewRunner creates a new SQLRunner instance with the specified query, engine, and session.
-func NewRunner(query string, engine *Engine, session session.Session) Runner {
+func NewRunner(query string, engine *Engine, session session.Session) *SQLRunner {
 	return &SQLRunner{
 		query:   query,
 		engine:  engine,
 		session: session,
 	}
 }
+
+var _ Runner = (*SQLRunner)(nil) // Ensure SQLRunner implements the Runner interface.
 
 // GenericRunner is a generic Runner implementation that binds the result of a SELECT query to a value of type T.
 type GenericRunner[T any] struct {
@@ -190,3 +198,5 @@ func NewGenericRunner[T any](runner Runner) *GenericRunner[T] {
 		Runner: runner,
 	}
 }
+
+var _ Runner = (*GenericRunner[any])(nil) // Ensure GenericRunner implements Runner interface.
