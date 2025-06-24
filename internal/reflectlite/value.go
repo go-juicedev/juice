@@ -97,7 +97,7 @@ func (v *Value) IndirectType() Type {
 		// Get the type of the potentially indirected value
 		underlyingT := IndirectType(v.Value.Type())
 		tv := TypeFrom(underlyingT)
-		v.typeWrapper = &tv
+		v.typeWrapper = tv
 		v.typeWrapperSet = true
 	}
 	return *v.typeWrapper
@@ -114,11 +114,11 @@ func (v *Value) IndirectKind() reflect.Kind {
 // It searches for a field with the given tag name and value within the Value's type.
 // If found, it returns a Value wrapper for that field and true. Otherwise, an invalid Value and false.
 // It recursively searches embedded or nested structs.
-func findFieldFromTagRecursive(val Value, tagName, tagValue string) (Value, bool) {
+func findFieldFromTagRecursive(val *Value, tagName, tagValue string) (*Value, bool) {
 	// Work with the indirect type of the current value.
 	valType := val.IndirectType() // Uses the cached Type wrapper from Value
 	if valType.Kind() != reflect.Struct {
-		return Value{}, false
+		return nil, false
 	}
 
 	// Iterate through the fields of the struct.
@@ -141,7 +141,7 @@ func findFieldFromTagRecursive(val Value, tagName, tagValue string) (Value, bool
 			}
 		}
 	}
-	return Value{}, false // Tag not found.
+	return nil, false // Tag not found.
 }
 
 // FindFieldFromTag searches for a field within the Value's underlying struct type
@@ -149,15 +149,15 @@ func findFieldFromTagRecursive(val Value, tagName, tagValue string) (Value, bool
 // It returns a Value wrapper for the field if found, and true. Otherwise, it returns an invalid Value and false.
 // Note: Caching for this function is not implemented here but could be added similarly to GetFieldIndexesFromTag in Type,
 // using a combination of the Value's type, tagName, and tagValue as the key.
-func (v *Value) FindFieldFromTag(tagName, tagValue string) (Value, bool) {
+func (v *Value) FindFieldFromTag(tagName, tagValue string) (*Value, bool) {
 	// Ensure we are operating on a struct or a pointer to a struct.
 	// The recursive helper will handle the unwrapping.
 	if v.Unwrap().Kind() != reflect.Struct {
-		return Value{}, false
+		return nil, false
 	}
 	// TODO: Consider adding caching for FindFieldFromTag if it becomes a performance bottleneck.
 	// The cache key would likely involve v.IndirectType().Type, tagName, and tagValue.
-	return findFieldFromTagRecursive(*v, tagName, tagValue)
+	return findFieldFromTagRecursive(v, tagName, tagValue)
 }
 
 // GetFieldIndexesFromTag returns the field indexes by tag name and tag value,
@@ -171,11 +171,11 @@ func (v *Value) GetFieldIndexesFromTag(tagName, tagValue string) ([]int, bool) {
 
 // ValueOf returns a new Value wrapper initialized to the concrete value
 // stored in the interface i. ValueOf(nil) returns the zero Value.
-func ValueOf(v any) Value {
-	return Value{Value: reflect.ValueOf(v)} // Explicitly name the field
+func ValueOf(v any) *Value {
+	return &Value{Value: reflect.ValueOf(v)} // Explicitly name the field
 }
 
 // ValueFrom returns a new Value initialized to the concrete value
-func ValueFrom(v reflect.Value) Value {
-	return Value{Value: v} // Explicitly name the field
+func ValueFrom(v reflect.Value) *Value {
+	return &Value{Value: v} // Explicitly name the field
 }
