@@ -151,7 +151,7 @@ func bothNil(left, right reflect.Value) bool {
 		}
 
 		// if the invalid value is nil, the valid value is equal to nil
-		if reflectlite.NilAble(valid) {
+		if reflectlite.IsNilable(valid) {
 			// nil value
 			if valid.Equal(nilValue) {
 				return true

@@ -355,8 +355,9 @@ func evalSelectorExpr(exp *ast.SelectorExpr, params Parameter) (reflect.Value, e
 	case reflect.Struct:
 		// findFromTag is a closure function that tries to find the field from the field tag
 		findFromTag := func() {
-			find := reflectlite.ValueFrom(unwarned).FindFieldFromTag(defaultParamKey, fieldOrTagOrMethodName)
-			if find.IsValid() {
+			find, ok := reflectlite.ValueFrom(unwarned).FindFieldFromTag(defaultParamKey, fieldOrTagOrMethodName)
+
+			if ok && find.IsValid() {
 				result = find.Value
 			}
 		}
