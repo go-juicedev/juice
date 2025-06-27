@@ -64,14 +64,11 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 		return fmt.Errorf("failed to get columns: %w", err)
 	}
 
-	// Get the actual value to map into
-	targetValue := reflect.Indirect(rv)
-
 	// Create destination mapper
 	columnDest := &rowDestination{}
 
 	// Map columns to struct fields and create scan destinations
-	dest, err := columnDest.Destination(targetValue, columns)
+	dest, err := columnDest.Destination(rv, columns)
 	if err != nil {
 		return fmt.Errorf("failed to create destination mapping: %w", err)
 	}
@@ -216,10 +213,9 @@ func (m MultiRowsResultMap) mapWithColumnDestination(rows Rows, isPointer bool) 
 	for rows.Next() {
 		// Create a new instance and get its underlying value for column mapping
 		newValue := m.New()
-		elementValue := newValue.Elem()
 
 		// Map database columns to struct fields and create scan destinations
-		dest, err := columnDest.Destination(elementValue, columns)
+		dest, err := columnDest.Destination(newValue, columns)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get destination: %w", err)
 		}
@@ -233,7 +229,7 @@ func (m MultiRowsResultMap) mapWithColumnDestination(rows Rows, isPointer bool) 
 		if isPointer {
 			values = append(values, newValue)
 		} else {
-			values = append(values, elementValue)
+			values = append(values, newValue.Elem())
 		}
 	}
 
@@ -316,27 +312,29 @@ func (s *rowDestination) Destination(rv reflect.Value, columns []string) ([]any,
 
 func (s *rowDestination) destinationForOneColumn(rv reflect.Value, columns []string) ([]any, error) {
 	// if type is time.Time or implements sql.Scanner, we can scan it directly
-	if rv.Type() == timeType || rv.Type().Implements(scannerType) {
-		return []any{rv.Addr().Interface()}, nil
+	if rv.Elem().Type() == timeType || rv.Type().Implements(scannerType) {
+		return []any{rv.Interface()}, nil
 	}
-	if rv.Kind() == reflect.Struct {
+	if reflect.Indirect(rv).Kind() == reflect.Struct {
 		return s.destinationForStruct(rv, columns)
 	}
 	// default behavior
-	return []any{rv.Addr().Interface()}, nil
+	return []any{rv.Interface()}, nil
 }
 
 func (s *rowDestination) destination(rv reflect.Value, columns []string) ([]any, error) {
 	if len(columns) == 1 {
 		return s.destinationForOneColumn(rv, columns)
 	}
-	if rv.Kind() == reflect.Struct {
+	kind := reflect.Indirect(rv).Kind()
+	if kind == reflect.Struct {
 		return s.destinationForStruct(rv, columns)
 	}
-	return nil, fmt.Errorf("expected struct, but got %s", rv.Kind())
+	return nil, fmt.Errorf("expected struct, but got %s", kind)
 }
 
 func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string) ([]any, error) {
+	rv = reflect.Indirect(rv)
 	if len(s.indexes) == 0 {
 		s.setIndexes(rv, columns)
 	}
