@@ -17,7 +17,6 @@ limitations under the License.
 package juice
 
 import (
-	"database/sql"
 	"reflect"
 	"sync"
 )
@@ -46,7 +45,7 @@ import (
 // The implementation must ensure proper handling of NULL values and return
 // appropriate errors if the scanning process fails.
 type RowScanner interface {
-	ScanRows(rows *sql.Rows) error
+	ScanRows(rows Rows) error
 }
 
 // rowScannerType is the type of the RowScanner interface

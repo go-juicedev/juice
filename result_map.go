@@ -35,7 +35,7 @@ var (
 // ResultMap is an interface that defines a method for mapping database query results to Go data structures.
 type ResultMap interface {
 	// MapTo maps the data from the SQL row to the provided reflect.Value.
-	MapTo(rv reflect.Value, row *sql.Rows) error
+	MapTo(rv reflect.Value, row Rows) error
 }
 
 // SingleRowResultMap is a ResultMap that maps a rowDestination to a non-slice type.
@@ -44,7 +44,7 @@ type SingleRowResultMap struct{}
 // MapTo implements ResultMapper interface.
 // It maps the data from the SQL row to the provided reflect.Value.
 // If more than one row is returned from the query, it returns an ErrTooManyRows error.
-func (SingleRowResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
+func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	// Validate input is a pointer
 	if rv.Kind() != reflect.Ptr {
 		return ErrPointerRequired
@@ -106,7 +106,7 @@ type MultiRowsResultMap struct {
 // It maps the data from the SQL rows to the provided reflect.Value.
 // The reflect.Value must be a pointer to a slice.
 // Each row will be mapped to a new element in the slice.
-func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows *sql.Rows) error {
+func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	if err := m.validateInput(rv); err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (m MultiRowsResultMap) resolveTypes(elementType reflect.Type) (bool, bool) 
 }
 
 // mapRows maps the rows to a slice of reflect.Values
-func (m MultiRowsResultMap) mapRows(rows *sql.Rows, isPointer bool, useScanner bool) ([]reflect.Value, error) {
+func (m MultiRowsResultMap) mapRows(rows Rows, isPointer bool, useScanner bool) ([]reflect.Value, error) {
 	if useScanner {
 		return m.mapWithRowScanner(rows, isPointer)
 	}
@@ -177,7 +177,7 @@ func (m MultiRowsResultMap) mapRows(rows *sql.Rows, isPointer bool, useScanner b
 }
 
 // mapWithRowScanner maps rows using the RowScanner interface
-func (m MultiRowsResultMap) mapWithRowScanner(rows *sql.Rows, isPointer bool) ([]reflect.Value, error) {
+func (m MultiRowsResultMap) mapWithRowScanner(rows Rows, isPointer bool) ([]reflect.Value, error) {
 	// Pre-allocate slice with an initial capacity
 	values := make([]reflect.Value, 0, 8)
 
@@ -204,7 +204,7 @@ func (m MultiRowsResultMap) mapWithRowScanner(rows *sql.Rows, isPointer bool) ([
 }
 
 // mapWithColumnDestination maps rows using column destination
-func (m MultiRowsResultMap) mapWithColumnDestination(rows *sql.Rows, isPointer bool) ([]reflect.Value, error) {
+func (m MultiRowsResultMap) mapWithColumnDestination(rows Rows, isPointer bool) ([]reflect.Value, error) {
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get columns: %w", err)
