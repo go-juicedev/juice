@@ -241,7 +241,7 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 		}
 
 		// Create destination slice for scanning row values
-		dest, err := columnDest.Destination(v.Elem(), columns)
+		dest, err := columnDest.Destination(v, columns)
 		if err != nil {
 			return t, err
 		}
