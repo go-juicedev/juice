@@ -33,11 +33,11 @@ var (
 	timeType = reflect.TypeOf((*time.Time)(nil)).Elem()
 )
 
-// bindWithResultMap maps sql.Rows to a destination value using the specified ResultMap.
+// bindWithResultMap maps Rows to a destination value using the specified ResultMap.
 // It serves as the core binding function for all mapping operations in the package.
 //
 // Parameters:
-//   - rows: The source sql.Rows to map from. Must not be nil.
+//   - rows: The source Rows to map from. Must not be nil.
 //   - v: The destination value to map to. Must be a pointer and not nil.
 //   - resultMap: The mapping strategy to use. If nil, a default mapper will be selected
 //     based on the destination type (SingleRowResultMap for struct, MultiRowsResultMap for slice).
@@ -52,7 +52,7 @@ var (
 //   - The rows parameter is nil (ErrNilRows)
 //   - The destination is not a pointer (ErrPointerRequired)
 //   - Any error occurs during the mapping process
-func bindWithResultMap(rows *sql.Rows, v any, resultMap ResultMap) error {
+func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 	if v == nil {
 		return ErrNilDestination
 	}
@@ -81,11 +81,11 @@ func bindWithResultMap(rows *sql.Rows, v any, resultMap ResultMap) error {
 	return resultMap.MapTo(rv, rows)
 }
 
-// BindWithResultMap bind sql.Rows to given entity with given ResultMap
-// bind cover sql.Rows to given entity
+// BindWithResultMap bind Rows to given entity with given ResultMap
+// bind cover Rows to given entity
 // dest can be a pointer to a struct, a pointer to a slice of struct, or a pointer to a slice of any type.
 // rows won't be closed when the function returns.
-func BindWithResultMap[T any](rows *sql.Rows, resultMap ResultMap) (result T, err error) {
+func BindWithResultMap[T any](rows Rows, resultMap ResultMap) (result T, err error) {
 	// ptr is the pointer of the result, it is the destination of the binding.
 	var ptr any = &result
 
@@ -99,7 +99,7 @@ func BindWithResultMap[T any](rows *sql.Rows, resultMap ResultMap) (result T, er
 	return
 }
 
-// Bind sql.Rows to given entity with default mapper
+// Bind Rows to given entity with default mapper
 // Example usage of the binder package
 //
 // Example_bind shows how to use the Bind function:
@@ -119,11 +119,11 @@ func BindWithResultMap[T any](rows *sql.Rows, resultMap ResultMap) (result T, er
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func Bind[T any](rows *sql.Rows) (result T, err error) {
+func Bind[T any](rows Rows) (result T, err error) {
 	return BindWithResultMap[T](rows, nil)
 }
 
-// List converts sql.Rows to a slice of the given entity type.
+// List converts Rows to a slice of the given entity type.
 // If there are no rows, it will return an empty slice.
 //
 // Differences between List and Bind:
@@ -150,7 +150,7 @@ func Bind[T any](rows *sql.Rows) (result T, err error) {
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func List[T any](rows *sql.Rows) (result []T, err error) {
+func List[T any](rows Rows) (result []T, err error) {
 	var multiRowsResultMap MultiRowsResultMap
 
 	element := reflect.TypeOf((*T)(nil)).Elem()
@@ -168,7 +168,7 @@ func List[T any](rows *sql.Rows) (result []T, err error) {
 // List2 converts database query results into a slice of pointers.
 // Unlike List function, List2 returns a slice of pointers []*T instead of a slice of values []T.
 // This is particularly useful when you need to modify slice elements or handle large structs.
-func List2[T any](rows *sql.Rows) ([]*T, error) {
+func List2[T any](rows Rows) ([]*T, error) {
 	items, err := List[T](rows)
 	if err != nil {
 		return nil, err
@@ -180,12 +180,12 @@ func List2[T any](rows *sql.Rows) ([]*T, error) {
 	return result, nil
 }
 
-// RowsIter provides an iterator interface for sql.Rows.
+// RowsIter provides an iterator interface for Rows.
 // It implements Go's built-in iter.Seq interface for type-safe iteration over database rows.
 // Type parameter T represents the type of values that will be yielded during iteration.
 type RowsIter[T any] struct {
-	rows *sql.Rows // The underlying sql.Rows to iterate over
-	err  error     // Stores any error that occurs during iteration
+	rows Rows  // The underlying Rows to iterate over
+	err  error // Stores any error that occurs during iteration
 }
 
 // Err returns any error that occurred during iteration.
@@ -270,10 +270,10 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 // It handles both pointer and non-pointer types automatically and provides
 // proper memory management for each iteration.
 //
-// Note: This function does not close the sql.Rows. The caller is responsible
+// Note: This function does not close the Rows. The caller is responsible
 // for closing the rows when iteration is complete. This design allows for more
 // flexible resource management, especially when using the iterator in different
 // contexts or when early termination is needed.
-func Iter[T any](rows *sql.Rows) *RowsIter[T] {
+func Iter[T any](rows Rows) *RowsIter[T] {
 	return &RowsIter[T]{rows: rows}
 }
