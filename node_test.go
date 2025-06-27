@@ -2269,7 +2269,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 						// The issue was specific to the setup of ChildNodesProduceEmptyQuery.
 						if ifNode.expr == nil { // If not parsed by specific test logic for this IfNode instance
 							if parseErr := ifNode.Parse("true"); parseErr != nil { // Default to true if not set
-								// t.Logf("Default parsing for IfNode in test %s failed: %v", tt.name, parseErr)
+								t.Logf("Default parsing for IfNode in test %s failed: %v", tt.name, parseErr)
 							}
 						}
 					}
