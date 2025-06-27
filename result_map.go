@@ -299,12 +299,6 @@ type rowDestination struct {
 	dest []any
 }
 
-func (s *rowDestination) resetDest() {
-	for i := range s.dest {
-		s.dest[i] = nil
-	}
-}
-
 // Destination returns the destination for the given reflect value and column.
 func (s *rowDestination) Destination(rv reflect.Value, columns []string) ([]any, error) {
 	dest, err := s.destination(rv, columns)
@@ -346,10 +340,11 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	if len(s.indexes) == 0 {
 		s.setIndexes(rv, columns)
 	}
+	// initialize dest if it's nil or clear it
 	if s.dest == nil {
 		s.dest = make([]any, len(columns))
 	} else {
-		s.resetDest()
+		clear(s.dest)
 	}
 	for i, indexes := range s.indexes {
 		if len(indexes) == 0 {
