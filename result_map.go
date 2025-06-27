@@ -366,11 +366,11 @@ func (s *rowDestination) setIndexes(rv reflect.Value, columns []string) {
 	}
 
 	// walk into the struct
-	s.findFromStruct(tp, columns, columnIndex, nil)
+	s.findFromStruct(tp, columnIndex, nil)
 }
 
 // findFromStruct finds the index from the given struct type.
-func (s *rowDestination) findFromStruct(tp reflect.Type, columns []string, columnIndex map[string]int, walk []int) {
+func (s *rowDestination) findFromStruct(tp reflect.Type, columnIndex map[string]int, walk []int) {
 
 	// finished is a helper function to check if the indexes completed or not.
 	finished := func() bool {
@@ -391,7 +391,7 @@ func (s *rowDestination) findFromStruct(tp reflect.Type, columns []string, colum
 		}
 		// if the field is anonymous and the type is struct, we can walk into it.
 		if deepScan := field.Anonymous && field.Type.Kind() == reflect.Struct && len(tag) == 0; deepScan {
-			s.findFromStruct(field.Type, columns, columnIndex, append(append([]int(nil), walk...), i))
+			s.findFromStruct(field.Type, columnIndex, append(append([]int(nil), walk...), i))
 			continue
 		}
 		// find the index of the column
