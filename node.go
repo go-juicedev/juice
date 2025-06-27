@@ -17,6 +17,7 @@ limitations under the License.
 package juice
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -280,6 +281,8 @@ func NewTextNode(str string) Node {
 	return &TextNode{value: str, placeholder: placeholder, textSubstitution: textSubstitution}
 }
 
+var ErrNilExpression = errors.New("juice: nil expression")
+
 // ConditionNode represents a conditional SQL fragment with its evaluation expression and child nodes.
 // It is used to conditionally include or exclude SQL fragments based on runtime parameters.
 type ConditionNode struct {
@@ -325,6 +328,9 @@ func (c *ConditionNode) Accept(translator driver.Translator, p Parameter) (query
 //   - Floats: returns true if non-zero
 //   - String: returns true if non-empty
 func (c *ConditionNode) Match(p Parameter) (bool, error) {
+	if c.expr == nil {
+		return false, ErrNilExpression
+	}
 	value, err := c.expr.Execute(p)
 	if err != nil {
 		return false, err
