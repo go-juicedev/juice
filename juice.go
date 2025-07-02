@@ -41,13 +41,6 @@ type Engine struct {
 
 	manager *DBManager
 
-	// rw is the read write lock
-	// default use the no-op locker
-	// if you have many multiple processes to access the same database,
-	// you can use the distributed lock, such as redis, etc.
-	// call SetLocker to set your own business lock.
-	rw RWLocker
-
 	// middlewares is the middlewares of the engine
 	// It is used to intercept the execution of the statements
 	// like logging, tracing, etc.
@@ -91,16 +84,7 @@ func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxMana
 
 // GetConfiguration returns the configuration of the engine
 func (e *Engine) GetConfiguration() IConfiguration {
-	e.rw.RLock()
-	defer e.rw.RUnlock()
 	return e.configuration
-}
-
-// SetConfiguration sets the configuration of the engine
-func (e *Engine) SetConfiguration(cfg IConfiguration) {
-	e.rw.Lock()
-	defer e.rw.Unlock()
-	e.configuration = cfg
 }
 
 // Use adds a middleware to the engine
@@ -112,7 +96,6 @@ func (e *Engine) clone() *Engine {
 	return &Engine{
 		configuration: e.configuration,
 		manager:       e.manager,
-		rw:            e.rw,
 		middlewares:   e.middlewares,
 	}
 }
@@ -156,15 +139,6 @@ func (e *Engine) Close() error {
 	return e.manager.Close()
 }
 
-// SetLocker sets the locker of the engine
-// it is not goroutine safe, so it should be called before the engine is used
-func (e *Engine) SetLocker(locker RWLocker) {
-	if locker == nil {
-		panic("locker is nil")
-	}
-	e.rw = locker
-}
-
 // init initializes the engine
 func (e *Engine) init() (err error) {
 	e.manager, err = NewDBManager(e.configuration)
@@ -182,10 +156,9 @@ func (e *Engine) Raw(query string) Runner {
 
 // New is the alias of NewEngine
 func New(configuration IConfiguration) (*Engine, error) {
-	engine := &Engine{}
-	// for performance, use the no-op locker by default
-	engine.SetLocker(&NoOpRWMutex{})
-	engine.SetConfiguration(configuration)
+	engine := &Engine{
+		configuration: configuration,
+	}
 	if err := engine.init(); err != nil {
 		return nil, err
 	}
