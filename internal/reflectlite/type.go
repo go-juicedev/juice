@@ -3,18 +3,7 @@ package reflectlite
 import (
 	"reflect"
 	"strings"
-	"sync"
 )
-
-// cache for field indexes
-var fieldIndexCache = &sync.Map{}
-
-// cacheKey is used as a key for caching field indexes.
-type cacheKey struct {
-	Type     reflect.Type
-	TagName  string
-	TagValue string
-}
 
 // IndirectType returns the underlying type if t is a pointer type.
 // Otherwise, it returns t directly.
@@ -154,26 +143,7 @@ func (t *Type) GetFieldIndexesFromTag(tagName, tagValue string) ([]int, bool) {
 		return nil, false
 	}
 
-	key := cacheKey{Type: indirect.Type, TagName: tagName, TagValue: tagValue}
-	if cached, ok := fieldIndexCache.Load(key); ok {
-		// Type assertion to the specific structure used for caching.
-		if entry, valid := cached.(struct {
-			indexes []int
-			found   bool
-		}); valid {
-			return entry.indexes, entry.found
-		}
-	}
-
-	indexes, found := getFieldIndexesFromTagRecursive(indirect.Type, tagName, tagValue)
-
-	// Cache the actual result (indexes and found status).
-	fieldIndexCache.Store(key, struct {
-		indexes []int
-		found   bool
-	}{indexes: indexes, found: found})
-
-	return indexes, found
+	return getFieldIndexesFromTagRecursive(indirect.Type, tagName, tagValue)
 }
 
 // TypeFrom returns a new Type wrapper for the given reflect.Type.
