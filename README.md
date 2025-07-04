@@ -8,6 +8,8 @@
 [![Release](https://img.shields.io/github/v/release/eatmoreapple/juice.svg?style=flat-square)](https://github.com/go-juicedev/juice/releases)
 ![Go Report Card](https://goreportcard.com/badge/github.com/go-juicedev/juice)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
+[![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/26401-juice.svg)](https://plugins.jetbrains.com/plugin/26401-juice)
+[![JetBrains Marketplace Downloads](https://img.shields.io/jetbrains/plugin/d/26401-juice.svg)](https://plugins.jetbrains.com/plugin/26401-juice)
 
 Juice is a SQL mapper framework for Golang, inspired by MyBatis. It is simple, lightweight, and easy to use and extend.
 This document provides a brief introduction to Juice and its usage.
