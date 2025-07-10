@@ -283,7 +283,7 @@ func (s *sliceBatchStatementHandler) execContext(ctx context.Context, statement 
 	return statementHandler.ExecContext(ctx, statement, param)
 }
 
-func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (result sql.Result, err error) {
+func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
 	length := s.value.Len()
 	if length == 0 {
 		return nil, fmt.Errorf("%w: empty slice", errInvalidParamType)
@@ -310,7 +310,10 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
 
-	var batchErrs error
+	var (
+		batchErrs  error
+		lastResult sql.Result
+	)
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
 		start := i * int(s.batchSize)
@@ -319,7 +322,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 			end = length
 		}
 		batchParam := s.value.Slice(start, end).Interface()
-		result, err = preparedStatementHandler.ExecContext(ctx, statement, batchParam)
+		result, err := preparedStatementHandler.ExecContext(ctx, statement, batchParam)
 		if err != nil {
 			if errors.Is(err, ErrBatchSkip) {
 				batchErrs = errors.Join(batchErrs, err)
@@ -327,12 +330,13 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 			}
 			return nil, err
 		}
+		lastResult = result
 	}
 
 	if batchErrs != nil {
 		return nil, batchErrs
 	}
-	return result, batchErrs
+	return lastResult, nil
 }
 
 type mapBatchStatementHandler struct {
@@ -357,7 +361,7 @@ func (s *mapBatchStatementHandler) execContext(ctx context.Context, statement St
 	return statementHandler.ExecContext(ctx, statement, param)
 }
 
-func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (result sql.Result, err error) {
+func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
 	mapKeys := s.value.MapKeys()
 	if len(mapKeys) != 1 {
 		return nil, fmt.Errorf("%w: expected one key, got %d", errInvalidParamType, len(mapKeys))
@@ -399,10 +403,13 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
 
-	var batchErrs error
-
 	batchParam := reflect.MakeMap(s.value.Type())
 	executionParam := batchParam.Interface()
+
+	var (
+		batchErrs  error
+		lastResult sql.Result
+	)
 
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
@@ -412,7 +419,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 			end = length
 		}
 		batchParam.SetMapIndex(keyValue, value.Slice(start, end))
-		result, err = preparedStatementHandler.ExecContext(ctx, statement, executionParam)
+		result, err := preparedStatementHandler.ExecContext(ctx, statement, executionParam)
 		if err != nil {
 			if errors.Is(err, ErrBatchSkip) {
 				batchErrs = errors.Join(batchErrs, err)
@@ -420,12 +427,13 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 			}
 			return nil, err
 		}
+		lastResult = result
 	}
 
 	if batchErrs != nil {
 		return nil, batchErrs
 	}
-	return result, nil
+	return lastResult, nil
 }
 
 // BatchStatementHandler is a specialized SQL statement executor that provides optimized handling
