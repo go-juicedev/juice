@@ -465,9 +465,6 @@ func (b *BatchStatementHandler) QueryContext(ctx context.Context, statement Stat
 // batch size is specified. If the action is not an Insert or no batch size is
 // specified, it delegates to the execContext method.
 func (b *BatchStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (result sql.Result, err error) {
-	if statement.Action() != Insert {
-		return b.execContext(ctx, statement, param)
-	}
 	batchSizeValue := statement.Attribute("batchSize")
 	if len(batchSizeValue) == 0 {
 		return b.execContext(ctx, statement, param)
