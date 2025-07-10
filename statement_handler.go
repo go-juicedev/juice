@@ -310,10 +310,9 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
 
-	var (
-		batchErrs  error
-		lastResult sql.Result
-	)
+	var batchErrs error
+	aggregatedResult := &batchResult{}
+
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
 		start := i * int(s.batchSize)
@@ -330,13 +329,13 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 			}
 			return nil, err
 		}
-		lastResult = result
+		aggregatedResult.AccumulateResult(result)
 	}
 
 	if batchErrs != nil {
 		return nil, batchErrs
 	}
-	return lastResult, nil
+	return aggregatedResult, nil
 }
 
 type mapBatchStatementHandler struct {
@@ -406,10 +405,8 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	batchParam := reflect.MakeMap(s.value.Type())
 	executionParam := batchParam.Interface()
 
-	var (
-		batchErrs  error
-		lastResult sql.Result
-	)
+	var batchErrs error
+	aggregatedResult := &batchResult{}
 
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
@@ -427,13 +424,13 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 			}
 			return nil, err
 		}
-		lastResult = result
+		aggregatedResult.AccumulateResult(result)
 	}
 
 	if batchErrs != nil {
 		return nil, batchErrs
 	}
-	return lastResult, nil
+	return aggregatedResult, nil
 }
 
 // BatchStatementHandler is a specialized SQL statement executor that provides optimized handling
