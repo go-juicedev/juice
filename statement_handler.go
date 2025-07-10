@@ -246,19 +246,9 @@ var errInvalidParamType = errors.New("invalid param type")
 // instead of immediately returning.
 //
 // Usage:
-//   - Return directly in middleware: return ErrBatchSkip
-//   - Wrap with additional context: return fmt.Errorf("%w: connection timeout", ErrBatchSkip)
-//   - Return from middleware ExecContext:
-//     func (m *MyMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
-//     return func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-//     result, err := next(ctx, query, args...)
-//     if shouldSkipError(err) {
-//     return result, fmt.Errorf("%w: %v", ErrBatchSkip, err)
-//     }
-//     return result, err
-//     }
-//     }
-//   - Check in error handling: if errors.Is(err, ErrBatchSkip) { /* handle gracefully */ }
+//   - Return directly: return ErrBatchSkip
+//   - Wrap with context: return fmt.Errorf("%w: connection timeout", ErrBatchSkip)
+//   - Check with errors.Is(): if errors.Is(err, ErrBatchSkip) { /* handle gracefully */ }
 //
 // The batch handler uses errors.Is() to detect this error and will:
 //  1. Collect the error using errors.Join()
