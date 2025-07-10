@@ -239,6 +239,38 @@ func NewQueryBuildStatementHandler(driver driver.Driver, session session.Session
 
 var errInvalidParamType = errors.New("invalid param type")
 
+// ErrBatchSkip is a sentinel error that indicates batch processing should skip
+// the current error and continue executing subsequent batches. When this error
+// is returned (or wrapped) from middleware or statement execution, the batch
+// handler will collect the error but continue processing remaining batches
+// instead of immediately returning.
+//
+// Usage:
+//   - Return directly in middleware: return ErrBatchSkip
+//   - Wrap with additional context: return fmt.Errorf("%w: connection timeout", ErrBatchSkip)
+//   - Return from middleware ExecContext:
+//     func (m *MyMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
+//     return func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+//     result, err := next(ctx, query, args...)
+//     if shouldSkipError(err) {
+//     return result, fmt.Errorf("%w: %v", ErrBatchSkip, err)
+//     }
+//     return result, err
+//     }
+//     }
+//   - Check in error handling: if errors.Is(err, ErrBatchSkip) { /* handle gracefully */ }
+//
+// The batch handler uses errors.Is() to detect this error and will:
+//  1. Collect the error using errors.Join()
+//  2. Continue to the next batch instead of stopping
+//  3. Return all collected errors at the end of batch processing
+//
+// This allows for resilient batch operations where individual batch failures
+// don't prevent the entire operation from completing. Middleware can use this
+// error to implement custom retry logic, connection failover, or other
+// error recovery strategies during batch processing.
+var ErrBatchSkip = errors.New("skip batch error and continue")
+
 type sliceBatchStatementHandler struct {
 	driver      driver.Driver
 	middlewares MiddlewareGroup
@@ -288,6 +320,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
 
+	var batchErrs error
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
 		start := i * int(s.batchSize)
@@ -298,10 +331,18 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 		batchParam := s.value.Slice(start, end).Interface()
 		result, err = preparedStatementHandler.ExecContext(ctx, statement, batchParam)
 		if err != nil {
+			if errors.Is(err, ErrBatchSkip) {
+				batchErrs = errors.Join(batchErrs, err)
+				continue
+			}
 			return nil, err
 		}
 	}
-	return result, nil
+
+	if batchErrs != nil {
+		return nil, batchErrs
+	}
+	return result, batchErrs
 }
 
 type mapBatchStatementHandler struct {
@@ -368,8 +409,9 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
 
-	batchParam := reflect.MakeMap(s.value.Type())
+	var batchErrs error
 
+	batchParam := reflect.MakeMap(s.value.Type())
 	executionParam := batchParam.Interface()
 
 	// execute the statement in batches.
@@ -382,8 +424,16 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 		batchParam.SetMapIndex(keyValue, value.Slice(start, end))
 		result, err = preparedStatementHandler.ExecContext(ctx, statement, executionParam)
 		if err != nil {
+			if errors.Is(err, ErrBatchSkip) {
+				batchErrs = errors.Join(batchErrs, err)
+				continue
+			}
 			return nil, err
 		}
+	}
+
+	if batchErrs != nil {
+		return nil, batchErrs
 	}
 	return result, nil
 }
