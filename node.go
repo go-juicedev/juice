@@ -113,7 +113,8 @@ func (g NodeGroup) Accept(translator driver.Translator, p Parameter) (query stri
 	defer putStringBuilder(builder)
 
 	// Pre-allocate string builder capacity to minimize buffer reallocations
-	builder.Grow(nodeLength * 4)
+	estimatedCapacity := nodeLength*12 + nodeLength - 1
+	builder.Grow(estimatedCapacity)
 
 	// Pre-allocate args slice to avoid reallocations
 	args = make([]any, 0, nodeLength)
