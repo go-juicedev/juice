@@ -3,6 +3,7 @@ package eval
 import (
 	"go/parser"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -920,6 +921,149 @@ func TestStaticExprOptimizer(t *testing.T) {
 
 			if actual != tt.expected {
 				t.Errorf("got %v, want %v", actual, tt.expected)
+			}
+		})
+	}
+}
+
+// TestVariadicSliceUnpacking tests the slice unpacking syntax for variadic function calls
+func TestVariadicSliceUnpacking(t *testing.T) {
+	// Test variadic function
+	sumFunc := func(nums ...int) (int, error) {
+		sum := 0
+		for _, n := range nums {
+			sum += n
+		}
+		return sum, nil
+	}
+	
+	concatFunc := func(parts ...string) (string, error) {
+		return strings.Join(parts, ""), nil
+	}
+	
+	// Create test data using variables instead of composite literals
+	numbers := []int{1, 2, 3, 4, 5}
+	strings := []string{"hello", "world", "test"}
+	emptyNumbers := []int{}
+	singleNumber := []int{42}
+	partialNumbers := []int{2, 3, 4, 5} // [2,3,4,5]
+	
+	param := H{
+		"numbers":      numbers,
+		"strings":      strings,
+		"emptyNumbers": emptyNumbers,
+		"singleNumber": singleNumber,
+		"partialNumbers": partialNumbers,
+		"sum":          sumFunc,
+		"concat":       concatFunc,
+	}
+	
+	tests := []struct {
+		name     string
+		expr     string
+		expected interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "basic slice unpacking",
+			expr:     "sum(numbers...)",
+			expected: int64(15),
+			wantErr:  false,
+		},
+		{
+			name:     "string slice unpacking",
+			expr:     "concat(strings...)",
+			expected: "helloworldtest",
+			wantErr:  false,
+		},
+		{
+			name:     "mixed arguments with slice unpacking",
+			expr:     "sum(10, partialNumbers...)",
+			expected: int64(14), // 10 + 2+3+4+5 = 14
+			wantErr:  false,
+		},
+		{
+			name:     "empty slice unpacking",
+			expr:     "sum(emptyNumbers...)",
+			expected: int64(0),
+			wantErr:  false,
+		},
+		{
+			name:     "single element slice unpacking",
+			expr:     "sum(singleNumber...)",
+			expected: int64(42),
+			wantErr:  false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := testEval(tt.expr, param)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			
+			var actual interface{}
+			switch result.Kind() {
+			case reflect.Int, reflect.Int64:
+				actual = result.Int()
+			case reflect.String:
+				actual = result.String()
+			default:
+				t.Fatalf("unexpected result type: %v", result.Kind())
+			}
+			
+			if actual != tt.expected {
+				t.Errorf("got %v (%T), want %v (%T)", actual, actual, tt.expected, tt.expected)
+			}
+		})
+	}
+}
+
+// TestVariadicErrors tests error cases for variadic functions
+func TestVariadicErrors(t *testing.T) {
+	sumFunc := func(nums ...int) (int, error) {
+		return 0, nil
+	}
+	
+	// Create test data
+	wrongType := []string{"1", "2", "3"} // wrong type
+	numbers := []int{1, 2, 3}
+	
+	param := H{
+		"wrongType": wrongType,
+		"numbers":   numbers,
+		"sum":       sumFunc,
+	}
+	
+	tests := []struct {
+		name    string
+		expr    string
+		wantErr string
+	}{
+		{
+			name:    "type mismatch in slice unpacking",
+			expr:    "sum(wrongType...)",
+			wantErr: "cannot convert",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := testEval(tt.expr, param)
+			if err == nil {
+				t.Errorf("expected error containing %q, got nil", tt.wantErr)
+				return
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("expected error containing %q, got %v", tt.wantErr, err)
 			}
 		})
 	}
