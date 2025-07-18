@@ -19,6 +19,7 @@ package juice
 import (
 	"context"
 	"database/sql"
+	"io/fs"
 
 	"github.com/go-juicedev/juice/driver"
 )
@@ -167,6 +168,26 @@ func New(configuration IConfiguration) (*Engine, error) {
 	return engine, nil
 }
 
+// NewFromFile creates a new Engine from a configuration file path.
+// It automatically creates the configuration from the file and initializes the engine.
+func NewFromFile(filename string) (*Engine, error) {
+	config, err := NewXMLConfiguration(filename)
+	if err != nil {
+		return nil, err
+	}
+	return New(config)
+}
+
+// NewFromFS creates a new Engine from a filesystem and configuration file path.
+// It automatically creates the configuration and initializes the engine.
+func NewFromFS(fs fs.FS, filepath string) (*Engine, error) {
+	config, err := NewXMLConfigurationWithFS(fs, filepath)
+	if err != nil {
+		return nil, err
+	}
+	return New(config)
+}
+
 // Default creates a new Engine with the default middlewares
 // It adds an interceptor to log the statements
 func Default(configuration IConfiguration) (*Engine, error) {
@@ -177,4 +198,24 @@ func Default(configuration IConfiguration) (*Engine, error) {
 	engine.Use(&TimeoutMiddleware{})
 	engine.Use(&DebugMiddleware{})
 	return engine, nil
+}
+
+// DefaultFromFile creates a new Engine from a configuration file path with default middlewares.
+// It automatically creates the configuration from the file and initializes the engine.
+func DefaultFromFile(filename string) (*Engine, error) {
+	config, err := NewXMLConfiguration(filename)
+	if err != nil {
+		return nil, err
+	}
+	return Default(config)
+}
+
+// DefaultFromFS creates a new Engine from a filesystem and configuration file path with default middlewares.
+// It automatically creates the configuration and initializes the engine.
+func DefaultFromFS(fs fs.FS, filepath string) (*Engine, error) {
+	config, err := NewXMLConfigurationWithFS(fs, filepath)
+	if err != nil {
+		return nil, err
+	}
+	return Default(config)
 }
