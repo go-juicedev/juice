@@ -539,32 +539,11 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
-			switch token.Name.Local {
-			case "values":
-				if stmt.action != Insert {
-					return fmt.Errorf("values node only support insert xmlSQLStatement")
-				}
-				node, err := p.parseValuesNode(decoder)
-				if err != nil {
-					return err
-				}
-				stmt.Nodes = append(stmt.Nodes, node)
-			case "alias":
-				if stmt.action != Select {
-					return fmt.Errorf("alias node only support select xmlSQLStatement")
-				}
-				node, err := p.parseAliasNode(decoder)
-				if err != nil {
-					return err
-				}
-				stmt.Nodes = append(stmt.Nodes, node)
-			default:
-				node, err := p.parseTags(stmt.mapper, decoder, token)
-				if err != nil {
-					return err
-				}
-				stmt.Nodes = append(stmt.Nodes, node)
+			node, err := p.parseTags(stmt.mapper, decoder, token)
+			if err != nil {
+				return err
 			}
+			stmt.Nodes = append(stmt.Nodes, node)
 		case xml.CharData:
 			text := string(token)
 			if char := strings.TrimSpace(text); char != "" {
@@ -1014,133 +993,6 @@ func (p *XMLMappersElementParser) parseOtherwise(mapper *Mapper, decoder *xml.De
 		}
 	}
 	return nil, &nodeUnclosedError{nodeName: "otherwise"}
-}
-
-func (p *XMLMappersElementParser) parseValuesNode(decoder *xml.Decoder) (Node, error) {
-	var node = make(ValuesNode, 0)
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, nil
-		}
-		switch token := token.(type) {
-		case xml.StartElement:
-			switch token.Name.Local {
-			case "value":
-				value, err := p.parseValueNode(token, decoder)
-				if err != nil {
-					return nil, err
-				}
-				node = append(node, value)
-			}
-		case xml.EndElement:
-			if token.Name.Local == "values" {
-				return node, nil
-			}
-		}
-	}
-	return nil, &nodeUnclosedError{nodeName: "values"}
-}
-
-func (p *XMLMappersElementParser) parseValueNode(token xml.StartElement, decoder *xml.Decoder) (*valueItem, error) {
-	var ve valueItem
-	for _, attr := range token.Attr {
-		switch attr.Name.Local {
-		case "value":
-			ve.value = attr.Value
-		case "column":
-			ve.column = attr.Value
-		}
-	}
-	if ve.column == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "value", attrName: "column"}
-	}
-	if ve.value == "" {
-		ve.value = fmt.Sprintf("#{%s}", ve.column)
-	}
-
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-		switch token := token.(type) {
-		case xml.EndElement:
-			if token.Name.Local == "value" {
-				return &ve, nil
-			}
-		}
-	}
-
-	return nil, errors.New("value node requires value attribute to close")
-}
-
-// parseAliasNode parses the alias node
-func (p *XMLMappersElementParser) parseAliasNode(decoder *xml.Decoder) (Node, error) {
-	var node = make(SelectFieldAliasNode, 0)
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, nil
-		}
-		switch token := token.(type) {
-		case xml.StartElement:
-			switch token.Name.Local {
-			case "field":
-				item, err := p.parseFieldAlias(token, decoder)
-				if err != nil {
-					return nil, err
-				}
-				node = append(node, item)
-			}
-		case xml.EndElement:
-			if token.Name.Local == "alias" {
-				return node, nil
-			}
-		}
-	}
-	return nil, &nodeUnclosedError{nodeName: "alias"}
-}
-
-// parseFieldAlias parses the field alias node
-func (p *XMLMappersElementParser) parseFieldAlias(token xml.StartElement, decoder *xml.Decoder) (*selectFieldAliasItem, error) {
-	var item selectFieldAliasItem
-	for _, attr := range token.Attr {
-		switch attr.Name.Local {
-		case "name":
-			item.column = attr.Value
-		case "alias":
-			item.alias = attr.Value
-		}
-	}
-	if item.column == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "field", attrName: "name"}
-	}
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-		switch token := token.(type) {
-		case xml.EndElement:
-			if token.Name.Local == "field" {
-				return &item, nil
-			}
-		}
-	}
-	return nil, &nodeUnclosedError{nodeName: "field"}
 }
 
 // parseCharData reads character data from an XML decoder until it encounters the specified end element.
