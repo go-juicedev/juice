@@ -33,6 +33,13 @@ import (
 	"github.com/go-juicedev/juice/session"
 )
 
+const (
+	// RandomDataSource selects a random datasource from all available sources
+	RandomDataSource = "?"
+	// RandomSecondaryDataSource selects a random datasource excluding the primary source
+	RandomSecondaryDataSource = "?!"
+)
+
 // Middleware is a wrapper of QueryHandler and ExecHandler.
 type Middleware interface {
 	// QueryContext wraps the QueryHandler.
@@ -328,9 +335,9 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) selectRandomSecondaryDataSource(
 // otherwise - use the specified source
 func (t *TxSensitiveDataSourceSwitchMiddleware) chooseDataSourceName(dataSourceName string, engine *Engine) string {
 	switch dataSourceName {
-	case "?": // select a random source
+	case RandomDataSource: // select a random source
 		return t.selectRandomDataSource(engine)
-	case "?!": // ignore the primary source when selecting
+	case RandomSecondaryDataSource: // ignore the primary source when selecting
 		return t.selectRandomSecondaryDataSource(engine)
 	default:
 		return dataSourceName
