@@ -352,6 +352,8 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 	manager := ManagerFromContext(ctx)
 	engine, ok := manager.(*Engine)
 	if !ok {
+		// In current implementation, this case should never happen.
+		// But we keep this check as a safeguard for potential future changes.
 		logger.Printf("[juice]: failed to switch datasource: %s, the manager is not an Engine", dataSourceName)
 		return ctx, nil
 	}
