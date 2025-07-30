@@ -178,6 +178,15 @@ func (s *PreparedStatementHandler) Close() error {
 	return nil
 }
 
+// NewPreparedStatementHandler creates and returns a new PreparedStatementHandler.
+func NewPreparedStatementHandler(middlewares MiddlewareGroup, driver driver.Driver, session session.Session) *PreparedStatementHandler {
+	return &PreparedStatementHandler{
+		middlewares: middlewares,
+		driver:      driver,
+		session:     session,
+	}
+}
+
 // QueryBuildStatementHandler handles the execution of SQL statements and returns
 // the results in a sql.Rows structure. It integrates a driver, middlewares, and
 // a session to manage the execution flow.
@@ -301,11 +310,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	//    - One for remaining rows (< N rows)
 	// 2. These statements can be reused across multiple batches
 	// 3. This significantly reduces the overhead of preparing statements repeatedly
-	preparedStatementHandler := &PreparedStatementHandler{
-		driver:      s.driver,
-		middlewares: s.middlewares,
-		session:     s.session,
-	}
+	preparedStatementHandler := NewPreparedStatementHandler(s.middlewares, s.driver, s.session)
 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
@@ -393,11 +398,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	//    - One for remaining rows (< N rows)
 	// 2. These statements can be reused across multiple batches
 	// 3. This significantly reduces the overhead of preparing statements repeatedly
-	preparedStatementHandler := &PreparedStatementHandler{
-		driver:      s.driver,
-		middlewares: s.middlewares,
-		session:     s.session,
-	}
+	preparedStatementHandler := NewPreparedStatementHandler(s.middlewares, s.driver, s.session)
 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
