@@ -524,11 +524,10 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 	for _, attr := range token.Attr {
 		stmt.setAttribute(attr.Name.Local, attr.Value)
 	}
-	if id := stmt.Attribute("id"); id == "" {
+	if stmt.id = stmt.Attribute("id"); stmt.id == "" {
 		return fmt.Errorf("%s xmlSQLStatement id is required", stmt.Action())
-	} else {
-		stmt.id = id
 	}
+
 	for {
 		token, err := decoder.Token()
 		if err != nil {
@@ -583,13 +582,7 @@ func (p *XMLMappersElementParser) parseTags(mapper *Mapper, decoder *xml.Decoder
 }
 
 func (p *XMLMappersElementParser) parseInclude(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (Node, error) {
-	var ref string
-	for _, attr := range token.Attr {
-		switch attr.Name.Local {
-		case "refid":
-			ref = attr.Value
-		}
-	}
+	ref := getXMLAttr("refid", token.Attr)
 	if ref == "" {
 		return nil, &nodeAttributeRequiredError{nodeName: "include", attrName: "refid"}
 	}
@@ -654,13 +647,8 @@ func (p *XMLMappersElementParser) parseSet(mapper *Mapper, decoder *xml.Decoder)
 
 func (p *XMLMappersElementParser) parseIf(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (Node, error) {
 	ifNode := &IfNode{}
-	var test string
-	for _, attr := range token.Attr {
-		if attr.Name.Local == "test" {
-			test = attr.Value
-			break
-		}
-	}
+
+	test := getXMLAttr("test", token.Attr)
 	if test == "" {
 		return nil, &nodeAttributeRequiredError{nodeName: "if", attrName: "test"}
 	}
@@ -873,19 +861,16 @@ func (p *XMLMappersElementParser) parseChoose(mapper *Mapper, decoder *xml.Decod
 }
 
 func (p *XMLMappersElementParser) parseSQLNode(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (*SQLNode, error) {
-	var sqlNode = &SQLNode{}
-	for _, attr := range token.Attr {
-		if attr.Name.Local == "id" {
-			sqlNode.id = attr.Value
-			break
-		}
-	}
+	sqlNode := &SQLNode{}
+
+	sqlNode.id = getXMLAttr("id", token.Attr)
 	if sqlNode.id == "" {
 		return nil, &nodeAttributeRequiredError{nodeName: "sql", attrName: "id"}
 	}
 	if strings.Contains(sqlNode.id, ".") {
 		return nil, fmt.Errorf("sql id can not contain '.' %s", sqlNode.id)
 	}
+
 	for {
 		token, err := decoder.Token()
 		if err != nil {
@@ -918,13 +903,8 @@ func (p *XMLMappersElementParser) parseSQLNode(mapper *Mapper, decoder *xml.Deco
 
 func (p *XMLMappersElementParser) parseWhen(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (Node, error) {
 	whenNode := &WhenNode{}
-	var test string
-	for _, attr := range token.Attr {
-		if attr.Name.Local == "test" {
-			test = attr.Value
-			break
-		}
-	}
+
+	test := getXMLAttr("test", token.Attr)
 	if test == "" {
 		return nil, &nodeAttributeRequiredError{nodeName: "when", attrName: "test"}
 	}
@@ -1042,4 +1022,14 @@ func parseInt(key string, decoder *xml.Decoder, provider EnvValueProvider) (int,
 		return 0, err
 	}
 	return strconv.Atoi(str)
+}
+
+// getXMLAttr retrieves the value of a specified attribute from an XML attribute slice.
+func getXMLAttr(key string, attrs []xml.Attr) string {
+	for _, attr := range attrs {
+		if attr.Name.Local == key {
+			return attr.Value
+		}
+	}
+	return ""
 }
