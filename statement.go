@@ -117,17 +117,18 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (quer
 	return query, args, nil
 }
 
-// rawSQLStatement represents a raw SQL query with its parameters and action type.
+// RawSQLStatement represents a raw SQL query with its parameters and action type.
 // It implements the Statement interface and provides methods for query execution.
-type rawSQLStatement struct {
+type RawSQLStatement struct {
 	query  string
 	cfg    IConfiguration
 	action action
+	attrs  map[string]string
 }
 
 // hash generates a unique 64-bit FNV-1a hash of the SQL query.
 // This hash is used for both ID and Name generation.
-func (s rawSQLStatement) hash() uint64 {
+func (s RawSQLStatement) hash() uint64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(s.query))
 	return h.Sum64()
@@ -135,39 +136,42 @@ func (s rawSQLStatement) hash() uint64 {
 
 // ID returns a unique identifier for the statement.
 // Format: "id:" + hexadecimal hash of the query
-func (s rawSQLStatement) ID() string {
+func (s RawSQLStatement) ID() string {
 	return "id:" + strconv.FormatUint(s.hash(), 16)
 }
 
 // Name returns a hexadecimal representation of the query hash.
 // Used for identifying the statement in logs and debugging.
-func (s rawSQLStatement) Name() string {
+func (s RawSQLStatement) Name() string {
 	return strconv.FormatUint(s.hash(), 16)
 }
 
-// Attribute returns an empty string as rawSQLStatement does not support attributes.
-func (s rawSQLStatement) Attribute(_ string) string {
-	return ""
+// Attribute returns
+func (s RawSQLStatement) Attribute(key string) string {
+	if s.attrs == nil {
+		return ""
+	}
+	return s.attrs[key]
 }
 
-// Action returns the action of the rawSQLStatement.
-func (s rawSQLStatement) Action() action {
+// Action returns the action of the RawSQLStatement.
+func (s RawSQLStatement) Action() action {
 	return s.action
 }
 
-// Configuration returns the configuration of the rawSQLStatement.
-func (s rawSQLStatement) Configuration() IConfiguration {
+// Configuration returns the configuration of the RawSQLStatement.
+func (s RawSQLStatement) Configuration() IConfiguration {
 	return s.cfg
 }
 
-// ResultMap returns the ResultMap of the rawSQLStatement.
-func (s rawSQLStatement) ResultMap() (ResultMap, error) {
+// ResultMap returns the ResultMap of the RawSQLStatement.
+func (s RawSQLStatement) ResultMap() (ResultMap, error) {
 	// TODO: implement the ResultMap method.
 	return nil, ErrResultMapNotSet
 }
 
-// Build builds the rawSQLStatement with the given parameter.
-func (s rawSQLStatement) Build(translator driver.Translator, param Param) (query string, args []any, err error) {
+// Build builds the RawSQLStatement with the given parameter.
+func (s RawSQLStatement) Build(translator driver.Translator, param Param) (query string, args []any, err error) {
 	value := newGenericParam(param, "")
 	query, args, err = NewTextNode(s.query).Accept(translator, value)
 	if err != nil {
@@ -179,9 +183,18 @@ func (s rawSQLStatement) Build(translator driver.Translator, param Param) (query
 	return query, args, nil
 }
 
+// WithAttribute adds or updates a key-value pair to the statement's attribute map.
+func (s *RawSQLStatement) WithAttribute(key, value string) *RawSQLStatement {
+	if s.attrs == nil {
+		s.attrs = make(map[string]string)
+	}
+	s.attrs[key] = value
+	return s
+}
+
 // NewRawSQLStatement creates a new raw SQL statement with the given query, configuration, and action.
-func NewRawSQLStatement(query string, cfg IConfiguration, action action) Statement {
-	return &rawSQLStatement{
+func NewRawSQLStatement(query string, cfg IConfiguration, action action) *RawSQLStatement {
+	return &RawSQLStatement{
 		query:  query,
 		cfg:    cfg,
 		action: action,
