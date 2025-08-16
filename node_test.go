@@ -1465,7 +1465,7 @@ func TestForeachMapNode_Accept(t *testing.T) {
 	// Map iteration order is not guaranteed. Check for both possibilities.
 	// Original test assumed "a":1 would yield args[0]=1, args[1]="a".
 	// Let's keep that assumption for this specific old test, but acknowledge it.
-	if !(args[0] == 1 && args[1] == "a") && !(args[0] == "a" && args[1] == 1) {
+	if (args[0] != 1 || args[1] != "a") && (args[0] != "a" || args[1] != 1) {
 		// The original test specifically expected args[0] == 1, args[1] == "a".
 		// Let's stick to its stricter expectation to not break it if it relied on some behavior.
 		if args[0] != 1 || args[1] != "a" {
