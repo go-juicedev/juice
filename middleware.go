@@ -199,7 +199,7 @@ func (m *useGeneratedKeysMiddleware) QueryContext(_ Statement, next QueryHandler
 // ExecContext implements Middleware.
 // ExecContext will set the last insert id to the struct.
 func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
-	if !(stmt.Action() == Insert) {
+	if stmt.Action() != Insert {
 		return next
 	}
 	const _useGeneratedKeys = "useGeneratedKeys"
