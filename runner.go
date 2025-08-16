@@ -162,7 +162,7 @@ type GenericRunner[T any] struct {
 // Bind binds the result of a SELECT query to a single value of type T.
 // It executes the query with the given context and parameters, then binds the result.
 func (r *GenericRunner[T]) Bind(ctx context.Context, param Param) (result T, err error) {
-	rows, err := r.Runner.Select(ctx, param)
+	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
 	}
@@ -173,7 +173,7 @@ func (r *GenericRunner[T]) Bind(ctx context.Context, param Param) (result T, err
 // List binds the result of a SELECT query to a list of values of type T.
 // It executes the query with the given context and parameters, then binds the result.
 func (r *GenericRunner[T]) List(ctx context.Context, param Param) (result []T, err error) {
-	rows, err := r.Runner.Select(ctx, param)
+	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
 	}
@@ -184,7 +184,7 @@ func (r *GenericRunner[T]) List(ctx context.Context, param Param) (result []T, e
 // List2 binds the result of a SELECT query to a list of pointers to values of type T.
 // It executes the query with the given context and parameters, then binds the result.
 func (r *GenericRunner[T]) List2(ctx context.Context, param Param) (result []*T, err error) {
-	rows, err := r.Runner.Select(ctx, param)
+	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
 	}

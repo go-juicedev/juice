@@ -57,7 +57,7 @@ func (c OperatorExecutor) Exec(x, y func() (reflect.Value, error)) (reflect.Valu
 	if err != nil {
 		return invalidValue, err
 	}
-	return c.Operator.Operate(left, right)
+	return c.Operate(left, right)
 }
 
 // EQLExprExecutor is the executor for ==

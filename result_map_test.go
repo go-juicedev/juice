@@ -354,7 +354,7 @@ func TestMultiRowsResultMap_MapTo_EmptyResult(t *testing.T) {
 	var result []SimpleStruct
 
 	// Test with resultMapPreserveNilSlice = false (default)
-	os.Unsetenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE")
+	_ = os.Unsetenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE")
 	resultMapPreserveNilSlice = false // ensure internal var is also reset for test
 
 	err := mapper.MapTo(reflect.ValueOf(&result), rows)
@@ -382,7 +382,7 @@ func TestMultiRowsResultMap_MapTo_EmptyResult(t *testing.T) {
 	}
 
 	// Cleanup env for other tests
-	os.Unsetenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE")
+	_ = os.Unsetenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE")
 	resultMapPreserveNilSlice = false
 }
 
