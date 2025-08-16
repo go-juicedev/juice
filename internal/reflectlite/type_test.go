@@ -79,15 +79,15 @@ func TestType_Indirect(t *testing.T) {
 	rtPtr := reflect.TypeOf(p)
 	typeWrapperPtr := TypeFrom(rtPtr)
 	indirectTypeWrapperPtr := typeWrapperPtr.Indirect() // Call first time
-	if indirectTypeWrapperPtr.Type != rtNonPtr {       // Should be myInt, not *myInt
-		t.Errorf("Expected indirect type to be '%s', got '%s'", rtNonPtr.String(), indirectTypeWrapperPtr.Type.String())
+	if indirectTypeWrapperPtr.Type != rtNonPtr {        // Should be myInt, not *myInt
+		t.Errorf("Expected indirect type to be '%s', got '%s'", rtNonPtr.String(), indirectTypeWrapperPtr.String())
 	}
 	if !typeWrapperPtr.indirectTypeSet || typeWrapperPtr.indirectType != rtNonPtr {
 		t.Errorf("Cache not set correctly for pointer type. Set: %v, Cached: %s", typeWrapperPtr.indirectTypeSet, typeWrapperPtr.indirectType)
 	}
 	cachedIndirect := typeWrapperPtr.Indirect() // Call second time
 	if cachedIndirect.Type != rtNonPtr {
-		t.Errorf("Expected cached indirect type to be '%s', got '%s'", rtNonPtr.String(), cachedIndirect.Type.String())
+		t.Errorf("Expected cached indirect type to be '%s', got '%s'", rtNonPtr.String(), cachedIndirect.String())
 	}
 
 	// Test with nil type (should not panic)
@@ -148,11 +148,11 @@ func TestType_GetFieldIndexesFromTag_NestedAndAnonymous(t *testing.T) {
 		DeepField string `tag:"deep"`
 	}
 	type Inner struct {
-		InnerMost // Anonymous
+		InnerMost     // Anonymous
 		MidField  int `tag:"mid"`
 	}
 	type Outer struct {
-		Inner      // Anonymous
+		Inner           // Anonymous
 		OuterField bool `tag:"outer"`
 	}
 	type PtrOuter struct {

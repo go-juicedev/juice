@@ -119,7 +119,7 @@ type IntOperator struct {
 func (o IntOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
 	if !isInt(left) || !isInt(right) {
-		return reflect.Value{}, NewOperationError(left, right, o.OperatorExpr.String())
+		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
 	case Add:
@@ -153,7 +153,7 @@ func (o IntOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	case Ge:
 		return reflect.ValueOf(left.Int() >= right.Int()), nil
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 }
 
@@ -168,7 +168,7 @@ type UintOperator struct {
 func (o UintOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
 	if !isUint(left) || !isUint(right) {
-		return reflect.Value{}, NewOperationError(left, right, o.OperatorExpr.String())
+		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
 	case Add:
@@ -202,7 +202,7 @@ func (o UintOperator) Operate(left, right reflect.Value) (reflect.Value, error) 
 	case Ge:
 		return reflect.ValueOf(left.Uint() >= right.Uint()), nil
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 }
 
@@ -217,7 +217,7 @@ type FloatOperator struct {
 func (o FloatOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
 	if !isFloat(left) || !isFloat(right) {
-		return reflect.Value{}, NewOperationError(left, right, o.OperatorExpr.String())
+		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
 	case Add:
@@ -251,7 +251,7 @@ func (o FloatOperator) Operate(left, right reflect.Value) (reflect.Value, error)
 	case Ge:
 		return reflect.ValueOf(left.Float() >= right.Float()), nil
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 }
 
@@ -266,7 +266,7 @@ type StringOperator struct {
 func (o StringOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
 	if !isString(left) || !isString(right) {
-		return reflect.Value{}, NewOperationError(left, right, o.OperatorExpr.String())
+		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
 	case Add:
@@ -284,7 +284,7 @@ func (o StringOperator) Operate(left, right reflect.Value) (reflect.Value, error
 	case Ge:
 		return reflect.ValueOf(left.String() >= right.String()), nil
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 }
 
@@ -299,7 +299,7 @@ type BoolOperator struct {
 func (o BoolOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
 	if !isBool(left) || !isBool(right) {
-		return reflect.Value{}, NewOperationError(left, right, o.OperatorExpr.String())
+		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
 	case And:
@@ -315,7 +315,7 @@ func (o BoolOperator) Operate(left, right reflect.Value) (reflect.Value, error) 
 	case Ne:
 		return reflect.ValueOf(left.Bool() != right.Bool()), nil
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 }
 
@@ -330,7 +330,7 @@ type ComplexOperator struct {
 func (o ComplexOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
 	if !isComplex(left) || !isComplex(right) {
-		return reflect.Value{}, NewOperationError(left, right, o.OperatorExpr.String())
+		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
 	case Add:
@@ -346,7 +346,7 @@ func (o ComplexOperator) Operate(left, right reflect.Value) (reflect.Value, erro
 	case Ne:
 		return reflect.ValueOf(left.Complex() != right.Complex()), nil
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 }
 
@@ -365,7 +365,7 @@ func (o InvalidTypeOperator) Operate(left, right reflect.Value) (result reflect.
 			if r := recover(); r != nil {
 				// ignore panic
 				left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-				err = NewOperationError(left, right, o.OperatorExpr.String())
+				err = NewOperationError(left, right, o.String())
 			}
 		}()
 		ok := bothNil(left, right)
@@ -379,7 +379,7 @@ func (o InvalidTypeOperator) Operate(left, right reflect.Value) (result reflect.
 		}
 	}
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+	return invalidValue, NewOperationError(left, right, o.String())
 }
 
 // GenericOperator represents a generic operator.
@@ -412,7 +412,7 @@ func (o GenericOperator) Operate(left, right reflect.Value) (reflect.Value, erro
 	case isAllComplex(left, right):
 		operator = ComplexOperator(o)
 	default:
-		return invalidValue, NewOperationError(left, right, o.OperatorExpr.String())
+		return invalidValue, NewOperationError(left, right, o.String())
 	}
 	return operator.Operate(left, right)
 }

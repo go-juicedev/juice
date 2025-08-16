@@ -95,7 +95,7 @@ func (v Value) IsNilable() bool {
 func (v *Value) IndirectType() Type {
 	if !v.typeWrapperSet || v.typeWrapper == nil {
 		// Get the type of the potentially indirected value
-		underlyingT := IndirectType(v.Value.Type())
+		underlyingT := IndirectType(v.Type())
 		tv := TypeFrom(underlyingT)
 		v.typeWrapper = tv
 		v.typeWrapperSet = true
