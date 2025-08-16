@@ -92,7 +92,7 @@ func BindWithResultMap[T any](rows Rows, resultMap ResultMap) (result T, err err
 	if _type := reflect.TypeOf(result); _type.Kind() == reflect.Ptr {
 		// if the result is a pointer, create a new instance of the element.
 		// you'd better not use a nil pointer as the result.
-		result = reflect.New(_type.Elem()).Interface().(T)
+		result, _ = reflect.TypeAssert[T](reflect.New(_type.Elem()))
 		ptr = result
 	}
 	err = bindWithResultMap(rows, ptr, resultMap)
@@ -225,7 +225,10 @@ func (r *RowsIter[T]) Iter() iter.Seq[T] {
 
 	// Override object factory for pointer types to properly allocate memory
 	if isPtr {
-		objectFactory = func() T { return reflect.New(t.Elem()).Interface().(T) }
+		objectFactory = func() T {
+			result, _ := reflect.TypeAssert[T](reflect.New(t.Elem()))
+			return result
+		}
 	}
 
 	// handler encapsulates the row scanning logic and object creation
