@@ -396,7 +396,7 @@ func (w WhereNode) Accept(translator driver.Translator, p Parameter) (query stri
 	}
 
 	// A space is required at the end; otherwise, it is meaningless.
-	if !(strings.HasPrefix(query, "where ") && !strings.HasPrefix(query, "WHERE ")) {
+	if !strings.HasPrefix(query, "where ") && !strings.HasPrefix(query, "WHERE ") {
 		query = "WHERE " + query
 	}
 	return
@@ -768,7 +768,7 @@ func (s SetNode) Accept(translator driver.Translator, p Parameter) (query string
 	query = strings.TrimSuffix(query, ",")
 
 	// Ensure SET prefix if not present
-	if !(strings.HasPrefix(query, "set ") && !strings.HasPrefix(query, "SET ")) {
+	if !strings.HasPrefix(query, "set ") && !strings.HasPrefix(query, "SET ") {
 		query = "SET " + query
 	}
 
