@@ -132,7 +132,7 @@ func TestValue_IndirectType_Caching(t *testing.T) {
 	// First call
 	type1 := valPs.IndirectType()
 	if type1.Type != expectedType {
-		t.Errorf("Expected IndirectType to be '%s', got '%s'", expectedType.String(), type1.Type.String())
+		t.Errorf("Expected IndirectType to be '%s', got '%s'", expectedType.String(), type1.String())
 	}
 	if !valPs.typeWrapperSet || valPs.typeWrapper == nil || valPs.typeWrapper.Type != expectedType {
 		t.Errorf("Type wrapper cache not set correctly. Set: %v, Wrapper: %v", valPs.typeWrapperSet, valPs.typeWrapper)
@@ -157,7 +157,7 @@ func TestValue_IndirectKind_Caching(t *testing.T) {
 		t.Errorf("Expected IndirectKind to be '%s', got '%s'", expectedKind, kind1)
 	}
 	// Check if typeWrapper was set, as IndirectKind uses IndirectType
-	if !valPi.typeWrapperSet || valPi.typeWrapper == nil || valPi.typeWrapper.Type.Kind() != expectedKind {
+	if !valPi.typeWrapperSet || valPi.typeWrapper == nil || valPi.typeWrapper.Kind() != expectedKind {
 		t.Errorf("Type wrapper cache not set correctly by IndirectKind. Set: %v, Wrapper: %v", valPi.typeWrapperSet, valPi.typeWrapper)
 	}
 
