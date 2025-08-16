@@ -26,12 +26,12 @@ import (
 	"github.com/go-juicedev/juice/eval" // Added for Expression and Compile
 )
 
-var mockErr = errors.New("mock error")
+var errMock = errors.New("mock error")
 
 type mockErrorNode struct{}
 
 func (m *mockErrorNode) Accept(_ driver.Translator, _ Parameter) (query string, args []any, err error) {
-	return "", nil, mockErr
+	return "", nil, errMock
 }
 
 func TestForeachNode_Accept(t *testing.T) {
@@ -548,7 +548,7 @@ func TestOtherwiseNode_Accept(t *testing.T) {
 				if err == nil {
 					t.Errorf("Expected an error, but got nil. Query: %s", query)
 				}
-				// Further error message checking can be added if specific errors are expected (e.g., mockErr.Error())
+				// Further error message checking can be added if specific errors are expected (e.g., errMock.Error())
 				return
 			}
 
@@ -623,8 +623,8 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected an error, but got nil")
 		}
-		if err != mockErr { // Assuming mockErr is defined globally for tests
-			t.Errorf("Expected mockErr, but got %v", err)
+		if err != errMock { // Assuming errMock is defined globally for tests
+			t.Errorf("Expected errMock, but got %v", err)
 		}
 	})
 }
@@ -1079,8 +1079,8 @@ func TestNodeGroup_Accept(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected an error, but got nil")
 		}
-		if err != mockErr {
-			t.Errorf("Expected mockErr, but got %v", err)
+		if err != errMock {
+			t.Errorf("Expected errMock, but got %v", err)
 		}
 	})
 
@@ -1494,7 +1494,7 @@ func TestForeachMapNode_Accept(t *testing.T) {
 	// We'll accept either.
 	expectedArgs1 := []any{1, "a", 2, "b"}
 	expectedArgs2 := []any{2, "b", 1, "a"}
-	if !(equalArgs(args, expectedArgs1) || equalArgs(args, expectedArgs2)) {
+	if !equalArgs(args, expectedArgs1) && !equalArgs(args, expectedArgs2) {
 		t.Errorf("Args error. Got %v. Expected %v or %v", args, expectedArgs1, expectedArgs2)
 	}
 }
