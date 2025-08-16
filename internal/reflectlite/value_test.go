@@ -113,7 +113,7 @@ func TestValue_Unwrap_Caching(t *testing.T) {
 	// Test with nil pointer
 	var nilStr *string
 	valNil := ValueOf(nilStr)
-	unwrappedNil := valNil.Unwrap() // Should be a nil reflect.Value of kind Ptr
+	unwrappedNil := valNil.Unwrap()                      // Should be a nil reflect.Value of kind Ptr
 	if unwrappedNil.IsValid() && !unwrappedNil.IsNil() { // IsValid will be true, IsNil should be true
 		t.Errorf("Expected unwrapped nil to be nil, got valid non-nil: %v", unwrappedNil)
 	}
@@ -141,7 +141,7 @@ func TestValue_IndirectType_Caching(t *testing.T) {
 	// Second call (should use cache)
 	type2 := valPs.IndirectType()
 	if type2.Type != expectedType {
-		t.Errorf("Expected cached IndirectType to be '%s', got '%s'", expectedType.String(), type2.Type.String())
+		t.Errorf("Expected cached IndirectType to be '%s', got '%s'", expectedType.String(), type2.String())
 	}
 }
 
@@ -173,8 +173,8 @@ func TestValue_FindFieldFromTag_MoreScenarios(t *testing.T) {
 		DeepField string `tag:"deep"`
 	}
 	type Inner struct {
-		InnerMost      // Anonymous
-		MidField  int  `tag:"mid"`
+		InnerMost            // Anonymous
+		MidField  int        `tag:"mid"`
 		MidPtr    *InnerMost `tag:"mid_ptr"`
 	}
 	type Outer struct {
@@ -227,7 +227,7 @@ func TestValue_FindFieldFromTag_MoreScenarios(t *testing.T) {
 	if !okMidPtr || !midPtrValue.IsValid() {
 		t.Fatalf("Could not find 'mid_ptr'")
 	}
-    deepViaMidPtr, okDeepViaMidPtr := midPtrValue.FindFieldFromTag("tag", "deep")
+	deepViaMidPtr, okDeepViaMidPtr := midPtrValue.FindFieldFromTag("tag", "deep")
 	if !okDeepViaMidPtr || !deepViaMidPtr.IsValid() || deepViaMidPtr.String() != "deep_val" {
 		t.Errorf("DeepField via MidPtr: Expected 'deep_val', ok: %v, val: %v", okDeepViaMidPtr, deepViaMidPtr)
 	}
@@ -288,7 +288,7 @@ func TestIsNilable(t *testing.T) {
 		// For a non-nil interface holding a concrete value, reflect.ValueOf() returns a Value of the concrete kind.
 		// IsNilable checks the Kind. String kind is not nilable. Pointer kind is.
 		{"interface (non-nil, string)", any("hello"), false}, // reflect.ValueOf(any("hello")).Kind() is String. IsNilable(String) is false.
-		{"interface (non-nil, *int)", any(&i), true},       // reflect.ValueOf(any(&i)).Kind() is Ptr. IsNilable(Ptr) is true.
+		{"interface (non-nil, *int)", any(&i), true},         // reflect.ValueOf(any(&i)).Kind() is Ptr. IsNilable(Ptr) is true.
 		{"*interface (nil)", piface, true},
 		{"*interface (non-nil)", &iface, true},
 		{"struct", st, false},
@@ -296,7 +296,7 @@ func TestIsNilable(t *testing.T) {
 		{"*struct (non-nil)", &st, true},
 		{"reflect.Value (invalid)", reflect.Value{}, true},
 		{"reflect.Value (zero string)", reflect.ValueOf(""), false}, // String itself is not nilable
-		{"map (nil from var)", (map[string]int)(nil), true}, // Corrected: pass the nil map directly
+		{"map (nil from var)", (map[string]int)(nil), true},         // Corrected: pass the nil map directly
 	}
 
 	for _, tt := range tests {
@@ -398,13 +398,12 @@ func TestUnwrap_Global(t *testing.T) {
 								tt.name, unwrapped.Interface(), unwrapped.Interface(), tt.expected, tt.expected, unwrapped.Kind())
 						}
 					} else if unwrapped.Kind() == reflect.Func && tt.expected != nil && !unwrapped.IsNil() {
-                        // Special handling if we expected a non-nil func, just check it's non-nil
-                        // tt.expected for func might just be a non-nil marker if direct comparison is hard
-                        if unwrapped.IsNil() {
-                             t.Errorf("Unwrap(%s): Expected a non-nil func, but got nil. Kind: %s", tt.name, unwrapped.Kind())
-                        }
-                    }
-
+						// Special handling if we expected a non-nil func, just check it's non-nil
+						// tt.expected for func might just be a non-nil marker if direct comparison is hard
+						if unwrapped.IsNil() {
+							t.Errorf("Unwrap(%s): Expected a non-nil func, but got nil. Kind: %s", tt.name, unwrapped.Kind())
+						}
+					}
 
 					if unwrapped.Kind() != tt.expKind {
 						t.Errorf("Unwrap(%s): Kind mismatch. Got %s, want %s. Value: '%v'",

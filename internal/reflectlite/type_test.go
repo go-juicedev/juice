@@ -68,7 +68,7 @@ func TestType_Indirect(t *testing.T) {
 	typeWrapperNonPtr := TypeFrom(rtNonPtr)
 	indirectTypeWrapperNonPtr := typeWrapperNonPtr.Indirect() // Call first time
 	if indirectTypeWrapperNonPtr.Type != rtNonPtr {
-		t.Errorf("Expected indirect type to be '%s', got '%s'", rtNonPtr.String(), indirectTypeWrapperNonPtr.Type.String())
+		t.Errorf("Expected indirect type to be '%s', got '%s'", rtNonPtr.String(), indirectTypeWrapperNonPtr.String())
 	}
 	if !typeWrapperNonPtr.indirectTypeSet || typeWrapperNonPtr.indirectType != rtNonPtr {
 		t.Errorf("Cache not set correctly for non-pointer type. Set: %v, Cached: %s", typeWrapperNonPtr.indirectTypeSet, typeWrapperNonPtr.indirectType)
