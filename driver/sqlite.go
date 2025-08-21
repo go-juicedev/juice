@@ -24,8 +24,12 @@ func (d SQLiteDriver) Translator() Translator {
 	return TranslateFunc(func(matched string) string { return "?" })
 }
 
-func (d SQLiteDriver) String() string {
+func (d SQLiteDriver) Name() string {
 	return "sqlite3"
+}
+
+func (d SQLiteDriver) String() string {
+	return d.Name()
 }
 
 func init() {

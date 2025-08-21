@@ -24,8 +24,12 @@ func (d MySQLDriver) Translator() Translator {
 	return TranslateFunc(func(matched string) string { return "?" })
 }
 
-func (d MySQLDriver) String() string {
+func (d MySQLDriver) Name() string {
 	return "mysql"
+}
+
+func (d MySQLDriver) String() string {
+	return d.Name()
 }
 
 func init() {

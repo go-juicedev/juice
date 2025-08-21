@@ -27,6 +27,7 @@ import (
 type Driver interface {
 	// Translator returns a translator of SQL.
 	Translator() Translator
+	Name() string
 }
 
 var (
