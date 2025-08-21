@@ -30,8 +30,12 @@ func (o OracleDriver) Translator() Translator {
 	})
 }
 
-func (o OracleDriver) String() string {
+func (o OracleDriver) Name() string {
 	return "oracle"
+}
+
+func (o OracleDriver) String() string {
+	return o.Name()
 }
 
 func init() {

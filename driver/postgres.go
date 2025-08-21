@@ -30,8 +30,12 @@ func (d PostgresDriver) Translator() Translator {
 	})
 }
 
-func (d PostgresDriver) String() string {
+func (d PostgresDriver) Name() string {
 	return "postgres"
+}
+
+func (d PostgresDriver) String() string {
+	return d.Name()
 }
 
 func init() {
