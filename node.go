@@ -145,7 +145,7 @@ func (g NodeGroup) Accept(translator driver.Translator, p Parameter) (query stri
 		return "", nil, nil
 	}
 
-	return strings.TrimSpace(builder.String()), args, nil
+	return builder.String(), args, nil
 }
 
 // pureTextNode is a node of pure text.
