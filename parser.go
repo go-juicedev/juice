@@ -546,7 +546,9 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 		case xml.CharData:
 			text := string(token)
 			if char := strings.TrimSpace(text); char != "" {
-				node := NewTextNode(char)
+				// keep the original text, including spaces and new lines
+				// only for statement node
+				node := NewTextNode(text)
 				stmt.Nodes = append(stmt.Nodes, node)
 			}
 		case xml.EndElement:
