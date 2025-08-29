@@ -326,6 +326,10 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) selectRandomSecondaryDataSource(
 	registeredEnvIdsReplica = slices.DeleteFunc(registeredEnvIdsReplica, func(envId string) bool {
 		return envId == engine.EnvID()
 	})
+	if len(registeredEnvIdsReplica) == 0 {
+		log.Printf("WARNING: No secondary data sources available after filtering, falling back to current engine: %s", engine.EnvID())
+		return engine.EnvID()
+	}
 	return registeredEnvIdsReplica[rand.Intn(len(registeredEnvIdsReplica))]
 }
 
