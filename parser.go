@@ -25,11 +25,25 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	`os`
 	"strconv"
 	"strings"
+	`time`
 
 	"github.com/go-juicedev/juice/eval"
 )
+
+// mapperURLTimeout returns the HTTP timeout duration for fetching mapper URLs
+// Uses JUICE_MAPPER_URL_TIMEOUT environment variable, defaults to 30s
+// Example values: "10s", "1m", "2h45m"
+var mapperURLTimeout = func() time.Duration {
+	if v := os.Getenv("JUICE_MAPPER_URL_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 30 * time.Second
+}()
 
 // ConfigurationParser is the interface for parsing configuration.
 type ConfigurationParser interface {
@@ -449,7 +463,8 @@ func (p *XMLMappersElementParser) parseMapperByResource(resource string) (*Mappe
 }
 
 func (p *XMLMappersElementParser) parseMapperByHttpResponse(url string) (*Mapper, error) {
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: mapperURLTimeout}
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
