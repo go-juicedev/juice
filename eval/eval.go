@@ -274,17 +274,17 @@ func evalCallExpr(exp *ast.CallExpr, params Parameter) (reflect.Value, error) {
 		return reflect.Value{}, errors.New("unsupported call expression")
 	}
 	fnType := fn.Type()
-	
+
 	// Handle variadic arguments and slice unpacking
 	args, err := prepareCallArgs(exp, fnType, params)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	
+
 	if fnType.NumOut() != 2 {
 		return reflect.Value{}, fmt.Errorf("invalid number of return values: expected 2, got %d", fn.Type().NumOut())
 	}
-	
+
 	// call the function
 	rets := fn.Call(args)
 	// unreachable code.
@@ -315,13 +315,13 @@ func evalCallExpr(exp *ast.CallExpr, params Parameter) (reflect.Value, error) {
 func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) ([]reflect.Value, error) {
 	isVariadic := fnType.IsVariadic()
 	expectedArgs := fnType.NumIn()
-	
+
 	if !isVariadic {
 		// Regular function: exact argument count required
 		if expectedArgs != len(exp.Args) {
 			return nil, fmt.Errorf("invalid number of arguments: expected %d, got %d", expectedArgs, len(exp.Args))
 		}
-		
+
 		args := make([]reflect.Value, 0, len(exp.Args))
 		for i, arg := range exp.Args {
 			value, err := eval(arg, params)
@@ -329,7 +329,7 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 				return nil, err
 			}
 			value = reflectlite.Unwrap(value)
-			
+
 			in := fnType.In(i)
 			if in.Kind() != value.Kind() {
 				if !value.CanConvert(in) {
@@ -341,15 +341,15 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 		}
 		return args, nil
 	}
-	
+
 	// Variadic function handling
 	minArgs := expectedArgs - 1
 	if len(exp.Args) < minArgs {
 		return nil, fmt.Errorf("invalid number of arguments: expected at least %d, got %d", minArgs, len(exp.Args))
 	}
-	
+
 	args := make([]reflect.Value, 0, len(exp.Args))
-	
+
 	// Handle required arguments
 	for i := 0; i < minArgs; i++ {
 		value, err := eval(exp.Args[i], params)
@@ -357,7 +357,7 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 			return nil, err
 		}
 		value = reflectlite.Unwrap(value)
-		
+
 		in := fnType.In(i)
 		if in.Kind() != value.Kind() {
 			if !value.CanConvert(in) {
@@ -367,13 +367,13 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 		}
 		args = append(args, value)
 	}
-	
+
 	// Handle variadic arguments
 	if len(exp.Args) == minArgs {
 		// No variadic arguments provided
 		return args, nil
 	}
-	
+
 	// Check if this is a variadic call with ellipsis
 	if exp.Ellipsis.IsValid() {
 		// Handle slice unpacking: f(a, b...)
@@ -383,7 +383,7 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 		lastArg := exp.Args[len(exp.Args)-1]
 		return handleSliceUnpacking(args, lastArg, fnType, params)
 	}
-	
+
 	// Regular variadic arguments: f(a, b, c)
 	variadicType := fnType.In(expectedArgs - 1).Elem()
 	for i := minArgs; i < len(exp.Args); i++ {
@@ -392,7 +392,7 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 			return nil, err
 		}
 		value = reflectlite.Unwrap(value)
-		
+
 		if value.Type().AssignableTo(variadicType) {
 			args = append(args, value)
 		} else if value.CanConvert(variadicType) {
@@ -401,10 +401,9 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 			return nil, fmt.Errorf("cannot convert %s to %s", value.Type().Name(), variadicType.Name())
 		}
 	}
-	
+
 	return args, nil
 }
-
 
 // handleSliceUnpacking handles slice unpacking for variadic functions
 func handleSliceUnpacking(args []reflect.Value, sliceArg ast.Expr, fnType reflect.Type, params Parameter) ([]reflect.Value, error) {
@@ -414,19 +413,18 @@ func handleSliceUnpacking(args []reflect.Value, sliceArg ast.Expr, fnType reflec
 		return nil, err
 	}
 	sliceValue = reflectlite.Unwrap(sliceValue)
-	
+
 	if sliceValue.Kind() != reflect.Slice && sliceValue.Kind() != reflect.Array {
 		return nil, fmt.Errorf("cannot use non-slice as variadic argument")
 	}
-	
+
 	variadicType := fnType.In(fnType.NumIn() - 1).Elem()
-	
+
 	// Unpack the slice elements
 	for i := 0; i < sliceValue.Len(); i++ {
 		elem := sliceValue.Index(i)
 		elem = reflectlite.Unwrap(elem)
-		
-		
+
 		if elem.Type().AssignableTo(variadicType) {
 			args = append(args, elem)
 		} else if elem.CanConvert(variadicType) {
@@ -436,7 +434,7 @@ func handleSliceUnpacking(args []reflect.Value, sliceArg ast.Expr, fnType reflec
 			return nil, fmt.Errorf("cannot convert slice element type %v to variadic type %v", elem.Type(), variadicType)
 		}
 	}
-	
+
 	return args, nil
 }
 
@@ -549,20 +547,30 @@ func evalBasicLit(exp *ast.BasicLit) (reflect.Value, error) {
 }
 
 // evalFunc evaluates a function call expression.
-func evalFunc(fn reflect.Value, exp *ast.BinaryExpr, params Parameter) reflect.Value {
+func evalFunc(fn reflect.Value, exp *ast.BinaryExpr, params Parameter) (reflect.Value, error) {
 	var args []reflect.Value
 	if exp.Y != nil {
 		arg, err := eval(exp.Y, params)
 		if err != nil {
-			return reflect.Value{}
+			return reflect.Value{}, err
 		}
 		args = append(args, arg)
 	}
 	out := fn.Call(args)
-	if len(out) == 0 {
-		return reflect.Value{}
+	if len(out) != 2 {
+		return reflect.Value{}, fmt.Errorf("evalFunc: invalid number of return values: expected 2, got %d", len(out))
 	}
-	return out[0]
+	if !out[1].IsNil() {
+		// the second return value must be an error
+		// we need to check if the second return value implements the error interface
+		if ok := out[1].Type().Implements(errType); !ok {
+			// this should never happen, but just in case
+			return reflect.Value{}, errors.New("evalFunc: cannot convert return value to error")
+		}
+		// I believe this is always true
+		return reflect.Value{}, out[1].Interface().(error)
+	}
+	return out[0], nil
 }
 
 // evalBinaryExpr evaluates a binary expression.
@@ -572,7 +580,7 @@ func evalBinaryExpr(exp *ast.BinaryExpr, params Parameter) (reflect.Value, error
 		return reflect.Value{}, err
 	}
 	if lhs.Kind() == reflect.Func {
-		return evalFunc(lhs, exp, params), nil
+		return evalFunc(lhs, exp, params)
 	}
 	binaryExprExecutor, err := expr.FromToken(exp.Op)
 	if err != nil {
