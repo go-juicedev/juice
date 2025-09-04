@@ -91,6 +91,9 @@ type DebugMiddleware struct{}
 func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Duration) {
 	// Ensure clean SQL presentation by removing trailing whitespace and formatting for optimal readability
 	// while preserving the original SQL structure and parameter display
+	if !strings.HasPrefix(query, "\n") {
+		query = "\n" + query
+	}
 	query = strings.TrimRight(query, " \r\t\n")
 	logger.Printf("\x1b[33m[%s]\x1b[0m args: \u001B[34m%v\u001B[0m time: \u001B[31m%v\u001B[0m \x1b[32m%s\x1b[0m",
 		id, args, spent, query)
