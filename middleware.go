@@ -27,6 +27,7 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
+	`strings`
 	"time"
 
 	"github.com/go-juicedev/juice/internal/reflectlite"
@@ -87,6 +88,14 @@ var _ Middleware = (*DebugMiddleware)(nil) // compile time check
 // DebugMiddleware is a middleware that prints the sql xmlSQLStatement and the execution time.
 type DebugMiddleware struct{}
 
+func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Duration) {
+	// Ensure clean SQL presentation by removing trailing whitespace and formatting for optimal readability
+	// while preserving the original SQL structure and parameter display
+	query = strings.TrimRight(query, " \r\t\n")
+	logger.Printf("\x1b[33m[%s]\x1b[0m args: \u001B[34m%v\u001B[0m time: \u001B[31m%v\u001B[0m \x1b[32m%s\x1b[0m",
+		id, args, spent, query)
+}
+
 // QueryContext implements Middleware.
 // QueryContext will print the sql xmlSQLStatement and the execution time.
 func (m *DebugMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
@@ -98,7 +107,7 @@ func (m *DebugMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryH
 		start := time.Now()
 		rows, err := next(ctx, query, args...)
 		spent := time.Since(start)
-		logger.Printf("\x1b[33m[%s]\x1b[0m \x1b[32m %s\x1b[0m \x1b[38m %v\x1b[0m \x1b[31m %v\x1b[0m\n", stmt.Name(), query, args, spent)
+		m.logRecord(stmt.Name(), query, args, spent)
 		return rows, err
 	}
 }
@@ -114,7 +123,7 @@ func (m *DebugMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHand
 		start := time.Now()
 		rows, err := next(ctx, query, args...)
 		spent := time.Since(start)
-		logger.Printf("\x1b[33m[%s]\x1b[0m \x1b[32m %s\x1b[0m \x1b[38m %v\x1b[0m \x1b[31m %v\x1b[0m\n", stmt.Name(), query, args, spent)
+		m.logRecord(stmt.Name(), query, args, spent)
 		return rows, err
 	}
 }
