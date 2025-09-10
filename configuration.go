@@ -17,10 +17,13 @@ limitations under the License.
 package juice
 
 import (
+	`errors`
+	`fmt`
 	"io/fs"
 	"os"
 	unixpath "path"
 	"path/filepath"
+	`reflect`
 )
 
 // Configuration is the interface of configuration.
@@ -59,7 +62,37 @@ func (c xmlConfiguration) Settings() SettingProvider {
 
 // GetStatement returns the xmlSQLStatement of the given value.
 func (c xmlConfiguration) GetStatement(v any) (Statement, error) {
-	return c.mappers.GetStatement(v)
+	if v == nil {
+		return nil, errors.New("nil statement query")
+	}
+
+	var id string
+	// if the interface is StatementID, use the StatementID() method to get the id
+	// or if the interface is a string type, use the string as the id
+	// otherwise, use the reflection to get the id
+	switch t := v.(type) {
+	case interface{ StatementID() string }:
+		id = t.StatementID()
+	case string:
+		id = t
+	default:
+		// else try to one the id from the interface
+		rv := reflect.Indirect(reflect.ValueOf(v))
+		switch rv.Kind() {
+		case reflect.Func:
+			id = cachedRuntimeFuncName(rv.Pointer())
+		case reflect.Struct:
+			id = rv.Type().PkgPath() + "." + rv.Type().Name()
+		default:
+			return nil, errors.New("invalid type of xmlSQLStatement id")
+		}
+	}
+
+	if len(id) == 0 {
+		return nil, fmt.Errorf("cannot extract statement ID from value of type %T", v)
+	}
+
+	return c.mappers.GetStatementByID(id)
 }
 
 func NewXMLConfiguration(filename string) (Configuration, error) {
