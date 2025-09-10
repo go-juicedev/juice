@@ -51,7 +51,7 @@ func (m *Mapper) GetSQLNodeByID(id string) (Node, error) {
 	if !isCrossNamespace {
 		node, exists := m.sqlNodes[id]
 		if !exists {
-			return nil, fmt.Errorf("sql node %q not found in mapper %q", id, m.namespace)
+			return nil, fmt.Errorf("SQL node %q not found in mapper %q", id, m.namespace)
 		}
 		return node, nil
 	} else {
