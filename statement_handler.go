@@ -50,13 +50,14 @@ type StatementHandler interface {
 // It maintains the pre-built query and arguments to avoid rebuilding them
 // for each execution, improving performance for frequently used queries.
 type CompiledStatementHandler struct {
-	query        string
-	args         []any
-	middlewares  MiddlewareGroup
-	driver       driver.Driver
-	session      session.Session
-	queryHandler QueryHandler
-	execHandler  ExecHandler
+	query         string
+	args          []any
+	middlewares   MiddlewareGroup
+	driver        driver.Driver
+	session       session.Session
+	configuration Configuration
+	queryHandler  QueryHandler
+	execHandler   ExecHandler
 }
 
 // QueryContext executes a query that returns rows. It enriches the context with
@@ -71,7 +72,7 @@ func (s *CompiledStatementHandler) QueryContext(ctx context.Context, statement S
 	if s.queryHandler == nil {
 		s.queryHandler = SessionQueryHandler
 	}
-	return s.middlewares.QueryContext(statement, s.queryHandler)(ctx, s.query, s.args...)
+	return s.middlewares.QueryContext(statement, s.configuration, s.queryHandler)(ctx, s.query, s.args...)
 }
 
 // ExecContext executes a non-query SQL statement (such as INSERT, UPDATE, DELETE)
@@ -86,17 +87,18 @@ func (s *CompiledStatementHandler) ExecContext(ctx context.Context, statement St
 	if s.execHandler == nil {
 		s.execHandler = SessionExecHandler
 	}
-	return s.middlewares.ExecContext(statement, s.execHandler)(ctx, s.query, s.args...)
+	return s.middlewares.ExecContext(statement, s.configuration, s.execHandler)(ctx, s.query, s.args...)
 }
 
 // PreparedStatementHandler implements the StatementHandler interface.
 // It maintains a single prepared statement that can be reused if the query is the same.
 // When a different query is encountered, it closes the existing statement and creates a new one.
 type PreparedStatementHandler struct {
-	stmts       *sql.Stmt
-	middlewares MiddlewareGroup
-	driver      driver.Driver
-	session     session.Session
+	stmts         *sql.Stmt
+	middlewares   MiddlewareGroup
+	driver        driver.Driver
+	session       session.Session
+	configuration Configuration
 }
 
 // getOrPrepare retrieves an existing prepared statement if the query matches,
@@ -133,12 +135,13 @@ func (s *PreparedStatementHandler) QueryContext(ctx context.Context, statement S
 		return preparedStmt.QueryContext(ctx, args...)
 	}
 	statementHandler := CompiledStatementHandler{
-		query:        query,
-		args:         args,
-		middlewares:  s.middlewares,
-		driver:       s.driver,
-		session:      s.session,
-		queryHandler: queryHandler,
+		query:         query,
+		args:          args,
+		middlewares:   s.middlewares,
+		configuration: s.configuration,
+		driver:        s.driver,
+		session:       s.session,
+		queryHandler:  queryHandler,
 	}
 	return statementHandler.QueryContext(ctx, statement, param)
 }
@@ -159,12 +162,13 @@ func (s *PreparedStatementHandler) ExecContext(ctx context.Context, statement St
 		return preparedStmt.ExecContext(ctx, args...)
 	}
 	statementHandler := CompiledStatementHandler{
-		query:       query,
-		args:        args,
-		middlewares: s.middlewares,
-		driver:      s.driver,
-		session:     s.session,
-		execHandler: execHandler,
+		query:         query,
+		args:          args,
+		middlewares:   s.middlewares,
+		configuration: s.configuration,
+		driver:        s.driver,
+		session:       s.session,
+		execHandler:   execHandler,
 	}
 	return statementHandler.ExecContext(ctx, statement, param)
 }
@@ -179,11 +183,12 @@ func (s *PreparedStatementHandler) Close() error {
 }
 
 // NewPreparedStatementHandler creates and returns a new PreparedStatementHandler.
-func NewPreparedStatementHandler(middlewares MiddlewareGroup, driver driver.Driver, session session.Session) *PreparedStatementHandler {
+func NewPreparedStatementHandler(middlewares MiddlewareGroup, driver driver.Driver, configuration Configuration, session session.Session) *PreparedStatementHandler {
 	return &PreparedStatementHandler{
-		middlewares: middlewares,
-		driver:      driver,
-		session:     session,
+		middlewares:   middlewares,
+		driver:        driver,
+		session:       session,
+		configuration: configuration,
 	}
 }
 
@@ -191,9 +196,10 @@ func NewPreparedStatementHandler(middlewares MiddlewareGroup, driver driver.Driv
 // the results in a sql.Rows structure. It integrates a driver, middlewares, and
 // a session to manage the execution flow.
 type QueryBuildStatementHandler struct {
-	driver      driver.Driver
-	middlewares MiddlewareGroup
-	session     session.Session
+	driver        driver.Driver
+	middlewares   MiddlewareGroup
+	session       session.Session
+	configuration Configuration
 }
 
 // QueryContext executes a query represented by the Statement object within a context,
@@ -206,11 +212,12 @@ func (s *QueryBuildStatementHandler) QueryContext(ctx context.Context, statement
 		return nil, err
 	}
 	statementHandler := CompiledStatementHandler{
-		query:       query,
-		args:        args,
-		middlewares: s.middlewares,
-		driver:      s.driver,
-		session:     s.session,
+		query:         query,
+		args:          args,
+		middlewares:   s.middlewares,
+		driver:        s.driver,
+		session:       s.session,
+		configuration: s.configuration,
 	}
 	return statementHandler.QueryContext(ctx, statement, param)
 }
@@ -224,11 +231,12 @@ func (s *QueryBuildStatementHandler) ExecContext(ctx context.Context, statement 
 		return nil, err
 	}
 	statementHandler := CompiledStatementHandler{
-		query:       query,
-		args:        args,
-		middlewares: s.middlewares,
-		driver:      s.driver,
-		session:     s.session,
+		query:         query,
+		args:          args,
+		middlewares:   s.middlewares,
+		driver:        s.driver,
+		session:       s.session,
+		configuration: s.configuration,
 	}
 	return statementHandler.ExecContext(ctx, statement, param)
 }
@@ -238,11 +246,12 @@ var _ StatementHandler = (*QueryBuildStatementHandler)(nil)
 // NewQueryBuildStatementHandler creates a new instance of QueryBuildStatementHandler
 // with the provided driver, session, and an optional list of middlewares. This
 // function is typically used to initialize the handler before executing SQL statements.
-func NewQueryBuildStatementHandler(driver driver.Driver, session session.Session, middlewares ...Middleware) StatementHandler {
+func NewQueryBuildStatementHandler(driver driver.Driver, session session.Session, configuration Configuration, middlewares ...Middleware) StatementHandler {
 	return &QueryBuildStatementHandler{
-		driver:      driver,
-		middlewares: middlewares,
-		session:     session,
+		driver:        driver,
+		middlewares:   middlewares,
+		session:       session,
+		configuration: configuration,
 	}
 }
 
@@ -271,11 +280,12 @@ var errInvalidParamType = errors.New("invalid param type")
 var ErrBatchSkip = errors.New("skip batch error and continue")
 
 type sliceBatchStatementHandler struct {
-	driver      driver.Driver
-	middlewares MiddlewareGroup
-	session     session.Session
-	value       reflect.Value
-	batchSize   int64
+	driver        driver.Driver
+	middlewares   MiddlewareGroup
+	session       session.Session
+	configuration Configuration
+	value         reflect.Value
+	batchSize     int64
 }
 
 // QueryContext executes a query represented by the Statement object within a context,
@@ -283,12 +293,12 @@ type sliceBatchStatementHandler struct {
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
 func (s *sliceBatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
-	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.middlewares...)
+	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.configuration, s.middlewares...)
 	return statementHandler.QueryContext(ctx, statement, param)
 }
 
 func (s *sliceBatchStatementHandler) execContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
-	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.middlewares...)
+	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.configuration, s.middlewares...)
 	return statementHandler.ExecContext(ctx, statement, param)
 }
 
@@ -310,7 +320,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	//    - One for remaining rows (< N rows)
 	// 2. These statements can be reused across multiple batches
 	// 3. This significantly reduces the overhead of preparing statements repeatedly
-	preparedStatementHandler := NewPreparedStatementHandler(s.middlewares, s.driver, s.session)
+	preparedStatementHandler := NewPreparedStatementHandler(s.middlewares, s.driver, s.configuration, s.session)
 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
@@ -344,11 +354,12 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 }
 
 type mapBatchStatementHandler struct {
-	driver      driver.Driver
-	middlewares MiddlewareGroup
-	session     session.Session
-	value       reflect.Value
-	batchSize   int64
+	driver        driver.Driver
+	middlewares   MiddlewareGroup
+	configuration Configuration
+	session       session.Session
+	value         reflect.Value
+	batchSize     int64
 }
 
 // QueryContext executes a query represented by the Statement object within a context,
@@ -356,12 +367,12 @@ type mapBatchStatementHandler struct {
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
 func (s *mapBatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
-	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.middlewares...)
+	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.configuration, s.middlewares...)
 	return statementHandler.QueryContext(ctx, statement, param)
 }
 
 func (s *mapBatchStatementHandler) execContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
-	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.middlewares...)
+	statementHandler := NewQueryBuildStatementHandler(s.driver, s.session, s.configuration, s.middlewares...)
 	return statementHandler.ExecContext(ctx, statement, param)
 }
 
@@ -398,7 +409,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	//    - One for remaining rows (< N rows)
 	// 2. These statements can be reused across multiple batches
 	// 3. This significantly reduces the overhead of preparing statements repeatedly
-	preparedStatementHandler := NewPreparedStatementHandler(s.middlewares, s.driver, s.session)
+	preparedStatementHandler := NewPreparedStatementHandler(s.middlewares, s.driver, s.configuration, s.session)
 
 	// Ensure all prepared statements are properly closed after use
 	defer func() { _ = preparedStatementHandler.Close() }()
@@ -444,9 +455,10 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 // The handler integrates with the middleware chain and supports both regular and batch
 // execution contexts. For non-batch operations, it behaves similarly to QueryBuildStatementHandler.
 type BatchStatementHandler struct {
-	driver      driver.Driver   // The driver used to execute SQL statements.
-	middlewares MiddlewareGroup // The group of middlewares to apply to the SQL statements.
-	session     session.Session // The session used to manage the database connection.
+	driver        driver.Driver   // The driver used to execute SQL statements.
+	middlewares   MiddlewareGroup // The group of middlewares to apply to the SQL statements.
+	session       session.Session // The session used to manage the database connection.
+	configuration Configuration   // The configuration used for middleware settings and global options.
 }
 
 // QueryContext executes a query represented by the Statement object within a context,
@@ -454,7 +466,7 @@ type BatchStatementHandler struct {
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
 func (b *BatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
-	statementHandler := NewQueryBuildStatementHandler(b.driver, b.session, b.middlewares...)
+	statementHandler := NewQueryBuildStatementHandler(b.driver, b.session, b.configuration, b.middlewares...)
 	return statementHandler.QueryContext(ctx, statement, param)
 }
 
@@ -483,19 +495,21 @@ func (b *BatchStatementHandler) ExecContext(ctx context.Context, statement State
 	switch value.IndirectType().Kind() {
 	case reflect.Slice, reflect.Array:
 		statementHandler = &sliceBatchStatementHandler{
-			driver:      b.driver,
-			middlewares: b.middlewares,
-			session:     b.session,
-			batchSize:   batchSize,
-			value:       value.Unwrap().Value,
+			driver:        b.driver,
+			middlewares:   b.middlewares,
+			configuration: b.configuration,
+			session:       b.session,
+			batchSize:     batchSize,
+			value:         value.Unwrap().Value,
 		}
 	case reflect.Map:
 		statementHandler = &mapBatchStatementHandler{
-			driver:      b.driver,
-			middlewares: b.middlewares,
-			session:     b.session,
-			batchSize:   batchSize,
-			value:       value.Unwrap().Value,
+			driver:        b.driver,
+			middlewares:   b.middlewares,
+			configuration: b.configuration,
+			session:       b.session,
+			batchSize:     batchSize,
+			value:         value.Unwrap().Value,
 		}
 	default:
 		return nil, errSliceOrArrayRequired
@@ -504,15 +518,16 @@ func (b *BatchStatementHandler) ExecContext(ctx context.Context, statement State
 }
 
 func (b *BatchStatementHandler) execContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
-	statementHandler := NewQueryBuildStatementHandler(b.driver, b.session, b.middlewares...)
+	statementHandler := NewQueryBuildStatementHandler(b.driver, b.session, b.configuration, b.middlewares...)
 	return statementHandler.ExecContext(ctx, statement, param)
 }
 
 // NewBatchStatementHandler returns a new instance of StatementHandler with the default behavior.
-func NewBatchStatementHandler(driver driver.Driver, session session.Session, middlewares ...Middleware) StatementHandler {
+func NewBatchStatementHandler(driver driver.Driver, session session.Session, configuration Configuration, middlewares ...Middleware) StatementHandler {
 	return &BatchStatementHandler{
-		driver:      driver,
-		middlewares: middlewares,
-		session:     session,
+		driver:        driver,
+		middlewares:   middlewares,
+		session:       session,
+		configuration: configuration,
 	}
 }

@@ -24,14 +24,21 @@ import (
 	"github.com/go-juicedev/juice/driver"
 )
 
-type Statement interface {
+type StatementMetadata interface {
 	ID() string
 	Name() string
 	Attribute(key string) string
-	Action() action
-	Configuration() Configuration
-	ResultMap() (ResultMap, error)
+}
+
+type StatementBuilder interface {
 	Build(translator driver.Translator, param Param) (query string, args []any, err error)
+}
+
+type Statement interface {
+	Action() action
+	ResultMap() (ResultMap, error)
+	StatementMetadata
+	StatementBuilder
 }
 
 // xmlSQLStatement defines a sql xmlSQLStatement.
@@ -92,11 +99,6 @@ func (s *xmlSQLStatement) Action() action {
 	return s.action
 }
 
-// Configuration returns the configuration of the xmlSQLStatement.
-func (s *xmlSQLStatement) Configuration() Configuration {
-	return s.mapper.mappers.Configuration()
-}
-
 // ResultMap returns the ResultMap of the xmlSQLStatement.
 func (s *xmlSQLStatement) ResultMap() (ResultMap, error) {
 	// TODO: implement the ResultMap method.
@@ -122,7 +124,6 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (quer
 // It implements the Statement interface and provides methods for query execution.
 type RawSQLStatement struct {
 	query  string
-	cfg    Configuration
 	action action
 	attrs  map[string]string
 }
@@ -160,11 +161,6 @@ func (s RawSQLStatement) Action() action {
 	return s.action
 }
 
-// Configuration returns the configuration of the RawSQLStatement.
-func (s RawSQLStatement) Configuration() Configuration {
-	return s.cfg
-}
-
 // ResultMap returns the ResultMap of the RawSQLStatement.
 func (s RawSQLStatement) ResultMap() (ResultMap, error) {
 	// TODO: implement the ResultMap method.
@@ -193,11 +189,10 @@ func (s *RawSQLStatement) WithAttribute(key, value string) *RawSQLStatement {
 	return s
 }
 
-// NewRawSQLStatement creates a new raw SQL statement with the given query, configuration, and action.
-func NewRawSQLStatement(query string, cfg Configuration, action action) *RawSQLStatement {
+// NewRawSQLStatement creates a new raw SQL statement with the given query and action.
+func NewRawSQLStatement(query string, action action) *RawSQLStatement {
 	return &RawSQLStatement{
 		query:  query,
-		cfg:    cfg,
 		action: action,
 	}
 }

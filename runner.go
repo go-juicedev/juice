@@ -100,8 +100,8 @@ type SQLRunner struct {
 // It configures the statement handler with the necessary driver and middleware.
 func (r *SQLRunner) BuildExecutor(action action) Executor[*sql.Rows] {
 	driver := r.engine.Driver()
-	statement := NewRawSQLStatement(r.query, r.engine.GetConfiguration(), action)
-	statementHandler := NewQueryBuildStatementHandler(driver, r.session, r.engine.middlewares...)
+	statement := NewRawSQLStatement(r.query, action)
+	statementHandler := NewQueryBuildStatementHandler(driver, r.session, r.engine.GetConfiguration(), r.engine.middlewares...)
 	return &sqlRowsExecutor{
 		statement:        statement,
 		statementHandler: statementHandler,
