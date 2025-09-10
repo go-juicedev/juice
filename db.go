@@ -207,7 +207,7 @@ func (m *DBManager) Close() error {
 // NewDBManager creates a new DBManager instance using the provided
 // configuration. It initializes all configured database sources and validates their
 // parameters before adding them to the manager.
-func NewDBManager(cfg IConfiguration) (*DBManager, error) {
+func NewDBManager(cfg Configuration) (*DBManager, error) {
 	m := &DBManager{
 		sources: make(map[string]Source),
 	}

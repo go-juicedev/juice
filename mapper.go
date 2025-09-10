@@ -83,7 +83,7 @@ func (e ErrSQLNodeNotFound) Error() string {
 // Mappers is a container for all mappers.
 type Mappers struct {
 	attrs map[string]string
-	cfg   IConfiguration
+	cfg   Configuration
 	// mappers uses Trie instead of map because mapper namespaces often share common prefixes
 	// (e.g., "com.example.user", "com.example.order"). Trie provides both memory efficiency
 	// by storing shared prefixes only once and fast prefix-based lookups
@@ -188,7 +188,7 @@ func (m *Mappers) GetStatement(v any) (Statement, error) {
 }
 
 // Configuration represents a configuration of juice.
-func (m *Mappers) Configuration() IConfiguration {
+func (m *Mappers) Configuration() Configuration {
 	return m.cfg
 }
 

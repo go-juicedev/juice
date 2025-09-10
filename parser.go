@@ -48,19 +48,19 @@ var mapperURLTimeout = func() time.Duration {
 // ConfigurationParser is the interface for parsing configuration.
 type ConfigurationParser interface {
 	// Parse parses the configuration from the reader.
-	Parse(reader io.Reader) (IConfiguration, error)
+	Parse(reader io.Reader) (Configuration, error)
 }
 
 // XMLParser is the parser for XML configuration.
 type XMLParser struct {
-	configuration Configuration
+	configuration xmlConfiguration
 	FS            fs.FS
 	ignoreEnv     bool
 	parsers       []XMLElementParser
 }
 
 // Parse implements ConfigurationParser.
-func (p *XMLParser) Parse(reader io.Reader) (IConfiguration, error) {
+func (p *XMLParser) Parse(reader io.Reader) (Configuration, error) {
 	parserChain := XMLElementParserChain(p.parsers)
 	decoder := xml.NewDecoder(reader)
 	for {

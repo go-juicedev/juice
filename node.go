@@ -531,7 +531,7 @@ var _ Node = (*TrimNode)(nil)
 // Example results:
 //
 //	Input collection: [1, 2, 3]
-//	Configuration: open="(", separator=",", close=")"
+//	xmlConfiguration: open="(", separator=",", close=")"
 //	Output: "(1,2,3)"
 type ForeachNode struct {
 	Collection string
