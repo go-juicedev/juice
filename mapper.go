@@ -21,11 +21,6 @@ func (m *Mapper) Namespace() string {
 	return m.namespace
 }
 
-// Mappers is an getter of mappers.
-func (m *Mapper) Mappers() *Mappers {
-	return m.mappers
-}
-
 func (m *Mapper) setAttribute(key, value string) {
 	if m.attrs == nil {
 		m.attrs = make(map[string]string)
@@ -49,18 +44,14 @@ func (m *Mapper) Attribute(key string) string {
 	return m.attrs[key]
 }
 
-// Prefix returns the prefix of the mapper.
-func (m *Mapper) Prefix() string {
-	return m.Attribute("prefix")
-}
-
 func (m *Mapper) GetSQLNodeByID(id string) (Node, error) {
 	// if the id is not cross-namespace
 	isCrossNamespace := strings.Contains(id, ".")
+
 	if !isCrossNamespace {
 		node, exists := m.sqlNodes[id]
 		if !exists {
-			return nil, &ErrSQLNodeNotFound{NodeName: id, MapperName: m.namespace}
+			return nil, fmt.Errorf("SQL node %q not found in mapper %q", id, m.namespace)
 		}
 		return node, nil
 	} else {
@@ -68,14 +59,9 @@ func (m *Mapper) GetSQLNodeByID(id string) (Node, error) {
 	}
 }
 
-// ErrSQLNodeNotFound indicates that the SQL node was not found in the mapper
-type ErrSQLNodeNotFound struct {
-	NodeName   string
-	MapperName string
-}
-
-func (e ErrSQLNodeNotFound) Error() string {
-	return fmt.Sprintf("SQL node %q not found in mapper %q", e.NodeName, e.MapperName)
+func (m *Mapper) GetStatementByID(id string) (Statement, bool) {
+	statement, exists := m.statements[id]
+	return statement, exists
 }
 
 // Mappers is a container for all mappers.
@@ -110,18 +96,19 @@ func (m *Mappers) GetMapperByNamespace(namespace string) (*Mapper, bool) {
 	return m.mappers.Get(namespace)
 }
 
-func (m *Mappers) getMapperAndKey(id string) (mapper *Mapper, key string, err error) {
+func (m *Mappers) getMapperAndNodeID(id string) (mapper *Mapper, key string, err error) {
 	lastDotIndex := strings.LastIndex(id, ".")
 	if lastDotIndex <= 0 {
-		return nil, "", ErrInvalidStatementID
+		return nil, "", fmt.Errorf("mapper id %q does not have a .id", id)
 	}
 
-	namespace, key := id[:lastDotIndex], id[lastDotIndex+1:]
+	namespace, nodeID := id[:lastDotIndex], id[lastDotIndex+1:]
+
 	mapper, exists := m.GetMapperByNamespace(namespace)
 	if !exists {
-		return nil, "", ErrInvalidStatementID
+		return nil, "", fmt.Errorf("mapper %s not found", namespace)
 	}
-	return mapper, key, nil
+	return mapper, nodeID, nil
 }
 
 // GetStatementByID returns a Statement by id.
@@ -131,29 +118,26 @@ func (m *Mappers) GetStatementByID(id string) (Statement, error) {
 	if m == nil {
 		return nil, fmt.Errorf("%w: statement '%s' not found in mapper configuration", ErrNoStatementFound, id)
 	}
-	mapper, key, err := m.getMapperAndKey(id)
+
+	mapper, statementID, err := m.getMapperAndNodeID(id)
 	if err != nil {
 		return nil, err
 	}
 
-	stmt, exists := mapper.statements[key]
+	statement, exists := mapper.GetStatementByID(statementID)
 	if !exists {
-		return nil, &ErrStatementNotFound{StatementName: key, MapperName: mapper.namespace}
+		return nil, fmt.Errorf("statement '%s' not found in namespace '%s'", statementID, mapper.Namespace())
 	}
-	return stmt, nil
+
+	return statement, nil
 }
 
 func (m *Mappers) GetSQLNodeByID(id string) (Node, error) {
-	mapper, key, err := m.getMapperAndKey(id)
+	mapper, sqlNodeID, err := m.getMapperAndNodeID(id)
 	if err != nil {
 		return nil, err
 	}
-
-	node, exists := mapper.sqlNodes[key]
-	if !exists {
-		return nil, &ErrSQLNodeNotFound{NodeName: key, MapperName: mapper.namespace}
-	}
-	return node, nil
+	return mapper.GetSQLNodeByID(sqlNodeID)
 }
 
 // Configuration represents a configuration of juice.
