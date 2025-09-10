@@ -119,7 +119,7 @@ func (m *Mappers) getMapperAndKey(id string) (mapper *Mapper, key string, err er
 	namespace, key := id[:lastDotIndex], id[lastDotIndex+1:]
 	mapper, exists := m.GetMapperByNamespace(namespace)
 	if !exists {
-		return nil, "", ErrMapperNotFound(namespace)
+		return nil, "", ErrInvalidStatementID
 	}
 	return mapper, key, nil
 }
