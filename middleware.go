@@ -41,40 +41,54 @@ const (
 	RandomSecondaryDataSource = "?!"
 )
 
-// Middleware is a wrapper of QueryHandler and ExecHandler.
+// Middleware defines the interface for intercepting and processing SQL statement executions.
+// It implements the interceptor pattern, allowing cross-cutting concerns like logging, 
+// timeout management, and connection switching to be handled transparently.
 type Middleware interface {
-	// QueryContext wraps the QueryHandler.
-	QueryContext(stmt Statement, next QueryHandler) QueryHandler
-	// ExecContext wraps the ExecHandler.
-	ExecContext(stmt Statement, next ExecHandler) ExecHandler
+	// QueryContext intercepts and processes SELECT query executions.
+	// It receives the statement, configuration, and the next handler in the chain.
+	// Must return a QueryHandler that processes the actual query execution.
+	QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler
+	
+	// ExecContext intercepts and processes INSERT/UPDATE/DELETE executions.
+	// It receives the statement, configuration, and the next handler in the chain.
+	// Must return an ExecHandler that processes the actual execution.
+	ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler
 }
 
 // ensure MiddlewareGroup implements Middleware.
 var _ Middleware = MiddlewareGroup(nil) // compile time check
 
-// MiddlewareGroup is a group of Middleware.
+// MiddlewareGroup is a chain of middleware that implements the Middleware interface.
+// It executes middlewares in sequence, allowing multiple cross-cutting concerns to be
+// applied to SQL statement execution. Each middleware can modify the behavior or add
+// functionality before passing control to the next middleware in the chain.
 type MiddlewareGroup []Middleware
 
 // QueryContext implements Middleware.
-// Call QueryContext will call all the QueryContext of the middlewares in the group.
-func (m MiddlewareGroup) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
+// It processes the middleware chain for SELECT queries, executing each middleware in sequence.
+// The last middleware in the chain will call the actual query handler (next parameter).
+// Returns a QueryHandler that when called will execute the entire middleware chain.
+func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
 	if len(m) == 0 {
 		return next
 	}
 	for _, middleware := range m {
-		next = middleware.QueryContext(stmt, next)
+		next = middleware.QueryContext(stmt, configuration, next)
 	}
 	return next
 }
 
 // ExecContext implements Middleware.
-// Call ExecContext will call all the ExecContext of the middlewares in the group.
-func (m MiddlewareGroup) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
+// It processes the middleware chain for INSERT/UPDATE/DELETE executions, executing each middleware in sequence.
+// The last middleware in the chain will call the actual execution handler (next parameter).
+// Returns an ExecHandler that when called will execute the entire middleware chain.
+func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
 	if len(m) == 0 {
 		return next
 	}
 	for _, middleware := range m {
-		next = middleware.ExecContext(stmt, next)
+		next = middleware.ExecContext(stmt, configuration, next)
 	}
 	return next
 }
@@ -85,7 +99,9 @@ var logger = log.New(log.Writer(), "[juice] ", log.Flags())
 // ensure DebugMiddleware implements Middleware.
 var _ Middleware = (*DebugMiddleware)(nil) // compile time check
 
-// DebugMiddleware is a middleware that prints the sql xmlSQLStatement and the execution time.
+// DebugMiddleware is a middleware that logs SQL statements with their execution time and parameters.
+// It provides debugging capabilities by printing formatted SQL queries along with execution metrics.
+// The middleware can be enabled/disabled through statement attributes or global configuration settings.
 type DebugMiddleware struct{}
 
 func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Duration) {
@@ -100,9 +116,11 @@ func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Dur
 }
 
 // QueryContext implements Middleware.
-// QueryContext will print the sql xmlSQLStatement and the execution time.
-func (m *DebugMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
-	if !m.isDeBugMode(stmt) {
+// QueryContext logs SQL SELECT statements with their execution time and parameters.
+// The logging includes statement ID, SQL query, arguments, and execution duration.
+// Logging is controlled by the debug mode setting from statement attributes or global configuration.
+func (m *DebugMiddleware) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
+	if !m.isDeBugMode(stmt, configuration) {
 		return next
 	}
 	// wrapper QueryHandler
@@ -116,9 +134,11 @@ func (m *DebugMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryH
 }
 
 // ExecContext implements Middleware.
-// ExecContext will print the sql xmlSQLStatement and the execution time.
-func (m *DebugMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
-	if !m.isDeBugMode(stmt) {
+// ExecContext logs SQL INSERT/UPDATE/DELETE statements with their execution time and parameters.
+// The logging includes statement ID, SQL query, arguments, and execution duration.
+// Logging is controlled by the debug mode setting from statement attributes or global configuration.
+func (m *DebugMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
+	if !m.isDeBugMode(stmt, configuration) {
 		return next
 	}
 	// wrapper ExecContext
@@ -131,31 +151,39 @@ func (m *DebugMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHand
 	}
 }
 
-// isDeBugMode returns true if the debug mode is on.
-// Default debug mode is on.
-// You can turn off the debug mode by setting the debug tag to false in the mapper xmlSQLStatement attribute or the configuration.
-func (m *DebugMiddleware) isDeBugMode(stmt Statement) bool {
+// isDeBugMode determines whether debug logging should be enabled for the given statement.
+// It checks debug settings in the following priority order:
+// 1. Statement-level "debug" attribute (if set to "false", disables debug)
+// 2. Global configuration "debug" setting (if set to "false", disables debug)
+// 3. Default is true (debug mode enabled) if neither is explicitly set to false
+//
+// Returns true if debug mode should be enabled, false otherwise.
+func (m *DebugMiddleware) isDeBugMode(stmt Statement, configuration Configuration) bool {
 	// try to one the bug mode from the xmlSQLStatement
 	debug := stmt.Attribute("debug")
 	// if the bug mode is not set, try to one the bug mode from the Context
 	if debug == "false" {
 		return false
 	}
-	if cfg := stmt.Configuration(); cfg.Settings().Get("debug") == "false" {
+	if configuration.Settings().Get("debug") == "false" {
 		return false
 	}
 	return true
 }
 
-// ensure TimeoutMiddleware implements Middleware
+// ensure TimeoutMiddleware implements Middleware.
 var _ Middleware = (*TimeoutMiddleware)(nil) // compile time check
 
-// TimeoutMiddleware is a middleware that sets the timeout for the sql xmlSQLStatement.
+// TimeoutMiddleware is a middleware that manages query execution timeouts.
+// It sets context timeouts for SQL statements to prevent long-running queries from hanging.
+// The timeout value is obtained from the statement's "timeout" attribute and is specified in milliseconds.
 type TimeoutMiddleware struct{}
 
 // QueryContext implements Middleware.
-// QueryContext will set the timeout for the sql xmlSQLStatement.
-func (t TimeoutMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
+// QueryContext sets a context timeout for SELECT queries to prevent long-running operations.
+// The timeout value is obtained from the statement's "timeout" attribute.
+// If timeout is <= 0, no timeout is applied and the original handler is returned unchanged.
+func (t TimeoutMiddleware) QueryContext(stmt Statement, _ Configuration, next QueryHandler) QueryHandler {
 	timeout := t.getTimeout(stmt)
 	if timeout <= 0 {
 		return next
@@ -168,8 +196,10 @@ func (t TimeoutMiddleware) QueryContext(stmt Statement, next QueryHandler) Query
 }
 
 // ExecContext implements Middleware.
-// ExecContext will set the timeout for the sql xmlSQLStatement.
-func (t TimeoutMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
+// ExecContext sets a context timeout for INSERT/UPDATE/DELETE operations to prevent long-running operations.
+// The timeout value is obtained from the statement's "timeout" attribute.
+// If timeout is <= 0, no timeout is applied and the original handler is returned unchanged.
+func (t TimeoutMiddleware) ExecContext(stmt Statement, _ Configuration, next ExecHandler) ExecHandler {
 	timeout := t.getTimeout(stmt)
 	if timeout <= 0 {
 		return next
@@ -181,7 +211,8 @@ func (t TimeoutMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHan
 	}
 }
 
-// getTimeout returns the timeout from the xmlSQLStatement.
+// getTimeout retrieves the timeout value from the statement's "timeout" attribute.
+// Returns the timeout value in milliseconds, or 0 if not set or invalid.
 func (t TimeoutMiddleware) getTimeout(stmt Statement) (timeout int64) {
 	timeoutAttr := stmt.Attribute("timeout")
 	if timeoutAttr == "" {
@@ -199,26 +230,30 @@ var errStructPointerOrSliceArrayRequired = errors.New(
 	"useGeneratedKeys is true, but the param is not a struct pointer or a slice array type",
 )
 
-// useGeneratedKeysMiddleware is a middleware that set the last insert id to the struct.
+// useGeneratedKeysMiddleware is a middleware that handles auto-generated primary keys for INSERT operations.
+// It retrieves the last insert ID from the database result and sets it to the appropriate field in the parameter object.
+// This middleware supports both single record and batch insert operations, with configurable key properties and increment strategies.
 type useGeneratedKeysMiddleware struct{}
 
 // QueryContext implements Middleware.
-// return the result directly and do nothing.
-func (m *useGeneratedKeysMiddleware) QueryContext(_ Statement, next QueryHandler) QueryHandler {
+// QueryContext passes through SELECT queries without modification since generated keys only apply to INSERT operations.
+func (m *useGeneratedKeysMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
 	return next
 }
 
 // ExecContext implements Middleware.
-// ExecContext will set the last insert id to the struct.
-func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, next ExecHandler) ExecHandler {
+// ExecContext processes INSERT operations to handle auto-generated primary keys.
+// It retrieves the last insert ID from the database result and sets it to the appropriate field
+// in the parameter object. Supports both single record and batch operations with configurable
+// key properties and increment strategies.
+func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
 	if stmt.Action() != Insert {
 		return next
 	}
 	const _useGeneratedKeys = "useGeneratedKeys"
 	// If the useGeneratedKeys is not set or false, return the result directly.
-	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" ||
-		// If the useGeneratedKeys is not set, but the global useGeneratedKeys is set and true.
-		stmt.Configuration().Settings().Get(_useGeneratedKeys) == "true"
+	// If the useGeneratedKeys is not set, but the global useGeneratedKeys is set and true.
+	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" || configuration.Settings().Get(_useGeneratedKeys) == "true"
 
 	if !useGeneratedKeys {
 		return next
@@ -314,6 +349,15 @@ func isInTransaction(ctx context.Context) bool {
 // TxSensitiveDataSourceSwitchMiddleware provides dynamic database routing capabilities
 // while maintaining transaction safety. It supports explicit datasource naming,
 // random selection from secondary sources (?), and random selection from all sources (!).
+// 
+// This middleware implements intelligent datasource switching based on:
+// 1. Statement-level 'dataSource' attribute (highest priority)
+// 2. Global 'selectDataSource' configuration setting
+// 3. Transaction context awareness (avoids switching during transactions)
+// 4. Support for random datasource selection strategies
+//
+// The middleware ensures that datasource switching only occurs outside of transactions
+// to maintain data consistency and connection stability.
 type TxSensitiveDataSourceSwitchMiddleware struct{}
 
 // selectRandomDataSource randomly selects a datasource from all available sources.
@@ -385,16 +429,19 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 	return session.WithContext(ctx, db), nil
 }
 
-// QueryContext implements Middleware.QueryContext.
-// It handles datasource switching for query operations while respecting transaction boundaries.
+// QueryContext implements Middleware.
+// QueryContext handles datasource switching for SELECT query operations while respecting transaction boundaries.
 // The datasource is determined by the following priority:
-// 1. Statement level 'dataSource' attribute
-// 2. Global settings 'dataSource' configuration
+// 1. Statement-level 'dataSource' attribute (highest priority)
+// 2. Global 'selectDataSource' configuration setting
 // 3. Default to primary datasource if not configured
-func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, next QueryHandler) QueryHandler {
+//
+// During transactions, datasource switching is disabled to maintain connection stability.
+// Outside transactions, it can switch to alternative datasources based on configuration.
+func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
 	dataSource := stmt.Attribute("dataSource")
 	if dataSource == "" {
-		dataSource = stmt.Configuration().Settings().Get("selectDataSource").String()
+		dataSource = configuration.Settings().Get("selectDataSource").String()
 	}
 	if dataSource == "" {
 		return next
@@ -411,7 +458,10 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, nex
 	}
 }
 
-// ExecContext implements Middleware.ExecContext.
-func (t *TxSensitiveDataSourceSwitchMiddleware) ExecContext(_ Statement, next ExecHandler) ExecHandler {
+// ExecContext implements Middleware.
+// ExecContext does not perform datasource switching for non-query operations.
+// This is because datasource switching is primarily relevant for read operations;
+// write operations should typically use the primary datasource to ensure consistency.
+func (t *TxSensitiveDataSourceSwitchMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
 	return next
 }
