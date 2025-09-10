@@ -49,7 +49,7 @@ type Middleware interface {
 	// It receives the statement, configuration, and the next handler in the chain.
 	// Must return a QueryHandler that processes the actual query execution.
 	QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler
-	
+
 	// ExecContext intercepts and processes INSERT/UPDATE/DELETE executions.
 	// It receives the statement, configuration, and the next handler in the chain.
 	// Must return an ExecHandler that processes the actual execution.
@@ -377,15 +377,19 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) selectRandomSecondaryDataSource(
 	if len(registeredEnvIds) == 1 {
 		return engine.EnvID()
 	}
+
 	var registeredEnvIdsReplica = make([]string, len(registeredEnvIds))
 	copy(registeredEnvIdsReplica, registeredEnvIds)
+
 	registeredEnvIdsReplica = slices.DeleteFunc(registeredEnvIdsReplica, func(envId string) bool {
 		return envId == engine.EnvID()
 	})
+
 	if len(registeredEnvIdsReplica) == 0 {
 		log.Printf("WARNING: No secondary data sources available after filtering, falling back to current engine: %s", engine.EnvID())
 		return engine.EnvID()
 	}
+
 	return registeredEnvIdsReplica[rand.Intn(len(registeredEnvIdsReplica))]
 }
 
@@ -417,16 +421,19 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 		logger.Printf("[juice]: failed to switch datasource: %s, the manager is not an Engine", dataSourceName)
 		return ctx, nil
 	}
+
 	chosenDataSourceName := t.chooseDataSourceName(dataSourceName, engine)
 	if chosenDataSourceName == dataSourceName {
 		return ctx, nil
 	}
-	db, _, err := engine.manager.Get(chosenDataSourceName)
+
+	newEngine, err := engine.With(chosenDataSourceName)
 	if err != nil {
 		return nil, err
 	}
+
 	// inject the new session into the context
-	return session.WithContext(ctx, db), nil
+	return session.WithContext(ctx, newEngine.DB()), nil
 }
 
 // QueryContext implements Middleware.
