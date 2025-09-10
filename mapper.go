@@ -1,9 +1,7 @@
 package juice
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/go-juicedev/juice/internal/container"
@@ -156,35 +154,6 @@ func (m *Mappers) GetSQLNodeByID(id string) (Node, error) {
 		return nil, &ErrSQLNodeNotFound{NodeName: key, MapperName: mapper.namespace}
 	}
 	return node, nil
-}
-
-// GetStatement try to one the xmlSQLStatement from the Mappers with the given interface
-func (m *Mappers) GetStatement(v any) (Statement, error) {
-	var id string
-	// if the interface is StatementIDGetter, use the StatementID() method to get the id
-	// or if the interface is a string type, use the string as the id
-	// otherwise, use the reflection to get the id
-	switch t := v.(type) {
-	case interface{ StatementID() string }:
-		id = t.StatementID()
-	case string:
-		id = t
-	default:
-		// else try to one the id from the interface
-		rv := reflect.Indirect(reflect.ValueOf(v))
-		switch rv.Kind() {
-		case reflect.Func:
-			id = cachedRuntimeFuncName(rv.Pointer())
-		case reflect.Struct:
-			id = rv.Type().PkgPath() + "." + rv.Type().Name()
-		default:
-			return nil, errors.New("invalid type of xmlSQLStatement id")
-		}
-	}
-	if len(id) == 0 {
-		return nil, errors.New("can not get the xmlSQLStatement id from the given interface")
-	}
-	return m.GetStatementByID(id)
 }
 
 // Configuration represents a configuration of juice.
