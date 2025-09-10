@@ -90,11 +90,6 @@ func unreachable() error {
 // ErrInvalidStatementID indicates that the statement ID format is invalid
 var ErrInvalidStatementID = errors.New("invalid statement id: must be in format namespace.statementName")
 
-// ErrMapperNotFound indicates that the mapper was not found
-type ErrMapperNotFound string
-
-func (e ErrMapperNotFound) Error() string { return fmt.Sprintf("mapper %q not found", string(e)) }
-
 // ErrStatementNotFound indicates that the statement was not found in the mapper
 type ErrStatementNotFound struct {
 	StatementName string
