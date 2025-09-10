@@ -28,7 +28,7 @@ type Statement interface {
 	Name() string
 	Attribute(key string) string
 	Action() action
-	Configuration() IConfiguration
+	Configuration() Configuration
 	ResultMap() (ResultMap, error)
 	Build(translator driver.Translator, param Param) (query string, args []any, err error)
 }
@@ -92,7 +92,7 @@ func (s *xmlSQLStatement) Action() action {
 }
 
 // Configuration returns the configuration of the xmlSQLStatement.
-func (s *xmlSQLStatement) Configuration() IConfiguration {
+func (s *xmlSQLStatement) Configuration() Configuration {
 	return s.mapper.mappers.Configuration()
 }
 
@@ -121,7 +121,7 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (quer
 // It implements the Statement interface and provides methods for query execution.
 type RawSQLStatement struct {
 	query  string
-	cfg    IConfiguration
+	cfg    Configuration
 	action action
 	attrs  map[string]string
 }
@@ -160,7 +160,7 @@ func (s RawSQLStatement) Action() action {
 }
 
 // Configuration returns the configuration of the RawSQLStatement.
-func (s RawSQLStatement) Configuration() IConfiguration {
+func (s RawSQLStatement) Configuration() Configuration {
 	return s.cfg
 }
 
@@ -193,7 +193,7 @@ func (s *RawSQLStatement) WithAttribute(key, value string) *RawSQLStatement {
 }
 
 // NewRawSQLStatement creates a new raw SQL statement with the given query, configuration, and action.
-func NewRawSQLStatement(query string, cfg IConfiguration, action action) *RawSQLStatement {
+func NewRawSQLStatement(query string, cfg Configuration, action action) *RawSQLStatement {
 	return &RawSQLStatement{
 		query:  query,
 		cfg:    cfg,

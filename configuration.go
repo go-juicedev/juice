@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 )
 
-// IConfiguration is the interface of configuration.
-type IConfiguration interface {
+// Configuration is the interface of configuration.
+type Configuration interface {
 	// Environments returns the environments.
 	Environments() EnvironmentProvider
 
@@ -35,8 +35,8 @@ type IConfiguration interface {
 	GetStatement(v any) (Statement, error)
 }
 
-// Configuration is a configuration of juice.
-type Configuration struct {
+// xmlConfiguration is a configuration of juice.
+type xmlConfiguration struct {
 	// environments is a map of environments.
 	environments *environments
 
@@ -48,26 +48,26 @@ type Configuration struct {
 }
 
 // Environments returns the environments.
-func (c Configuration) Environments() EnvironmentProvider {
+func (c xmlConfiguration) Environments() EnvironmentProvider {
 	return c.environments
 }
 
 // Settings returns the settings.
-func (c Configuration) Settings() SettingProvider {
+func (c xmlConfiguration) Settings() SettingProvider {
 	return &c.settings
 }
 
 // GetStatement returns the xmlSQLStatement of the given value.
-func (c Configuration) GetStatement(v any) (Statement, error) {
+func (c xmlConfiguration) GetStatement(v any) (Statement, error) {
 	return c.mappers.GetStatement(v)
 }
 
-func NewXMLConfiguration(filename string) (IConfiguration, error) {
+func NewXMLConfiguration(filename string) (Configuration, error) {
 	return newLocalXMLConfiguration(filename, false)
 }
 
 // for go linkname
-func newLocalXMLConfiguration(filename string, ignoreEnv bool) (IConfiguration, error) {
+func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, error) {
 	dirname := filepath.Dir(filename)
 	filename = filepath.Base(filename)
 	root, err := os.OpenRoot(dirname)
@@ -80,15 +80,15 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (IConfiguration, 
 // NewXMLConfigurationWithFS creates a new XML configuration parser with a given fs.FS and filename.
 // The filepath parameter must be a Unix-style path (using forward slashes '/'),
 // as it will be processed by path.Dir and path.Base.
-func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (IConfiguration, error) {
+func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error) {
 	basedir := unixpath.Dir(filepath)
 	filename := unixpath.Base(filepath)
 	return newXMLConfigurationParser(newFsRoot(fs, basedir), filename, false)
 }
 
-// newXMLConfigurationParser creates a new Configuration from an XML file which ignores environment parsing.
+// newXMLConfigurationParser creates a new xmlConfiguration from an XML file which ignores environment parsing.
 // for internal use only.
-func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (IConfiguration, error) {
+func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
 	file, err := fs.Open(filepath)
 	if err != nil {
 		return nil, err

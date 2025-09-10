@@ -28,7 +28,7 @@ import (
 type Engine struct {
 	// configuration is the configuration of the engine
 	// It is used to initialize the engine and to one the mapper statements
-	configuration IConfiguration
+	configuration Configuration
 
 	// driver is the driver used by the engine
 	// It is used to initialize the database connection and translate the mapper statements
@@ -84,7 +84,7 @@ func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxMana
 }
 
 // GetConfiguration returns the configuration of the engine
-func (e *Engine) GetConfiguration() IConfiguration {
+func (e *Engine) GetConfiguration() Configuration {
 	return e.configuration
 }
 
@@ -156,7 +156,7 @@ func (e *Engine) Raw(query string) Runner {
 }
 
 // New is the alias of NewEngine
-func New(configuration IConfiguration) (*Engine, error) {
+func New(configuration Configuration) (*Engine, error) {
 	engine := &Engine{
 		configuration: configuration,
 	}
@@ -190,7 +190,7 @@ func NewFromFS(fs fs.FS, filepath string) (*Engine, error) {
 
 // Default creates a new Engine with the default middlewares
 // It adds an interceptor to log the statements
-func Default(configuration IConfiguration) (*Engine, error) {
+func Default(configuration Configuration) (*Engine, error) {
 	engine, err := New(configuration)
 	if err != nil {
 		return nil, err
