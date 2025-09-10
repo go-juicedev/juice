@@ -84,7 +84,7 @@ func (c xmlConfiguration) GetStatement(v any) (Statement, error) {
 		case reflect.Struct:
 			id = rv.Type().PkgPath() + "." + rv.Type().Name()
 		default:
-			return nil, errors.New("invalid type of xmlSQLStatement id")
+			return nil, fmt.Errorf("cannot extract statement ID from value of type %T: must be string, StatementID() string interface, or struct/func", v)
 		}
 	}
 
