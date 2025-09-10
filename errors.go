@@ -28,10 +28,6 @@ var (
 	// ErrResultMapNotSet is an error that is returned when the result map is not set.
 	ErrResultMapNotSet = errors.New("resultMap not set")
 
-	// ErrSqlNodeNotFound is an error that is returned when the sql node is not found.
-	// nolint:unused
-	ErrSqlNodeNotFound = errors.New("sql node not found")
-
 	// ErrNilDestination is an error that is returned when the destination is nil.
 	ErrNilDestination = errors.New("destination can not be nil")
 
@@ -85,17 +81,4 @@ func (e *nodeAttributeConflictError) Error() string {
 // nolint:deadcode,unused
 func unreachable() error {
 	panic("unreachable")
-}
-
-// ErrInvalidStatementID indicates that the statement ID format is invalid
-var ErrInvalidStatementID = errors.New("invalid statement id: must be in format namespace.statementName")
-
-// ErrStatementNotFound indicates that the statement was not found in the mapper
-type ErrStatementNotFound struct {
-	StatementName string
-	MapperName    string
-}
-
-func (e ErrStatementNotFound) Error() string {
-	return fmt.Sprintf("statement %q not found in mapper %q", e.StatementName, e.MapperName)
 }
