@@ -17,6 +17,7 @@ limitations under the License.
 package juice
 
 import (
+	`fmt`
 	"hash/fnv"
 	"strconv"
 
@@ -112,7 +113,7 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (quer
 		return "", nil, err
 	}
 	if len(query) == 0 {
-		return "", nil, ErrEmptyQuery
+		return "", nil, fmt.Errorf("statement %q generated empty query after parameter processing: %w", s.Name(), ErrEmptyQuery)
 	}
 	return query, args, nil
 }
@@ -178,7 +179,7 @@ func (s RawSQLStatement) Build(translator driver.Translator, param Param) (query
 		return "", nil, err
 	}
 	if len(query) == 0 {
-		return "", nil, ErrEmptyQuery
+		return "", nil, fmt.Errorf("raw SQL statement %q generated empty query after parameter processing: %w", s.Name(), ErrEmptyQuery)
 	}
 	return query, args, nil
 }
