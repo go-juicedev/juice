@@ -101,12 +101,13 @@ type SQLRunner struct {
 func (r *SQLRunner) BuildExecutor(action action) Executor[*sql.Rows] {
 	driver := r.engine.Driver()
 	statement := NewRawSQLStatement(r.query, action)
-	statementHandler := NewQueryBuildStatementHandler(driver, r.session, r.engine.GetConfiguration(), r.engine.middlewares...)
-	return &sqlRowsExecutor{
-		statement:        statement,
-		statementHandler: statementHandler,
-		driver:           driver,
-	}
+	statementHandler := newQueryBuildStatementHandler(
+		driver,
+		r.session,
+		r.engine.GetConfiguration(),
+		r.engine.middlewares...,
+	)
+	return NewSQLRowsExecutor(statement, statementHandler, driver)
 }
 
 // queryContext executes a SELECT query with the given context and parameters.
