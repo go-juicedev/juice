@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/go-juicedev/juice/driver"
+	`github.com/go-juicedev/juice/driver/options`
 )
 
 // Source encapsulates all configuration parameters needed for establishing
@@ -115,13 +116,13 @@ func (m *DBManager) connect(name string, source Source) (db *sql.DB, drv driver.
 			err = fmt.Errorf("failed to get driver: %w", err)
 			return
 		}
-		db, err = driver.Connect(
+		db, err = options.Connect(
 			source.Driver,
 			source.DSN,
-			driver.ConnectWithMaxOpenConnNum(source.MaxOpenConns),
-			driver.ConnectWithMaxIdleConnNum(source.MaxIdleConns),
-			driver.ConnectWithMaxConnLifetime(source.ConnMaxLifetime),
-			driver.ConnectWithMaxIdleConnLifetime(source.ConnMaxIdleTime),
+			options.ConnectWithMaxOpenConnNum(source.MaxOpenConns),
+			options.ConnectWithMaxIdleConnNum(source.MaxIdleConns),
+			options.ConnectWithMaxConnLifetime(source.ConnMaxLifetime),
+			options.ConnectWithMaxIdleConnLifetime(source.ConnMaxIdleTime),
 		)
 		if err != nil {
 			err = fmt.Errorf("failed to create connection: %w", err)
