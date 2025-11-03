@@ -35,7 +35,7 @@ func QueryContext[T any](ctx context.Context, statement, param any) (result T, e
 // (ctx must contain a Manager via ManagerFromContext)
 func ExecContext(ctx context.Context, statement, param any) (result sql.Result, err error) {
 	manager := ManagerFromContext(ctx)
-	executor := NewGenericManager[any](manager).Object(statement)
+	executor := manager.Object(statement)
 	return executor.ExecContext(ctx, param)
 }
 
