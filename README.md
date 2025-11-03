@@ -99,10 +99,7 @@ type Repository interface {
 type RepositoryImpl struct{}
 
 func (r RepositoryImpl) HelloWorld(ctx context.Context) (string, error) {
-	manager := juice.ManagerFromContext(ctx)
-	var iface Repository = r
-	executor := juice.NewGenericManager[string](manager).Object(iface.HelloWorld)
-	return executor.QueryContext(ctx, nil)
+	return juice.QueryContext[string](ctx, Repository(r).HelloWorld, nil)
 }
 
 func main() {
