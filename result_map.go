@@ -255,14 +255,6 @@ var sink any
 // columnTagName is the tag name used to map database columns to struct fields.
 var columnTagName = cmp.Or(os.Getenv("JUICE_COLUMN_TAG_NAME"), "column")
 
-// SetColumnTagName sets the tag name used to map database columns to struct fields.
-func SetColumnTagName(tagName string) {
-	if tagName == "" {
-		panic("column tag name cannot be empty")
-	}
-	columnTagName = tagName
-}
-
 // rowDestination implements ColumnDestination interface for mapping SQL query results
 // to struct fields. It handles the mapping between database columns and struct fields
 // by maintaining the field indexes and managing unmapped columns.
