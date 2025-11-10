@@ -423,7 +423,9 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 	}
 
 	chosenDataSourceName := t.chooseDataSourceName(dataSourceName, engine)
-	if chosenDataSourceName == dataSourceName {
+
+	// no need to switch if the chosen datasource is the same as the current one
+	if chosenDataSourceName == engine.EnvID() {
 		return ctx, nil
 	}
 
