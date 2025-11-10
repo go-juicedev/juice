@@ -112,8 +112,8 @@ type AnonymousStruct struct {
 }
 
 type CustomTagStruct struct {
-	Field1 string `custom:"field_1"`
-	Field2 int    `custom:"field_2"`
+	Field1 string `column:"field_1"`
+	Field2 int    `column:"field_2"`
 }
 
 type ScannerStruct struct {
@@ -152,25 +152,6 @@ func (rs *RowScannerStruct) ScanRows(rows Rows) error {
 }
 
 // --- Test Cases ---
-
-func TestSetColumnTagName(t *testing.T) {
-	originalTagName := columnTagName
-	defer func() {
-		columnTagName = originalTagName // Reset for other tests
-	}()
-
-	SetColumnTagName("db")
-	if columnTagName != "db" {
-		t.Errorf("Expected columnTagName to be 'db', got '%s'", columnTagName)
-	}
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Expected SetColumnTagName to panic with empty string, but it did not")
-		}
-	}()
-	SetColumnTagName("") // Should panic
-}
 
 func TestSingleRowResultMap_MapTo_Success(t *testing.T) {
 	mapper := SingleRowResultMap{}
@@ -506,11 +487,6 @@ func TestRowDestination_Destination_Basic(t *testing.T) {
 	rv := reflect.ValueOf(&s).Elem()
 	columns := []string{"id", "name", "age", "nonexistent_column"}
 
-	// Set default tag name for this test
-	originalTagName := columnTagName
-	SetColumnTagName("column")
-	defer SetColumnTagName(originalTagName)
-
 	scanDest, err := dest.Destination(rv, columns)
 	if err != nil {
 		t.Fatalf("Destination failed: %v", err)
@@ -557,11 +533,6 @@ func TestRowDestination_Destination_AnonymousStruct(t *testing.T) {
 	// SimpleStruct is anonymous: its 'id' and 'name' fields should be promoted.
 	// 'Age' from SimpleStruct does not have a 'column' tag, so it won't be mapped unless explicitly tagged.
 	columns := []string{"id", "name", "rate"}
-
-	// Set default tag name for this test
-	originalTagName := columnTagName
-	SetColumnTagName("column")
-	defer SetColumnTagName(originalTagName)
 
 	scanDest, err := dest.Destination(rv, columns)
 	if err != nil {
@@ -611,10 +582,6 @@ func TestRowDestination_Destination_AnonymousStruct(t *testing.T) {
 }
 
 func TestRowDestination_Destination_CustomTag(t *testing.T) {
-	originalTagName := columnTagName
-	SetColumnTagName("custom")              // Set custom tag
-	defer SetColumnTagName(originalTagName) // Reset
-
 	dest := &rowDestination{}
 	var cts CustomTagStruct
 	rv := reflect.ValueOf(&cts).Elem()
@@ -742,11 +709,6 @@ func TestRowDestination_ErrRawBytesScan(t *testing.T) {
 	var s StructWithRawBytes
 	rv := reflect.ValueOf(&s)
 	columns := []string{"data"}
-
-	// Set default tag name for this test
-	originalTagName := columnTagName
-	SetColumnTagName("column")
-	defer SetColumnTagName(originalTagName)
 
 	_, err := dest.Destination(rv, columns)
 	if !errors.Is(err, errRawBytesScan) {
