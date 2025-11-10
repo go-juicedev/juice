@@ -93,6 +93,42 @@ func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration
 	return next
 }
 
+// NoopQueryContextMiddleware is a middleware that performs no operations on QueryContext.
+// It simply passes through the query execution without any modifications or interceptions.
+// This middleware can be useful as a base implementation or placeholder when you need
+// a middleware that doesn't affect query execution flow.
+type NoopQueryContextMiddleware struct{}
+
+// QueryContext implements Middleware interface.
+// It returns the next handler in the chain without any modifications.
+func (n NoopQueryContextMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
+	return next
+}
+
+// ExecContext implements Middleware interface.
+// It does nothing for ExecContext and returns the next handler as-is.
+func (n NoopQueryContextMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
+	panic("implement me")
+}
+
+// NoopExecContextMiddleware is a middleware that performs no operations on ExecContext.
+// It simply passes through the execution without any modifications or interceptions.
+// This middleware can be useful as a base implementation or placeholder when you need
+// a middleware that doesn't affect execution flow.
+type NoopExecContextMiddleware struct{}
+
+// QueryContext implements Middleware interface.
+// It does nothing for QueryContext and returns the next handler as-is.
+func (n NoopExecContextMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
+	panic("implement me")
+}
+
+// ExecContext implements Middleware interface.
+// It returns the next handler in the chain without any modifications.
+func (n NoopExecContextMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
+	return next
+}
+
 // logger is a default logger for debug.
 var logger = log.New(log.Writer(), "[juice] ", log.Flags())
 
@@ -233,12 +269,8 @@ var errStructPointerOrSliceArrayRequired = errors.New(
 // useGeneratedKeysMiddleware is a middleware that handles auto-generated primary keys for INSERT operations.
 // It retrieves the last insert ID from the database result and sets it to the appropriate field in the parameter object.
 // This middleware supports both single record and batch insert operations, with configurable key properties and increment strategies.
-type useGeneratedKeysMiddleware struct{}
-
-// QueryContext implements Middleware.
-// QueryContext passes through SELECT queries without modification since generated keys only apply to INSERT operations.
-func (m *useGeneratedKeysMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
-	return next
+type useGeneratedKeysMiddleware struct {
+	NoopQueryContextMiddleware
 }
 
 // ExecContext implements Middleware.
@@ -349,7 +381,7 @@ func isInTransaction(ctx context.Context) bool {
 // TxSensitiveDataSourceSwitchMiddleware provides dynamic database routing capabilities
 // while maintaining transaction safety. It supports explicit datasource naming,
 // random selection from secondary sources (?), and random selection from all sources (!).
-// 
+//
 // This middleware implements intelligent datasource switching based on:
 // 1. Statement-level 'dataSource' attribute (highest priority)
 // 2. Global 'selectDataSource' configuration setting
@@ -358,7 +390,9 @@ func isInTransaction(ctx context.Context) bool {
 //
 // The middleware ensures that datasource switching only occurs outside of transactions
 // to maintain data consistency and connection stability.
-type TxSensitiveDataSourceSwitchMiddleware struct{}
+type TxSensitiveDataSourceSwitchMiddleware struct {
+	NoopExecContextMiddleware
+}
 
 // selectRandomDataSource randomly selects a datasource from all available sources.
 // If only one source is available, returns the current source.
@@ -465,12 +499,4 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, con
 		}
 		return next(ctx, query, args...)
 	}
-}
-
-// ExecContext implements Middleware.
-// ExecContext does not perform datasource switching for non-query operations.
-// This is because datasource switching is primarily relevant for read operations;
-// write operations should typically use the primary datasource to ensure consistency.
-func (t *TxSensitiveDataSourceSwitchMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
-	return next
 }
