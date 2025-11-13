@@ -174,6 +174,10 @@ func (p sliceParameter) Get(name string) (reflect.Value, bool) {
 	if err != nil {
 		return reflect.Value{}, false
 	}
+	// validate index bounds to avoid reflect.Index panics
+	if index < 0 || index >= p.Len() {
+		return reflect.Value{}, false
+	}
 	value := p.Index(index)
 	if !value.IsValid() {
 		return reflect.Value{}, false
@@ -280,7 +284,8 @@ func (g *GenericParameter) Get(name string) (value reflect.Value, exists bool) {
 
 // Clear clears the cache of the parameter.
 func (g *GenericParameter) Clear() {
-	clear(g.cache)
+	// avoid calling clear on a nil map; reset to nil to allow GC
+	g.cache = nil
 }
 
 // NewGenericParam creates a generic parameter.
