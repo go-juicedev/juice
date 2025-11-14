@@ -44,8 +44,8 @@ add the following content to config.xml
 <configuration>
     <environments default="prod">
         <environment id="prod">
-            <dataSource>root:qwe123@tcp(localhost:3306)/database</dataSource>
-            <driver>mysql</driver>
+            <dataSource>sqlite.db</dataSource>
+            <driver>sqlite3</driver>
         </environment>
     </environments>
 
@@ -89,7 +89,7 @@ import (
 	"fmt"
 	
 	"github.com/go-juicedev/juice"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Repository interface {
@@ -122,7 +122,7 @@ func main() {
 ```
 
 ```shell
-go run main.go
+CGO_ENABLED=1 go run main.go
 ```
 
 ### API Documentation
