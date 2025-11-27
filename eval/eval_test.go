@@ -641,8 +641,8 @@ func TestExprNilNEQ(t *testing.T) {
 	}
 
 	var a3 = 1
-	_, err = Eval("a != nil", H{"a": a3})
-	if err == nil {
+	_, err = Eval("a == nil", H{"a": &a3})
+	if err != nil {
 		t.Error(err)
 		return
 	} else {
