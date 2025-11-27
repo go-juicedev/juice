@@ -21,11 +21,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-juicedev/juice/eval"
 	"reflect"
 	"strconv"
 
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/internal/ctxreducer"
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/internal/stmt"
