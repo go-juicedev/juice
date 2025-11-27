@@ -33,13 +33,16 @@ func newGenericParam(v any, wrapKey string) Parameter {
 // buildStatementParameters builds the statement parameters.
 func buildStatementParameters(param any, statement Statement, driverName string, _ Configuration) eval.Parameter {
 	// configuration may be used in the future for more complex parameter building.
-	parameterKey := eval.DefaultParamKey()
+	parameterKey := eval.DefaultParamKey() // _parameter by default
 	return eval.ParamGroup{
 		// paramName attribute will be deprecated in the future versions.
 		newGenericParam(param, cmp.Or(statement.Attribute("paramName"), parameterKey)),
+
+		// the flowing is reserved for special parameters.
+		// it may override the user defined parameters.
 		eval.H{
 			"_databaseId": driverName,
-			parameterKey:  param,
+			parameterKey:  param, // parameterKey = "_parameter"
 		},
 	}
 }
