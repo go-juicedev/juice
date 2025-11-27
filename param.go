@@ -40,7 +40,12 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 		// those parameters may be overwritten by user-defined parameters
 		eval.H{
 			"_databaseId": driverName,
-			"_parameter":  param,
 		},
+		// this may cause something unexpected,
+		// but i can not figure out.
+
+		// map[string]User{"foo": {Name: "bar"}} => _parameter.foo.name // bar
+		// User{Name: "bar"} => _parameter.name // bar
+		eval.PrefixPatternParameter("_parameter", param),
 	}
 }

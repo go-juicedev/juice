@@ -312,6 +312,8 @@ func NewGenericParam(v any, wrapKey string) Parameter {
 }
 
 // H is a shortcut for map[string]any
+// H do not support nested parameter access.
+// For example, h := H{"user": H{"name": "Alice"}}; h.Get("user.name") will not work.
 type H map[string]any
 
 func (h H) Get(name string) (value reflect.Value, exists bool) {
@@ -319,5 +321,37 @@ func (h H) Get(name string) (value reflect.Value, exists bool) {
 	if !ok {
 		return reflect.Value{}, false
 	}
-	return reflect.Indirect(reflect.ValueOf(v)), true
+	return reflect.ValueOf(v), true
+}
+
+// prefixPatternParameter is a parameter that supports prefix pattern.
+// For example, if the prefix is "user", then it can get the value of "user.name" from the wrapped parameter.
+type prefixPatternParameter struct {
+	prefix    string
+	param     Param
+	parameter Parameter
+}
+
+func (p prefixPatternParameter) Get(name string) (value reflect.Value, exists bool) {
+	items := strings.Split(name, ".")
+	prefix := items[0]
+
+	if p.prefix != prefix {
+		return reflect.Value{}, false
+	}
+
+	if len(items) == 1 {
+		return reflect.ValueOf(p.param), true
+	}
+
+	if p.parameter == nil {
+		p.parameter = NewGenericParam(p.param, "")
+	}
+	return p.parameter.Get(strings.Join(items[1:], "."))
+}
+
+// PrefixPatternParameter is a parameter that supports prefix pattern.
+// For example, if the prefix is "user", then it can get the value of "user.name" from the wrapped parameter.
+func PrefixPatternParameter(prefix string, param Param) Parameter {
+	return &prefixPatternParameter{prefix: prefix, param: param}
 }
