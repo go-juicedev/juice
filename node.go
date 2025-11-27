@@ -60,7 +60,7 @@ var (
 //
 // Parameters:
 //   - translator: Handles dialect-specific SQL translations
-//   - p: Contains parameter values for SQL generation
+//   - parameter: Contains parameter values for SQL generation
 //
 // Returns:
 //   - query: The generated SQL fragment
@@ -1076,4 +1076,46 @@ func reflectValueToString(v reflect.Value) string {
 	default:
 		return fmt.Sprintf("%v", t)
 	}
+}
+
+// BindNode represents a named bind variable backed by a compiled expression.
+type BindNode struct {
+	Name string
+	expr eval.Expression
+}
+
+// Parse compiles the given expression string and stores the result.
+func (b *BindNode) Parse(expression string) (err error) {
+	b.expr, err = eval.Compile(expression)
+	return err
+}
+
+// Execute evaluates the compiled expression against the provided Parameter
+// and returns the resulting reflect.Value.
+func (b *BindNode) Execute(p Parameter) (reflect.Value, error) {
+	value, err := b.expr.Execute(p)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	return value, nil
+}
+
+// ErrBindVariableNotFound is returned when a bind variable lookup fails.
+var ErrBindVariableNotFound = errors.New("juice: bind variable not found")
+
+// bindScope provides lookup and execution of bind variables within a scope.
+type bindScope struct {
+	nodes     []*BindNode
+	parameter Parameter
+}
+
+// Get finds a BindNode by name and executes it using the scope's parameter.
+// Returns ErrBindVariableNotFound wrapped if no bind with the given name exists.
+func (b bindScope) Get(name string) (reflect.Value, error) {
+	for _, bind := range b.nodes {
+		if bind.Name == name {
+			return bind.Execute(b.parameter)
+		}
+	}
+	return reflect.Value{}, fmt.Errorf("%w: %s", ErrBindVariableNotFound, name)
 }
