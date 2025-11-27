@@ -47,7 +47,7 @@ func TestForeachNode_Accept(t *testing.T) {
 		{"id": 1, "name": "a"},
 		{"id": 2, "name": "b"},
 	}}
-	query, args, err := node.Accept(drv.Translator(), params.AsParam())
+	query, args, err := node.Accept(drv.Translator(), params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -1355,7 +1355,7 @@ func TestForeachNode_Accept_Comprehensive(t *testing.T) {
 				Separator:  tt.separator,
 			}
 
-			query, args, err := node.Accept(translator, params.AsParam())
+			query, args, err := node.Accept(translator, params)
 
 			if tt.expectError {
 				if err == nil {
@@ -1449,7 +1449,7 @@ func TestForeachMapNode_Accept(t *testing.T) {
 		Separator:  ", ",
 	}
 	params := H{"map": map[string]any{"a": 1}}
-	query, args, err := node.Accept(drv.Translator(), params.AsParam())
+	query, args, err := node.Accept(drv.Translator(), params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -1474,7 +1474,7 @@ func TestForeachMapNode_Accept(t *testing.T) {
 	}
 
 	params = H{"map": map[string]any{"a": 1, "b": 2}}
-	query, args, err = node.Accept(drv.Translator(), params.AsParam())
+	query, args, err = node.Accept(drv.Translator(), params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -1853,7 +1853,7 @@ func TestIfNode_Accept(t *testing.T) {
 
 	// Test Accept when condition is true
 	paramsTrue := H{"id": 1}
-	query, args, err := node.Accept(drv.Translator(), paramsTrue.AsParam())
+	query, args, err := node.Accept(drv.Translator(), paramsTrue)
 	if err != nil {
 		t.Errorf("Accept() error = %v for true condition", err)
 	}
@@ -1866,7 +1866,7 @@ func TestIfNode_Accept(t *testing.T) {
 
 	// Test Accept when condition is false
 	paramsFalse := H{"id": 0}
-	query, args, err = node.Accept(drv.Translator(), paramsFalse.AsParam())
+	query, args, err = node.Accept(drv.Translator(), paramsFalse)
 	if err != nil {
 		t.Errorf("Accept() error = %v for false condition", err)
 	}
@@ -2140,7 +2140,7 @@ func TestTrimNode_Accept(t *testing.T) {
 		SuffixOverrides: []string{","},
 	}
 	params := H{"id": 1, "name": "a"}
-	query, args, err := node.Accept(drv.Translator(), params.AsParam())
+	query, args, err := node.Accept(drv.Translator(), params)
 	if err != nil {
 		t.Error(err)
 		return

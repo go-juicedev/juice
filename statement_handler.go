@@ -121,6 +121,12 @@ func newCompiledStatementHandler(
 	return handler
 }
 
+// buildStatementQuery builds the SQL query and its arguments from the given statement and parameters.
+func buildStatementQuery(statement Statement, cfg Configuration, driver driver.Driver, param Param) (string, []any, error) {
+	parameter := buildStatementParameters(param, statement, driver.Name(), cfg)
+	return statement.Build(driver.Translator(), parameter)
+}
+
 // preparedStatementHandler implements the StatementHandler interface.
 // It maintains a single prepared statement that can be reused if the query is the same.
 // When a different query is encountered, it closes the existing statement and creates a new one.
@@ -152,7 +158,7 @@ func (s *preparedStatementHandler) getOrPrepare(ctx context.Context, query strin
 
 // QueryContext executes a query that returns rows.
 func (s *preparedStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
-	query, args, err := statement.Build(s.driver.Translator(), param)
+	query, args, err := buildStatementQuery(statement, s.configuration, s.driver, param)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +186,7 @@ func (s *preparedStatementHandler) QueryContext(ctx context.Context, statement S
 
 // ExecContext executes a query that doesn't return rows.
 func (s *preparedStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (result sql.Result, err error) {
-	query, args, err := statement.Build(s.driver.Translator(), param)
+	query, args, err := buildStatementQuery(statement, s.configuration, s.driver, param)
 	if err != nil {
 		return nil, err
 	}
@@ -248,10 +254,11 @@ type queryBuildStatementHandler struct {
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
 func (s *queryBuildStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
-	query, args, err := statement.Build(s.driver.Translator(), param)
+	query, args, err := buildStatementQuery(statement, s.configuration, s.driver, param)
 	if err != nil {
 		return nil, err
 	}
+
 	statementHandler := newCompiledStatementHandler(
 		query,
 		args,
@@ -267,10 +274,11 @@ func (s *queryBuildStatementHandler) QueryContext(ctx context.Context, statement
 // within a context, and returns the result. Similar to QueryContext, it constructs
 // the SQL command, applies middlewares, and executes the command using the driver.
 func (s *queryBuildStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
-	query, args, err := statement.Build(s.driver.Translator(), param)
+	query, args, err := buildStatementQuery(statement, s.configuration, s.driver, param)
 	if err != nil {
 		return nil, err
 	}
+
 	statementHandler := newCompiledStatementHandler(
 		query,
 		args,

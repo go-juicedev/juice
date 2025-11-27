@@ -311,15 +311,13 @@ func NewGenericParam(v any, wrapKey string) Parameter {
 	return &GenericParameter{Value: value}
 }
 
-// NewParameter creates a new parameter with the given value.
-func NewParameter(v Param) Parameter {
-	return NewGenericParam(v, "")
-}
-
 // H is a shortcut for map[string]any
 type H map[string]any
 
-// AsParam converts the H to a Parameter.
-func (h H) AsParam() Parameter {
-	return NewParameter(h)
+func (h H) Get(name string) (value reflect.Value, exists bool) {
+	v, ok := h[name]
+	if !ok {
+		return reflect.Value{}, false
+	}
+	return reflect.Indirect(reflect.ValueOf(v)), true
 }
