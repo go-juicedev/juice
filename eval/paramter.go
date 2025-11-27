@@ -341,7 +341,7 @@ func (p prefixPatternParameter) Get(name string) (value reflect.Value, exists bo
 	}
 
 	if len(items) == 1 {
-		return reflect.Indirect(reflect.ValueOf(p.param)), true
+		return reflect.ValueOf(p.param), true
 	}
 
 	if p.parameter == nil {
