@@ -2,6 +2,7 @@ package juice
 
 import (
 	"context"
+
 	"github.com/go-juicedev/juice/eval"
 )
 
@@ -29,18 +30,16 @@ func newGenericParam(v any, wrapKey string) Parameter {
 	return eval.NewGenericParam(v, wrapKey)
 }
 
-// newSystemParam returns a new system parameter.
-func newSystemParam(driverName string, _ Configuration) Parameter {
-	// Configuration field can be used to extend more system parameters in the future
-	return eval.H{
-		"_databaseId": driverName,
-	}
-}
-
 // buildStatementParameters builds the statement parameters.
 func buildStatementParameters(param any, statement Statement, driverName string, configuration Configuration) eval.Parameter {
 	return eval.ParamGroup{
 		newGenericParam(param, statement.Attribute("paramName")),
-		newSystemParam(driverName, configuration),
+
+		// internal parameters for transporting extra information
+		// those parameters may be overwritten by user-defined parameters
+		eval.H{
+			"_databaseId": driverName,
+			"_parameter":  param,
+		},
 	}
 }
