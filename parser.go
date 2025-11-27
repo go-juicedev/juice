@@ -553,6 +553,15 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if token.Name.Local == "bind" {
+				bindNode, err := p.parseBind(stmt.mapper, decoder, token)
+				if err != nil {
+					return err
+				}
+				stmt.bindNodes = append(stmt.bindNodes, bindNode)
+				continue
+			}
+
 			node, err := p.parseTags(stmt.mapper, decoder, token)
 			if err != nil {
 				return err
@@ -990,6 +999,52 @@ func (p *XMLMappersElementParser) parseOtherwise(mapper *Mapper, decoder *xml.De
 		}
 	}
 	return nil, &nodeUnclosedError{nodeName: "otherwise"}
+}
+
+func (p *XMLMappersElementParser) parseBind(_ *Mapper, decoder *xml.Decoder, token xml.StartElement) (*BindNode, error) {
+	bindNode := &BindNode{}
+
+	var value string
+
+	for _, attr := range token.Attr {
+		switch attr.Name.Local {
+		case "name":
+			bindNode.Name = attr.Value
+		case "value":
+			value = attr.Value
+		}
+	}
+
+	if bindNode.Name == "" {
+		return nil, &nodeAttributeRequiredError{nodeName: "bind", attrName: "name"}
+	}
+
+	if value == "" {
+		return nil, &nodeAttributeRequiredError{nodeName: "bind", attrName: "value"}
+	}
+
+	// parse expression
+	if err := bindNode.Parse(value); err != nil {
+		return nil, err
+	}
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		switch token := token.(type) {
+		case xml.EndElement:
+			if token.Name.Local == "bind" {
+				return bindNode, nil
+			}
+		}
+	}
+
+	return nil, &nodeUnclosedError{nodeName: "bind"}
 }
 
 // parseCharData reads character data from an XML decoder until it encounters the specified end element.

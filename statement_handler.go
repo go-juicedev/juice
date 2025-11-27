@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/go-juicedev/juice/eval"
 	"reflect"
 	"strconv"
 
@@ -124,6 +125,20 @@ func newCompiledStatementHandler(
 // buildStatementQuery builds the SQL query and its arguments from the given statement and parameters.
 func buildStatementQuery(statement Statement, cfg Configuration, driver driver.Driver, param Param) (string, []any, error) {
 	parameter := buildStatementParameters(param, statement, driver.Name(), cfg)
+
+	if bindNodes := statement.BindNodes(); len(bindNodes) > 0 {
+		// decorate the parameter with boundParameterDecorator
+		// to provide binding scope for bind variables
+		boundParam := &boundParameterDecorator{
+			parameter: parameter,
+			scope: &bindScope{
+				nodes:     bindNodes,
+				parameter: parameter,
+			},
+		}
+		// boundParam should be the first one to ensure it has the highest priority
+		parameter = eval.ParamGroup{boundParam, parameter}
+	}
 	return statement.Build(driver.Translator(), parameter)
 }
 

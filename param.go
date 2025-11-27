@@ -2,6 +2,8 @@ package juice
 
 import (
 	"context"
+	"errors"
+	"reflect"
 
 	"github.com/go-juicedev/juice/eval"
 )
@@ -48,4 +50,21 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 		// User{Name: "bar"} => _parameter.name // bar
 		eval.PrefixPatternParameter("_parameter", param),
 	}
+}
+
+type boundParameterDecorator struct {
+	parameter eval.Parameter
+	scope     *bindScope
+}
+
+func (e boundParameterDecorator) Get(name string) (reflect.Value, bool) {
+	value, err := e.scope.Get(name)
+	if err != nil {
+		if !errors.Is(err, ErrBindVariableNotFound) {
+			// todo handle with this error properly
+			logger.Printf("[WARN] BindVariableNotFound when getting parameter %s: %v", name, err)
+		}
+		return reflect.Value{}, false
+	}
+	return value, true
 }
