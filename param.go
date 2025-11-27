@@ -31,7 +31,8 @@ func newGenericParam(v any, wrapKey string) Parameter {
 }
 
 // buildStatementParameters builds the statement parameters.
-func buildStatementParameters(param any, statement Statement, driverName string, configuration Configuration) eval.Parameter {
+func buildStatementParameters(param any, statement Statement, driverName string, _ Configuration) eval.Parameter {
+	// Configuration is not used currently, but kept for future extension for more complex parameter building logic
 	return eval.ParamGroup{
 		newGenericParam(param, statement.Attribute("paramName")),
 
