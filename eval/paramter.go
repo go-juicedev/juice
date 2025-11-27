@@ -18,7 +18,6 @@ package eval
 
 import (
 	"context"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -44,20 +43,9 @@ func ParamFromContext(ctx context.Context) Param {
 	return param
 }
 
-// defaultParamKey is the default key of the parameter.
-var defaultParamKey = func() string {
-	// try to get the key from environment variable
-	key := os.Getenv("JUICE_PARAM_KEY")
-	// if not found, use the default key
-	if len(key) == 0 {
-		key = "param"
-	}
-	return key
-}()
-
 // DefaultParamKey returns the default key of the parameter.
 func DefaultParamKey() string {
-	return defaultParamKey
+	return "_parameter"
 }
 
 // Parameter is the interface that wraps the Get method.
@@ -123,7 +111,7 @@ func (p *structParameter) Get(name string) (reflect.Value, bool) {
 	if !isPublic {
 		var ok bool
 		// try to find the field by tag
-		indexes, ok = reflectlite.TypeFrom(p.Value.Type()).GetFieldIndexesFromTag(defaultParamKey, name)
+		indexes, ok = reflectlite.TypeFrom(p.Value.Type()).GetFieldIndexesFromTag(DefaultParamKey(), name)
 		if !ok {
 			return reflect.Value{}, false
 		}
@@ -304,7 +292,7 @@ func NewGenericParam(v any, wrapKey string) Parameter {
 	default:
 		// if the value is not a map, struct, slice or array, then wrap it as a map
 		if wrapKey == "" {
-			wrapKey = defaultParamKey
+			wrapKey = DefaultParamKey()
 		}
 		value = reflect.ValueOf(H{wrapKey: v})
 	}
