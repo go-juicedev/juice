@@ -561,7 +561,7 @@ func TestNil(t *testing.T) {
 }
 
 func TestExprNilEQ(t *testing.T) {
-	result, err := Eval("a == nil", H{"a": nil}.AsParam())
+	result, err := Eval("a == nil", H{"a": nil})
 	if err != nil {
 		t.Error(err)
 		return
@@ -571,7 +571,7 @@ func TestExprNilEQ(t *testing.T) {
 		return
 	}
 	var a *int
-	result, err = Eval("a == nil", H{"a": a}.AsParam())
+	result, err = Eval("a == nil", H{"a": a})
 	if err != nil {
 		t.Error(err)
 		return
@@ -596,7 +596,7 @@ func TestExprNilEQ(t *testing.T) {
 }
 
 func TestExprNilNEQ(t *testing.T) {
-	result, err := Eval("a != nil", H{"a": nil}.AsParam())
+	result, err := Eval("a != nil", H{"a": nil})
 	if err != nil {
 		t.Error(err)
 		return
@@ -606,7 +606,7 @@ func TestExprNilNEQ(t *testing.T) {
 		return
 	}
 	var a *int
-	result, err = Eval("a != nil", H{"a": a}.AsParam())
+	result, err = Eval("a != nil", H{"a": a})
 	if err != nil {
 		t.Error(err)
 		return
@@ -630,7 +630,7 @@ func TestExprNilNEQ(t *testing.T) {
 	}
 
 	var a2 = new(int)
-	result, err = Eval("a != nil", H{"a": a2}.AsParam())
+	result, err = Eval("a != nil", H{"a": a2})
 	if err != nil {
 		t.Error(err)
 		return
@@ -641,8 +641,8 @@ func TestExprNilNEQ(t *testing.T) {
 	}
 
 	var a3 = 1
-	_, err = Eval("a != nil", H{"a": a3}.AsParam())
-	if err == nil {
+	_, err = Eval("a == nil", H{"a": &a3})
+	if err != nil {
 		t.Error(err)
 		return
 	} else {
@@ -655,7 +655,7 @@ func TestSelector(t *testing.T) {
 		A int `param:"a"`
 	}
 	entity.A = 1
-	result, err := Eval("entity.A > 0", H{"entity": entity}.AsParam())
+	result, err := Eval("entity.A > 0", H{"entity": entity})
 	if err != nil {
 		t.Error(err)
 		return
@@ -677,7 +677,7 @@ func TestSelectorFunc(t *testing.T) {
 		A *testStruct `param:"a"`
 	}
 	entity.A = &testStruct{}
-	result, err := Eval("entity.A.Test()", H{"entity": entity}.AsParam())
+	result, err := Eval("entity.A.Test()", H{"entity": entity})
 	if err != nil {
 		t.Error(err)
 		return
@@ -691,7 +691,7 @@ func TestSelectorFunc(t *testing.T) {
 		return "test", nil
 	}
 
-	result, err = Eval("f()", H{"f": f}.AsParam())
+	result, err = Eval("f()", H{"f": f})
 	if err != nil {
 		t.Error(err)
 		return
@@ -703,7 +703,7 @@ func TestSelectorFunc(t *testing.T) {
 }
 
 func TestMapDefaultMap(t *testing.T) {
-	result, err := Eval("a.b", H{"a": H{"b": 1}}.AsParam())
+	result, err := Eval("a.b", H{"a": H{"b": 1}})
 	if err != nil {
 		t.Error(err)
 		return
@@ -713,7 +713,7 @@ func TestMapDefaultMap(t *testing.T) {
 		return
 	}
 
-	result, err = Eval(`a["c"]`, H{"a": map[string]int{}}.AsParam())
+	result, err = Eval(`a["c"]`, H{"a": map[string]int{}})
 	if err != nil {
 		t.Error(err)
 		return
@@ -723,7 +723,7 @@ func TestMapDefaultMap(t *testing.T) {
 		return
 	}
 
-	result, err = Eval(`a["c"]`, H{"a": map[string]string{}}.AsParam())
+	result, err = Eval(`a["c"]`, H{"a": map[string]string{}})
 	if err != nil {
 		t.Error(err)
 		return
@@ -733,7 +733,7 @@ func TestMapDefaultMap(t *testing.T) {
 		return
 	}
 
-	result, err = Eval(`a["c"]`, H{"a": map[string]float64{}}.AsParam())
+	result, err = Eval(`a["c"]`, H{"a": map[string]float64{}})
 	if err != nil {
 		t.Error(err)
 		return
@@ -936,28 +936,28 @@ func TestVariadicSliceUnpacking(t *testing.T) {
 		}
 		return sum, nil
 	}
-	
+
 	concatFunc := func(parts ...string) (string, error) {
 		return strings.Join(parts, ""), nil
 	}
-	
+
 	// Create test data using variables instead of composite literals
 	numbers := []int{1, 2, 3, 4, 5}
 	strings := []string{"hello", "world", "test"}
 	emptyNumbers := []int{}
 	singleNumber := []int{42}
 	partialNumbers := []int{2, 3, 4, 5} // [2,3,4,5]
-	
+
 	param := H{
-		"numbers":      numbers,
-		"strings":      strings,
-		"emptyNumbers": emptyNumbers,
-		"singleNumber": singleNumber,
+		"numbers":        numbers,
+		"strings":        strings,
+		"emptyNumbers":   emptyNumbers,
+		"singleNumber":   singleNumber,
 		"partialNumbers": partialNumbers,
-		"sum":          sumFunc,
-		"concat":       concatFunc,
+		"sum":            sumFunc,
+		"concat":         concatFunc,
 	}
-	
+
 	tests := []struct {
 		name     string
 		expr     string
@@ -995,7 +995,7 @@ func TestVariadicSliceUnpacking(t *testing.T) {
 			wantErr:  false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := testEval(tt.expr, param)
@@ -1005,11 +1005,11 @@ func TestVariadicSliceUnpacking(t *testing.T) {
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			
+
 			var actual interface{}
 			switch result.Kind() {
 			case reflect.Int, reflect.Int64:
@@ -1019,7 +1019,7 @@ func TestVariadicSliceUnpacking(t *testing.T) {
 			default:
 				t.Fatalf("unexpected result type: %v", result.Kind())
 			}
-			
+
 			if actual != tt.expected {
 				t.Errorf("got %v (%T), want %v (%T)", actual, actual, tt.expected, tt.expected)
 			}
@@ -1032,17 +1032,17 @@ func TestVariadicErrors(t *testing.T) {
 	sumFunc := func(nums ...int) (int, error) {
 		return 0, nil
 	}
-	
+
 	// Create test data
 	wrongType := []string{"1", "2", "3"} // wrong type
 	numbers := []int{1, 2, 3}
-	
+
 	param := H{
 		"wrongType": wrongType,
 		"numbers":   numbers,
 		"sum":       sumFunc,
 	}
-	
+
 	tests := []struct {
 		name    string
 		expr    string
@@ -1054,7 +1054,7 @@ func TestVariadicErrors(t *testing.T) {
 			wantErr: "cannot convert",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := testEval(tt.expr, param)

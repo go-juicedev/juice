@@ -31,7 +31,7 @@ type StatementMetadata interface {
 }
 
 type StatementBuilder interface {
-	Build(translator driver.Translator, param Param) (query string, args []any, err error)
+	Build(translator driver.Translator, parameter Parameter) (query string, args []any, err error)
 }
 
 type Statement interface {
@@ -108,9 +108,9 @@ func (s *xmlSQLStatement) ResultMap() (ResultMap, error) {
 }
 
 // Build builds the xmlSQLStatement with the given parameter.
-func (s *xmlSQLStatement) Build(translator driver.Translator, param Param) (query string, args []any, err error) {
-	value := newGenericParam(param, s.Attribute("paramName"))
-	query, args, err = s.Nodes.Accept(translator, value)
+func (s *xmlSQLStatement) Build(translator driver.Translator, parameter Parameter) (query string, args []any, err error) {
+	//value := newGenericParam(param, s.Attribute("paramName"))
+	query, args, err = s.Nodes.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
 	}
@@ -168,9 +168,8 @@ func (s RawSQLStatement) ResultMap() (ResultMap, error) {
 }
 
 // Build builds the RawSQLStatement with the given parameter.
-func (s RawSQLStatement) Build(translator driver.Translator, param Param) (query string, args []any, err error) {
-	value := newGenericParam(param, "")
-	query, args, err = NewTextNode(s.query).Accept(translator, value)
+func (s RawSQLStatement) Build(translator driver.Translator, parameter Parameter) (query string, args []any, err error) {
+	query, args, err = NewTextNode(s.query).Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
 	}
