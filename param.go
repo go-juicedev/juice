@@ -35,7 +35,7 @@ func newGenericParam(v any, wrapKey string) Parameter {
 // buildStatementParameters builds the statement parameters.
 func buildStatementParameters(param any, statement Statement, driverName string, _ Configuration) eval.Parameter {
 	// Configuration is not used currently, but kept for future extension for more complex parameter building logic
-	return eval.ParamGroup{
+	parameter := eval.ParamGroup{
 		newGenericParam(param, statement.Attribute("paramName")),
 
 		// internal parameters for transporting extra information
@@ -44,12 +44,36 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 			"_databaseId": driverName,
 		},
 		// this may cause something unexpected,
-		// but i can not figure out.
+		// but I can not figure out.
 
 		// map[string]User{"foo": {Name: "bar"}} => _parameter.foo.name // bar
 		// User{Name: "bar"} => _parameter.name // bar
 		eval.PrefixPatternParameter("_parameter", param),
 	}
+
+	if bindNodes := statement.BindNodes(); len(bindNodes) > 0 {
+		// decorate the parameter with boundParameterDecorator
+		// to provide binding scope for bind variables
+		boundParam := &boundParameterDecorator{
+			parameter: parameter,
+			scope: &bindScope{
+				nodes:     bindNodes,
+				parameter: parameter,
+			},
+		}
+
+		boundParameter := make(eval.ParamGroup, 0, len(parameter)+1)
+		boundParameter = append(boundParameter, boundParam)
+		parameter = append(boundParameter, parameter...)
+
+		// another approach is to use ParamGroup to combine boundParam and parameter
+		// but the order matters here.
+		// if we put boundParam after parameter, the boundParam will have lower priority
+		// than the original parameter, which is not what we want.
+		// so we put boundParam before parameter.
+	}
+
+	return parameter
 }
 
 type boundParameterDecorator struct {
@@ -60,8 +84,11 @@ type boundParameterDecorator struct {
 func (e boundParameterDecorator) Get(name string) (reflect.Value, bool) {
 	value, err := e.scope.Get(name)
 	if err != nil {
+		// it means the bind variable is not found in the bind scope
+		// should we handle this error differently?
+		// or just ignore it and let the underlying parameter handle it?
 		if !errors.Is(err, ErrBindVariableNotFound) {
-			// todo handle with this error properly
+			// just log it for debugging purpose
 			logger.Printf("[WARN] BindVariableNotFound when getting parameter %s: %v", name, err)
 		}
 		return reflect.Value{}, false
