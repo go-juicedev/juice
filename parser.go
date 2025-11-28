@@ -558,6 +558,11 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 				if err != nil {
 					return err
 				}
+				for _, existingBindNode := range stmt.bindNodes {
+					if existingBindNode.Name == bindNode.Name {
+						return fmt.Errorf("duplicate bind name: %s", bindNode.Name)
+					}
+				}
 				stmt.bindNodes = append(stmt.bindNodes, bindNode)
 				continue
 			}
