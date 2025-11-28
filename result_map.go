@@ -266,10 +266,6 @@ type rowDestination struct {
 	// - Multiple integers represent nested struct field access
 	indexes [][]int
 
-	// checked indicates whether the destination has been validated for sql.RawBytes.
-	// This flag helps avoid redundant checks for the same rowDestination instance.
-	checked bool
-
 	// dest is a slice of interface{} values used to store pointers to the target struct fields.
 	// Each element in dest is a pointer to a field in the target struct, which is used
 	// by the database/sql package to scan query results directly into the struct fields.
@@ -292,12 +288,6 @@ func (s *rowDestination) Destination(rv reflect.Value, columns []string) ([]any,
 	dest, err := s.destination(rv, columns)
 	if err != nil {
 		return nil, err
-	}
-	if !s.checked {
-		if err = checkDestination(dest); err != nil {
-			return nil, err
-		}
-		s.checked = true
 	}
 	return dest, nil
 }
@@ -394,15 +384,4 @@ func (s *rowDestination) findFromStruct(tp reflect.Type, columnIndex map[string]
 		// set the index
 		s.indexes[index] = append(walk, field.Index...)
 	}
-}
-
-var errRawBytesScan = errors.New("sql: RawBytes isn't allowed on scan")
-
-func checkDestination(dest []any) error {
-	for _, dp := range dest {
-		if _, ok := dp.(*sql.RawBytes); ok {
-			return errRawBytesScan
-		}
-	}
-	return nil
 }

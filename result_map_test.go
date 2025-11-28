@@ -696,26 +696,6 @@ func TestRowDestination_Destination_Error_MultiColumnNonceStruct(t *testing.T) {
 	}
 }
 
-// Test for errRawBytesScan (internal to checkDestination, called by Destination)
-func TestRowDestination_ErrRawBytesScan(t *testing.T) {
-	// This test is a bit indirect as checkDestination is not public.
-	// We need to craft a scenario where a *sql.RawBytes would be a destination.
-	// This typically happens if a field is of type sql.RawBytes.
-
-	type StructWithRawBytes struct {
-		Data sql.RawBytes `column:"data"`
-	}
-	dest := &rowDestination{}
-	var s StructWithRawBytes
-	rv := reflect.ValueOf(&s)
-	columns := []string{"data"}
-
-	_, err := dest.Destination(rv, columns)
-	if !errors.Is(err, errRawBytesScan) {
-		t.Fatalf("Expected errRawBytesScan, got %v", err)
-	}
-}
-
 func TestIsImplementsRowScanner(t *testing.T) {
 	var rs *RowScannerStruct
 	rt := reflect.TypeOf(rs) // reflect.TypeOf((*RowScannerStruct)(nil))
