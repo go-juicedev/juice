@@ -129,3 +129,9 @@
         <!ATTLIST resultMap
                 id CDATA #REQUIRED
                 >
+
+        <!ELEMENT bind EMPTY>
+        <!ATTLIST bind
+                name CDATA #REQUIRED
+                value CDATA #REQUIRED
+                >

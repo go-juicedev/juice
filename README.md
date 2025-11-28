@@ -39,7 +39,7 @@ add the following content to config.xml
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE configuration PUBLIC "-//juice.org//DTD Config 1.0//EN"
-        "https://raw.githubusercontent.com/eatmoreapple/juice/main/config.dtd">
+        "https://raw.githubusercontent.com/go-juicedev/juice/refs/heads/main/config.dtd">
 
 <configuration>
     <environments default="prod">
@@ -64,7 +64,7 @@ add the following content to mappers.xml
 ```xml
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE mapper PUBLIC "-//juice.org//DTD Config 1.0//EN"
-        "https://raw.githubusercontent.com/eatmoreapple/juice/main/mapper.dtd">
+        "https://raw.githubusercontent.com/go-juicedev/juice/refs/heads/main/mapper.dtd">
 
 <mapper namespace="main.Repository">
     <select id="HelloWorld">
