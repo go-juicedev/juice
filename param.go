@@ -55,7 +55,6 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 		// decorate the parameter with boundParameterDecorator
 		// to provide binding scope for bind variables
 		boundParam := &boundParameterDecorator{
-			parameter: parameter,
 			scope: &bindScope{
 				nodes:     bindNodes,
 				parameter: parameter,
@@ -77,8 +76,7 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 }
 
 type boundParameterDecorator struct {
-	parameter eval.Parameter
-	scope     *bindScope
+	scope *bindScope
 }
 
 func (e boundParameterDecorator) Get(name string) (reflect.Value, bool) {
