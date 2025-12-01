@@ -182,7 +182,9 @@ func (m MultiRowsResultMap) mapWithRowScanner(rows Rows, isPointer bool) ([]refl
 		// Create a new instance. Since RowScanner is implemented with pointer receiver,
 		// we always create a pointer type and use it directly for scanning
 		newValue := m.New()
-		if err := newValue.Interface().(RowScanner).ScanRows(rows); err != nil {
+
+		rowScanner, _ := reflect.TypeAssert[RowScanner](newValue)
+		if err := rowScanner.ScanRows(rows); err != nil {
 			return nil, fmt.Errorf("failed to scan row using RowScanner: %w", err)
 		}
 
