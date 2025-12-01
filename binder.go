@@ -27,10 +27,10 @@ import (
 var (
 	// scannerType is the reflect.Type of sql.Scanner
 	// nolint:unused
-	scannerType = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
+	scannerType = reflect.TypeFor[sql.Scanner]()
 
 	// timeType is the reflect.Type of time.Time
-	timeType = reflect.TypeOf((*time.Time)(nil)).Elem()
+	timeType = reflect.TypeFor[time.Time]()
 )
 
 // bindWithResultMap maps Rows to a destination value using the specified ResultMap.
@@ -89,10 +89,10 @@ func BindWithResultMap[T any](rows Rows, resultMap ResultMap) (result T, err err
 	// ptr is the pointer of the result, it is the destination of the binding.
 	var ptr any = &result
 
-	if _type := reflect.TypeOf(result); _type.Kind() == reflect.Ptr {
-		// if the result is a pointer, create a new instance of the element.
-		// you'd better not use a nil pointer as the result.
-		result, _ = reflect.TypeAssert[T](reflect.New(_type.Elem()))
+	// if the result is a pointer, we need to create a new instance of the element.
+	if valueType := reflect.TypeFor[T](); valueType.Kind() == reflect.Ptr {
+		// create a new instance of the element type.
+		result, _ = reflect.TypeAssert[T](reflect.New(valueType.Elem()))
 		ptr = result
 	}
 	err = bindWithResultMap(rows, ptr, resultMap)
@@ -153,7 +153,7 @@ func Bind[T any](rows Rows) (result T, err error) {
 func List[T any](rows Rows) (result []T, err error) {
 	var multiRowsResultMap MultiRowsResultMap
 
-	element := reflect.TypeOf((*T)(nil)).Elem()
+	element := reflect.TypeFor[T]()
 
 	// using reflect.New to create a new instance of the element is a very time-consuming operation.
 	// if the element is not a pointer, we can create a new instance of it directly.
