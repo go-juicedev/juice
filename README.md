@@ -96,27 +96,30 @@ type Repository interface {
 	HelloWorld(ctx context.Context) (string, error)
 }
 
-type RepositoryImpl struct{}
+type RepositoryImpl struct {
+	manager juice.Manager
+}
 
 func (r RepositoryImpl) HelloWorld(ctx context.Context) (string, error) {
-	return juice.QueryContext[string](ctx, Repository(r).HelloWorld, nil)
+	executor := juice.NewGenericManager[string](r.manager).Object(Repository(r).HelloWorld)
+	return executor.QueryContext(ctx, nil)
 }
 
 func main() {
+
 	cfg, err := juice.NewXMLConfiguration("config.xml")
 	if err != nil {
 		panic(err)
 	}
-	
+
 	engine, err := juice.Default(cfg)
 	if err != nil {
 		panic(err)
 	}
 	defer engine.Close()
-	
-	ctx := juice.ContextWithManager(context.Background(), engine)
-	repo := RepositoryImpl{}
-	result, err := repo.HelloWorld(ctx)
+
+	repo := RepositoryImpl{manager: engine}
+	result, err := repo.HelloWorld(context.TODO())
 	fmt.Println(result, err) // hello world <nil>
 }
 ```
