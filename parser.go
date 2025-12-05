@@ -31,6 +31,7 @@ import (
 	`time`
 
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/sql"
 )
 
 // mapperURLTimeout returns the HTTP timeout duration for fetching mapper URLs
@@ -395,9 +396,9 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
-			action := action(token.Name.Local)
+			action := sql.Action(token.Name.Local)
 			switch action {
-			case Select, Insert, Update, Delete:
+			case sql.Select, sql.Insert, sql.Update, sql.Delete:
 				stmt := &xmlSQLStatement{action: action, mapper: mapper}
 				if err = p.parseStatement(stmt, decoder, token); err != nil {
 					return nil, err

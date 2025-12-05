@@ -1,4 +1,4 @@
-package juice
+package sql
 
 import (
 	"database/sql"
@@ -9,83 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-juicedev/juice/internal/sqlmock"
 )
-
-// --- Mock Rows Implementation ---
-
-type mockRows struct {
-	columns         []string
-	data            [][]any
-	currentIndex    int
-	closeCalled     bool
-	err             error // Error to be returned by Err()
-	nextErr         error // Error to be returned by Next() on a specific call
-	scanErr         error // Error to be returned by Scan()
-	columnsErr      error // Error to be returned by Columns()
-	forceNextReturn bool  // if true, Next() returns this value then false
-	nextReturnValue bool
-}
-
-func (m *mockRows) Columns() ([]string, error) {
-	if m.columnsErr != nil {
-		return nil, m.columnsErr
-	}
-	return m.columns, nil
-}
-
-func (m *mockRows) Next() bool {
-	if m.nextErr != nil {
-		// Simulate error during iteration, Err() should pick this up
-		m.err = m.nextErr
-		return false
-	}
-	if m.forceNextReturn {
-		ret := m.nextReturnValue
-		m.forceNextReturn = false // only once
-		return ret
-	}
-	if m.currentIndex < len(m.data) {
-		m.currentIndex++
-		return true
-	}
-	return false
-}
-
-func (m *mockRows) Scan(dest ...any) error {
-	if m.scanErr != nil {
-		return m.scanErr
-	}
-	if m.currentIndex <= 0 || m.currentIndex > len(m.data) {
-		return errors.New("mockRows: Scan called out of bounds")
-	}
-	rowData := m.data[m.currentIndex-1]
-	if len(dest) != len(rowData) {
-		return fmt.Errorf("mockRows: Scan expected %d dest args, got %d", len(rowData), len(dest))
-	}
-	for i, d := range dest {
-		if scanner, ok := d.(sql.Scanner); ok {
-			if err := scanner.Scan(rowData[i]); err != nil {
-				return fmt.Errorf("mockRows: sql.Scanner Scan failed: %w", err)
-			}
-			continue
-		}
-		dv := reflect.ValueOf(d)
-		if dv.Kind() != reflect.Ptr {
-			return errors.New("mockRows: Scan destination not a pointer")
-		}
-		dv.Elem().Set(reflect.ValueOf(rowData[i]))
-	}
-	return nil
-}
-
-func (m *mockRows) Err() error {
-	return m.err
-}
-
-func (m *mockRows) Close() error {
-	m.closeCalled = true
-	return nil
-}
 
 // --- Test Structs ---
 
@@ -147,7 +73,7 @@ type RowScannerStruct struct {
 func (rs *RowScannerStruct) ScanRows(rows Rows) error {
 	rs.scanned = true
 	// A simplified scan, assuming order or specific columns
-	// In a real scenario, you might inspect rows.Columns()
+	// In a real scenario, you might inspect rows.ColumnsLine()
 	return rows.Scan(&rs.ID, &rs.Content)
 }
 
@@ -155,9 +81,9 @@ func (rs *RowScannerStruct) ScanRows(rows Rows) error {
 
 func TestSingleRowResultMap_MapTo_Success(t *testing.T) {
 	mapper := SingleRowResultMap{}
-	rows := &mockRows{
-		columns: []string{"id", "name", "age"},
-		data: [][]any{
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "name", "age"},
+		Data: [][]any{
 			{1, "Test Name", 30},
 		},
 	}
@@ -181,9 +107,9 @@ func TestSingleRowResultMap_MapTo_Success(t *testing.T) {
 
 func TestSingleRowResultMap_MapTo_PointerToBasicType(t *testing.T) {
 	mapper := SingleRowResultMap{}
-	rows := &mockRows{
-		columns: []string{"count"},
-		data:    [][]any{{42}},
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"count"},
+		Data:        [][]any{{42}},
 	}
 	var result int
 	err := mapper.MapTo(reflect.ValueOf(&result), rows)
@@ -194,9 +120,9 @@ func TestSingleRowResultMap_MapTo_PointerToBasicType(t *testing.T) {
 		t.Errorf("Expected result to be 42, got %d", result)
 	}
 
-	rowsString := &mockRows{
-		columns: []string{"value"},
-		data:    [][]any{{"hello"}},
+	rowsString := &sqlmock.MockRows{
+		ColumnsLine: []string{"value"},
+		Data:        [][]any{{"hello"}},
 	}
 	var resultStr string
 	err = mapper.MapTo(reflect.ValueOf(&resultStr), rowsString)
@@ -210,9 +136,9 @@ func TestSingleRowResultMap_MapTo_PointerToBasicType(t *testing.T) {
 
 func TestSingleRowResultMap_MapTo_NoRows(t *testing.T) {
 	mapper := SingleRowResultMap{}
-	rows := &mockRows{
-		columns: []string{"id", "name"},
-		data:    [][]any{},
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "name"},
+		Data:        [][]any{},
 	}
 	var result SimpleStruct
 	err := mapper.MapTo(reflect.ValueOf(&result), rows)
@@ -223,9 +149,9 @@ func TestSingleRowResultMap_MapTo_NoRows(t *testing.T) {
 
 func TestSingleRowResultMap_MapTo_TooManyRows(t *testing.T) {
 	mapper := SingleRowResultMap{}
-	rows := &mockRows{
-		columns: []string{"id"},
-		data: [][]any{
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id"},
+		Data: [][]any{
 			{1},
 			{2},
 		},
@@ -239,7 +165,7 @@ func TestSingleRowResultMap_MapTo_TooManyRows(t *testing.T) {
 
 func TestSingleRowResultMap_MapTo_NotAPointer(t *testing.T) {
 	mapper := SingleRowResultMap{}
-	rows := &mockRows{}
+	rows := &sqlmock.MockRows{}
 	var result SimpleStruct // Not a pointer
 	err := mapper.MapTo(reflect.ValueOf(result), rows)
 	if !errors.Is(err, ErrPointerRequired) {
@@ -249,9 +175,9 @@ func TestSingleRowResultMap_MapTo_NotAPointer(t *testing.T) {
 
 func TestMultiRowsResultMap_MapTo_Success_SliceOfStructs(t *testing.T) {
 	mapper := MultiRowsResultMap{}
-	rows := &mockRows{
-		columns: []string{"id", "name"},
-		data: [][]any{
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "name"},
+		Data: [][]any{
 			{1, "Alice"},
 			{2, "Bob"},
 		},
@@ -274,9 +200,9 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfStructs(t *testing.T) {
 
 func TestMultiRowsResultMap_MapTo_Success_SliceOfPointersToStructs(t *testing.T) {
 	mapper := MultiRowsResultMap{}
-	rows := &mockRows{
-		columns: []string{"id", "name"},
-		data: [][]any{
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "name"},
+		Data: [][]any{
 			{1, "Alice"},
 			{2, "Bob"},
 		},
@@ -299,9 +225,9 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfPointersToStructs(t *testing.T)
 
 func TestMultiRowsResultMap_MapTo_Success_SliceOfBasicType(t *testing.T) {
 	mapper := MultiRowsResultMap{}
-	rows := &mockRows{
-		columns: []string{"id"},
-		data:    [][]any{{10}, {20}, {30}},
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id"},
+		Data:        [][]any{{10}, {20}, {30}},
 	}
 	var result []int
 	err := mapper.MapTo(reflect.ValueOf(&result), rows)
@@ -312,9 +238,9 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfBasicType(t *testing.T) {
 		t.Errorf("Expected [10 20 30], got %v", result)
 	}
 
-	rowsString := &mockRows{
-		columns: []string{"value"},
-		data:    [][]any{{"a"}, {"b"}},
+	rowsString := &sqlmock.MockRows{
+		ColumnsLine: []string{"value"},
+		Data:        [][]any{{"a"}, {"b"}},
 	}
 	var resultStr []string
 	err = mapper.MapTo(reflect.ValueOf(&resultStr), rowsString)
@@ -328,9 +254,9 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfBasicType(t *testing.T) {
 
 func TestMultiRowsResultMap_MapTo_EmptyResult(t *testing.T) {
 	mapper := MultiRowsResultMap{}
-	rows := &mockRows{
-		columns: []string{"id", "name"},
-		data:    [][]any{},
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "name"},
+		Data:        [][]any{},
 	}
 	var result []SimpleStruct
 
@@ -375,9 +301,9 @@ func TestMultiRowsResultMap_MapTo_WithNewFunc(t *testing.T) {
 			return reflect.New(reflect.TypeOf(SimpleStruct{}))
 		},
 	}
-	rows := &mockRows{
-		columns: []string{"id", "name"},
-		data:    [][]any{{1, "Test"}},
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "name"},
+		Data:        [][]any{{1, "Test"}},
 	}
 	var result []*SimpleStruct // Slice of pointers to use the New func effectively
 	err := mapper.MapTo(reflect.ValueOf(&result), rows)
@@ -394,9 +320,9 @@ func TestMultiRowsResultMap_MapTo_WithNewFunc(t *testing.T) {
 
 func TestMultiRowsResultMap_MapTo_RowScanner(t *testing.T) {
 	mapper := MultiRowsResultMap{}
-	rows := &mockRows{
-		columns: []string{"col_id", "col_content"}, // Column names for RowScannerStruct
-		data: [][]any{
+	rows := &sqlmock.MockRows{
+		ColumnsLine: []string{"col_id", "col_content"}, // Column names for RowScannerStruct
+		Data: [][]any{
 			{10, "Data1"},
 			{20, "Data2"},
 		},
@@ -423,29 +349,33 @@ func TestMultiRowsResultMap_MapTo_Errors(t *testing.T) {
 	var result []SimpleStruct
 
 	// Not a pointer
-	err := mapper.MapTo(reflect.ValueOf(result), &mockRows{})
+	err := mapper.MapTo(reflect.ValueOf(result), &sqlmock.MockRows{})
 	if err == nil || !strings.Contains(err.Error(), "pointer to slice") {
 		t.Errorf("Expected error for non-pointer, got %v", err)
 	}
 
 	// Pointer to non-slice
 	var notASlice int
-	err = mapper.MapTo(reflect.ValueOf(&notASlice), &mockRows{})
+	err = mapper.MapTo(reflect.ValueOf(&notASlice), &sqlmock.MockRows{})
 	if err == nil || !strings.Contains(err.Error(), "pointer to slice, got pointer to int") {
 		t.Errorf("Expected error for pointer to non-slice, got %v", err)
 	}
 
 	expectedErr := errors.New("test error")
 
-	// Columns error
-	rowsColsErr := &mockRows{columnsErr: expectedErr}
+	// ColumnsLine error
+	rowsColsErr := &sqlmock.MockRows{ColumnsErr: expectedErr}
 	err = mapper.MapTo(reflect.ValueOf(&result), rowsColsErr)
 	if err == nil || !strings.Contains(err.Error(), expectedErr.Error()) {
-		t.Errorf("Expected Columns error, got %v", err)
+		t.Errorf("Expected ColumnsLine error, got %v", err)
 	}
 
 	// Scan error
-	rowsScanErr := &mockRows{columns: []string{"id"}, data: [][]any{{1}}, scanErr: expectedErr}
+	rowsScanErr := &sqlmock.MockRows{
+		ColumnsLine: []string{"id"},
+		Data:        [][]any{{1}},
+		ScanErr:     expectedErr,
+	}
 	err = mapper.MapTo(reflect.ValueOf(&result), rowsScanErr)
 	if err == nil || !strings.Contains(err.Error(), expectedErr.Error()) {
 		t.Errorf("Expected Scan error, got %v", err)
@@ -453,10 +383,10 @@ func TestMultiRowsResultMap_MapTo_Errors(t *testing.T) {
 
 	// RowScanner ScanRows error
 	var rowScannerResult []*RowScannerStruct
-	rowsRowScanErr := &mockRows{
-		columns: []string{"id", "content"},
-		data:    [][]any{{1, "data"}},
-		scanErr: expectedErr, // Mock Scan within RowScanner's ScanRows to fail
+	rowsRowScanErr := &sqlmock.MockRows{
+		ColumnsLine: []string{"id", "content"},
+		Data:        [][]any{{1, "data"}},
+		ScanErr:     expectedErr, // Mock Scan within RowScanner's ScanRows to fail
 	}
 	// To make RowScannerStruct.ScanRows fail, its internal call to rows.Scan must fail.
 	// So we configure scanErr on the mockRows passed to RowScannerStruct.
@@ -472,7 +402,11 @@ func TestMultiRowsResultMap_MapTo_Errors(t *testing.T) {
 	}
 
 	// rows.Err() after iteration
-	rowsErrAfterIter := &mockRows{columns: []string{"id"}, data: [][]any{{1}}, err: expectedErr}
+	rowsErrAfterIter := &sqlmock.MockRows{
+		ColumnsLine: []string{"id"},
+		Data:        [][]any{{1}},
+		Reason:      expectedErr,
+	}
 	err = mapper.MapTo(reflect.ValueOf(&result), rowsErrAfterIter)
 	if err == nil || !strings.Contains(err.Error(), expectedErr.Error()) {
 		t.Errorf("Expected rows.Err() after iteration, got %v", err)

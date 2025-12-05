@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package juice provides a set of utilities for mapping database query results to Go data structures.
-package juice
+// Package sql provides a set of utilities for mapping database query results to Go data structures.
+package sql
 
 import (
 	"cmp"
@@ -256,6 +256,10 @@ var sink any
 
 // columnTagName is the tag name used to map database columns to struct fields.
 var columnTagName = cmp.Or(os.Getenv("JUICE_COLUMN_TAG_NAME"), "column")
+
+func ColumnTagName() string {
+	return columnTagName
+}
 
 // rowDestination implements ColumnDestination interface for mapping SQL query results
 // to struct fields. It handles the mapping between database columns and struct fields

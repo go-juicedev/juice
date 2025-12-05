@@ -24,6 +24,7 @@ import (
 	"unicode"
 
 	"github.com/go-juicedev/juice/internal/reflectlite"
+	sqllib "github.com/go-juicedev/juice/sql"
 )
 
 // BatchInsertIDGenerateStrategy is an interface that defines a method for generating batch insert IDs.
@@ -134,7 +135,7 @@ func findFieldIndexesFromProperties(t reflect.Type, keyProperties ...string) ([]
 			t = structField.Type
 			indexes = append(indexes, structField.Index...)
 		} else {
-			fieldIndexes, ok := reflectlite.TypeFrom(t).GetFieldIndexesFromTag(columnTagName, keyProperty)
+			fieldIndexes, ok := reflectlite.TypeFrom(t).GetFieldIndexesFromTag(sqllib.ColumnTagName(), keyProperty)
 			if !ok {
 				return nil, false
 			}

@@ -19,6 +19,8 @@ package juice
 import (
 	"context"
 	"database/sql"
+
+	sqllib "github.com/go-juicedev/juice/sql"
 )
 
 // This file provides context-based database helper shortcuts.
@@ -48,7 +50,7 @@ func QueryListContext[T any](ctx context.Context, statement, param any) (result 
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	return List[T](rows)
+	return sqllib.List[T](rows)
 }
 
 // QueryList2Context executes a query and returns a slice of pointers to T. Rows are closed after reading.
@@ -60,5 +62,5 @@ func QueryList2Context[T any](ctx context.Context, statement, param any) (result
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	return List2[T](rows)
+	return sqllib.List2[T](rows)
 }

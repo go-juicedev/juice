@@ -22,6 +22,7 @@ import (
 	"errors"
 
 	"github.com/go-juicedev/juice/driver"
+	sqllib "github.com/go-juicedev/juice/sql"
 )
 
 // ErrInvalidExecutor is a custom error type that is used when an invalid executor is found.
@@ -139,7 +140,7 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result 
 
 	// ErrResultMapNotSet means the result map is not set, use the default result map.
 	if err != nil {
-		if !errors.Is(err, ErrResultMapNotSet) {
+		if !errors.Is(err, sqllib.ErrResultMapNotSet) {
 			return result, err
 		}
 	}
@@ -151,7 +152,7 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result 
 	}
 	defer func() { _ = rows.Close() }()
 
-	return BindWithResultMap[T](rows, retMap)
+	return sqllib.BindWithResultMap[T](rows, retMap)
 }
 
 // ExecContext executes the query and returns the result.
