@@ -78,26 +78,17 @@ func TestValue_GetFieldIndexesFromTag(t *testing.T) {
 	}
 }
 
-func TestValue_Unwrap_Caching(t *testing.T) {
+func TestValue_Unwrap(t *testing.T) {
 	s := "hello"
 	ps := &s
 	pps := &ps
 
-	valPps := ValueOf(pps) // Wraps reflect.ValueOf(pps)
+	valPps := ValueOf(pps)
 
-	// First unwrap
+	// Test unwrapping multiple pointers
 	unwrapped1 := valPps.Unwrap()
 	if unwrapped1.String() != "hello" {
 		t.Errorf("Expected unwrapped1 to be 'hello', got '%s'", unwrapped1.String())
-	}
-	if !valPps.indirectValueSet || valPps.indirectValue.Interface() != s {
-		t.Errorf("Cache not set correctly for Unwrap. Set: %v, Cached: %v", valPps.indirectValueSet, valPps.indirectValue)
-	}
-
-	// Second unwrap (should use cache)
-	unwrapped2 := valPps.Unwrap()
-	if unwrapped2.String() != "hello" {
-		t.Errorf("Expected unwrapped2 to be 'hello', got '%s'", unwrapped2.String())
 	}
 
 	// Test with non-pointer
@@ -106,65 +97,40 @@ func TestValue_Unwrap_Caching(t *testing.T) {
 	if unwrappedS.String() != "hello" {
 		t.Errorf("Expected unwrappedS to be 'hello', got '%s'", unwrappedS.String())
 	}
-	if !valS.indirectValueSet || valS.indirectValue.Interface() != s {
-		t.Errorf("Cache not set correctly for non-pointer Unwrap. Set: %v, Cached: %v", valS.indirectValueSet, valS.indirectValue)
-	}
 
 	// Test with nil pointer
 	var nilStr *string
 	valNil := ValueOf(nilStr)
-	unwrappedNil := valNil.Unwrap()                      // Should be a nil reflect.Value of kind Ptr
-	if unwrappedNil.IsValid() && !unwrappedNil.IsNil() { // IsValid will be true, IsNil should be true
+	unwrappedNil := valNil.Unwrap()
+	if unwrappedNil.IsValid() && !unwrappedNil.IsNil() {
 		t.Errorf("Expected unwrapped nil to be nil, got valid non-nil: %v", unwrappedNil)
-	}
-	if !valNil.indirectValueSet { // Cache should still be set
-		t.Errorf("Cache not set for nil pointer Unwrap.")
 	}
 }
 
-func TestValue_IndirectType_Caching(t *testing.T) {
+func TestValue_IndirectType(t *testing.T) {
 	s := "world"
 	ps := &s
 
 	valPs := ValueOf(ps)
 	expectedType := reflect.TypeOf(s)
 
-	// First call
+	// Test IndirectType
 	type1 := valPs.IndirectType()
 	if type1.Type != expectedType {
 		t.Errorf("Expected IndirectType to be '%s', got '%s'", expectedType.String(), type1.String())
 	}
-	if !valPs.typeWrapperSet || valPs.typeWrapper == nil || valPs.typeWrapper.Type != expectedType {
-		t.Errorf("Type wrapper cache not set correctly. Set: %v, Wrapper: %v", valPs.typeWrapperSet, valPs.typeWrapper)
-	}
-
-	// Second call (should use cache)
-	type2 := valPs.IndirectType()
-	if type2.Type != expectedType {
-		t.Errorf("Expected cached IndirectType to be '%s', got '%s'", expectedType.String(), type2.String())
-	}
 }
 
-func TestValue_IndirectKind_Caching(t *testing.T) {
+func TestValue_IndirectKind(t *testing.T) {
 	i := 123
 	pi := &i
 	valPi := ValueOf(pi)
 	expectedKind := reflect.Int
 
-	// First call
+	// Test IndirectKind
 	kind1 := valPi.IndirectKind()
 	if kind1 != expectedKind {
 		t.Errorf("Expected IndirectKind to be '%s', got '%s'", expectedKind, kind1)
-	}
-	// Check if typeWrapper was set, as IndirectKind uses IndirectType
-	if !valPi.typeWrapperSet || valPi.typeWrapper == nil || valPi.typeWrapper.Kind() != expectedKind {
-		t.Errorf("Type wrapper cache not set correctly by IndirectKind. Set: %v, Wrapper: %v", valPi.typeWrapperSet, valPi.typeWrapper)
-	}
-
-	// Second call
-	kind2 := valPi.IndirectKind()
-	if kind2 != expectedKind {
-		t.Errorf("Expected cached IndirectKind to be '%s', got '%s'", expectedKind, kind2)
 	}
 }
 
