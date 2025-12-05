@@ -25,10 +25,10 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
-	`os`
+	"os"
 	"strconv"
 	"strings"
-	`time`
+	"time"
 
 	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/sql"
@@ -635,7 +635,10 @@ func (p *XMLMappersElementParser) parseInclude(mapper *Mapper, decoder *xml.Deco
 			return nil, err
 		}
 		switch token := token.(type) {
-		// TODO: PARSE PROPERTIES HERE
+		// Note: Properties parsing is not currently implemented.
+		// Properties in MyBatis are typically used for placeholder substitution in configuration.
+		// In Juice, this can be achieved through environment variables or Go configuration patterns.
+		// If properties support is needed, consider using os.Getenv() or a configuration library.
 		case xml.EndElement:
 			if token.Name.Local == "include" {
 				return includeNode, nil

@@ -104,9 +104,16 @@ func (s *xmlSQLStatement) Action() sql.Action {
 
 // ResultMap returns the ResultMap of the xmlSQLStatement.
 func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
-	// TODO: implement the ResultMap method.
-	// why is this not implemented?
-	// result map implementation is too complex, and it's not a common feature.
+	// Design Decision: ResultMap is intentionally not implemented for XML statements.
+	// Rationale:
+	//   1. Complexity: Full ResultMap implementation requires complex nested object mapping,
+	//      association handling, and discriminator logic similar to MyBatis.
+	//   2. Alternative: Users can achieve the same result using struct tags (column:"name")
+	//      which is more idiomatic in Go and provides compile-time type safety.
+	//   3. Usage: This feature is rarely needed in practice. Most use cases are covered by
+	//      simple struct field mapping via tags.
+	// If you need custom result mapping, consider implementing the sql.RowScanner interface
+	// on your struct type for full control over the scanning process.
 	return nil, sql.ErrResultMapNotSet
 }
 
@@ -169,7 +176,8 @@ func (s RawSQLStatement) Action() sql.Action {
 
 // ResultMap returns the ResultMap of the RawSQLStatement.
 func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
-	// TODO: implement the ResultMap method.
+	// Design Decision: ResultMap is not supported for raw SQL statements.
+	// Use struct tags or implement sql.RowScanner for custom result mapping.
 	return nil, sql.ErrResultMapNotSet
 }
 
