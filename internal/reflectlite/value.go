@@ -58,30 +58,15 @@ func IndirectKind(v reflect.Value) reflect.Kind {
 	return IndirectType(v.Type()).Kind()
 }
 
-// Value is a wrapper around reflect.Value, providing utility methods
-// and potentially caching for derived information to optimize reflection operations.
+// Value is a wrapper around reflect.Value, providing utility methods.
 type Value struct {
 	reflect.Value
-	// indirectValue holds the cached result of Unwrap(reflect.Value).
-	// This avoids repeated unwrapping if Unwrap() is called multiple times.
-	indirectValue    reflect.Value
-	indirectValueSet bool // Tracks if indirectValue has been computed and cached.
-
-	// typeWrapper is a cached Type wrapper for this Value's type.
-	typeWrapper    *Type
-	typeWrapperSet bool
 }
 
 // Unwrap returns a Value wrapper for the underlying concrete value,
 // after continuously dereferencing pointers and interfaces.
-// The result (the unwrapped reflect.Value) is cached within the Value wrapper.
 func (v *Value) Unwrap() Value {
-	if !v.indirectValueSet {
-		v.indirectValue = Unwrap(v.Value) // Compute and cache
-		v.indirectValueSet = true
-	}
-	// Return a new Value wrapper around the (potentially cached) unwrapped reflect.Value.
-	return Value{Value: v.indirectValue, indirectValue: v.indirectValue, indirectValueSet: true, typeWrapper: v.typeWrapper, typeWrapperSet: v.typeWrapperSet}
+	return Value{Value: Unwrap(v.Value)}
 }
 
 // IsNilable checks if the wrapped reflect.Value can be nil.
@@ -93,14 +78,8 @@ func (v Value) IsNilable() bool {
 // IndirectType returns a Type wrapper for the underlying type of the wrapped reflect.Value,
 // after dereferencing pointers.
 func (v *Value) IndirectType() Type {
-	if !v.typeWrapperSet || v.typeWrapper == nil {
-		// Get the type of the potentially indirected value
-		underlyingT := IndirectType(v.Type())
-		tv := TypeFrom(underlyingT)
-		v.typeWrapper = tv
-		v.typeWrapperSet = true
-	}
-	return *v.typeWrapper
+	underlyingT := IndirectType(v.Type())
+	return *TypeFrom(underlyingT)
 }
 
 // IndirectKind returns the Kind of the underlying type of the wrapped reflect.Value,
