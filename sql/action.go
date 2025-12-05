@@ -14,33 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package juice
+package sql
 
-// action defines a sql action.
-type action string
+// Action defines a sql Action.
+type Action string
 
 const (
-	// Select is an action for query
-	Select action = "select"
+	// Select is an Action for query
+	Select Action = "select"
 
-	// Insert is an action for insert
-	Insert action = "insert"
+	// Insert is an Action for insert
+	Insert Action = "insert"
 
-	// Update is an action for update
-	Update action = "update"
+	// Update is an Action for update
+	Update Action = "update"
 
-	// Delete is an action for delete
-	Delete action = "delete"
+	// Delete is an Action for delete
+	Delete Action = "delete"
 )
 
-func (a action) String() string {
+func (a Action) String() string {
 	return string(a)
 }
 
-func (a action) ForRead() bool {
+func (a Action) ForRead() bool {
 	return a == Select
 }
 
-func (a action) ForWrite() bool {
+func (a Action) ForWrite() bool {
 	return a == Insert || a == Update || a == Delete
 }

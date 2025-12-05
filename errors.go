@@ -19,23 +19,16 @@ package juice
 import (
 	"errors"
 	"fmt"
+
+	"github.com/go-juicedev/juice/sql"
 )
 
 var (
 	// ErrEmptyQuery is an error that is returned when the query is empty.
 	ErrEmptyQuery = errors.New("empty query")
 
-	// ErrResultMapNotSet is an error that is returned when the result map is not set.
-	ErrResultMapNotSet = errors.New("resultMap not set")
-
-	// ErrNilDestination is an error that is returned when the destination is nil.
-	ErrNilDestination = errors.New("destination can not be nil")
-
-	// ErrNilRows is an error that is returned when the rows is nil.
-	ErrNilRows = errors.New("rows can not be nil")
-
 	// ErrPointerRequired is an error that is returned when the destination is not a pointer.
-	ErrPointerRequired = errors.New("destination must be a pointer")
+	ErrPointerRequired = sql.ErrPointerRequired
 
 	// errSliceOrArrayRequired is an error that is returned when the destination is not a slice or array.
 	errSliceOrArrayRequired = errors.New("type must be a slice or array")

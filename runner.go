@@ -21,6 +21,7 @@ import (
 	"database/sql"
 
 	"github.com/go-juicedev/juice/session"
+	sqllib "github.com/go-juicedev/juice/sql"
 )
 
 // Runner defines the interface for SQL operations.
@@ -98,7 +99,7 @@ type SQLRunner struct {
 
 // BuildExecutor creates a new SQL executor based on the given action.
 // It configures the statement handler with the necessary driver and middleware.
-func (r *SQLRunner) BuildExecutor(action action) Executor[*sql.Rows] {
+func (r *SQLRunner) BuildExecutor(action sqllib.Action) Executor[*sql.Rows] {
 	driver := r.engine.Driver()
 	statement := NewRawSQLStatement(r.query, action)
 	statementHandler := newQueryBuildStatementHandler(
@@ -113,13 +114,13 @@ func (r *SQLRunner) BuildExecutor(action action) Executor[*sql.Rows] {
 // queryContext executes a SELECT query with the given context and parameters.
 // It returns the query results as sql.Rows and any error that occurred.
 func (r *SQLRunner) queryContext(ctx context.Context, param Param) (*sql.Rows, error) {
-	executor := r.BuildExecutor(Select)
+	executor := r.BuildExecutor(sqllib.Select)
 	return executor.QueryContext(ctx, param)
 }
 
 // execContext executes a non-query SQL operation (INSERT, UPDATE, DELETE)
 // with the given context and parameters.
-func (r *SQLRunner) execContext(action action, ctx context.Context, param Param) (sql.Result, error) {
+func (r *SQLRunner) execContext(action sqllib.Action, ctx context.Context, param Param) (sql.Result, error) {
 	executor := r.BuildExecutor(action)
 	return executor.ExecContext(ctx, param)
 }
@@ -131,17 +132,17 @@ func (r *SQLRunner) Select(ctx context.Context, param Param) (*sql.Rows, error) 
 
 // Insert executes an INSERT statement and returns the result.
 func (r *SQLRunner) Insert(ctx context.Context, param Param) (sql.Result, error) {
-	return r.execContext(Insert, ctx, param)
+	return r.execContext(sqllib.Insert, ctx, param)
 }
 
 // Update executes an UPDATE statement and returns the result.
 func (r *SQLRunner) Update(ctx context.Context, param Param) (sql.Result, error) {
-	return r.execContext(Update, ctx, param)
+	return r.execContext(sqllib.Update, ctx, param)
 }
 
 // Delete executes a DELETE statement and returns the result.
 func (r *SQLRunner) Delete(ctx context.Context, param Param) (sql.Result, error) {
-	return r.execContext(Delete, ctx, param)
+	return r.execContext(sqllib.Delete, ctx, param)
 }
 
 // NewRunner creates a new SQLRunner instance with the specified query, engine, and session.
@@ -168,7 +169,7 @@ func (r *GenericRunner[T]) Bind(ctx context.Context, param Param) (result T, err
 		return result, err
 	}
 	defer func() { _ = rows.Close() }()
-	return Bind[T](rows)
+	return sqllib.Bind[T](rows)
 }
 
 // List binds the result of a SELECT query to a list of values of type T.
@@ -179,7 +180,7 @@ func (r *GenericRunner[T]) List(ctx context.Context, param Param) (result []T, e
 		return result, err
 	}
 	defer func() { _ = rows.Close() }()
-	return List[T](rows)
+	return sqllib.List[T](rows)
 }
 
 // List2 binds the result of a SELECT query to a list of pointers to values of type T.
@@ -190,7 +191,7 @@ func (r *GenericRunner[T]) List2(ctx context.Context, param Param) (result []*T,
 		return result, err
 	}
 	defer func() { _ = rows.Close() }()
-	return List2[T](rows)
+	return sqllib.List2[T](rows)
 }
 
 // NewGenericRunner creates a new GenericRunner instance with the specified Runner.

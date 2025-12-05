@@ -27,11 +27,12 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
-	`strings`
+	"strings"
 	"time"
 
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/session"
+	sqllib "github.com/go-juicedev/juice/sql"
 )
 
 const (
@@ -279,7 +280,7 @@ type useGeneratedKeysMiddleware struct {
 // in the parameter object. Supports both single record and batch operations with configurable
 // key properties and increment strategies.
 func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
-	if stmt.Action() != Insert {
+	if stmt.Action() != sqllib.Insert {
 		return next
 	}
 	const _useGeneratedKeys = "useGeneratedKeys"

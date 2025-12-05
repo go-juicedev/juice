@@ -29,6 +29,7 @@ import (
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/internal/stmt"
 	"github.com/go-juicedev/juice/session"
+	sqllib "github.com/go-juicedev/juice/sql"
 )
 
 // StatementHandler defines the interface for executing SQL statements.
@@ -381,7 +382,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	defer func() { _ = preparedStmtHandler.Close() }()
 
 	var batchErrs error
-	aggregatedResult := &batchResult{}
+	aggregatedResult := &sqllib.BatchResult{}
 
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
@@ -495,7 +496,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	executionParam := batchParam.Interface()
 
 	var batchErrs error
-	aggregatedResult := &batchResult{}
+	aggregatedResult := &sqllib.BatchResult{}
 
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {

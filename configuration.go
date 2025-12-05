@@ -17,13 +17,13 @@ limitations under the License.
 package juice
 
 import (
-	`errors`
-	`fmt`
+	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	unixpath "path"
 	"path/filepath"
-	`reflect`
+	"reflect"
 )
 
 // Configuration is the interface of configuration.

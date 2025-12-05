@@ -17,11 +17,12 @@ limitations under the License.
 package juice
 
 import (
-	`fmt`
+	"fmt"
 	"hash/fnv"
 	"strconv"
 
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/sql"
 )
 
 type StatementMetadata interface {
@@ -35,8 +36,8 @@ type StatementBuilder interface {
 }
 
 type Statement interface {
-	Action() action
-	ResultMap() (ResultMap, error)
+	Action() sql.Action
+	ResultMap() (sql.ResultMap, error)
 	BindNodes() []*BindNode
 	StatementMetadata
 	StatementBuilder
@@ -45,7 +46,7 @@ type Statement interface {
 // xmlSQLStatement defines a sql xmlSQLStatement.
 type xmlSQLStatement struct {
 	mapper    *Mapper
-	action    action
+	action    sql.Action
 	Nodes     NodeGroup
 	bindNodes []*BindNode
 	attrs     map[string]string
@@ -97,16 +98,16 @@ func (s *xmlSQLStatement) Name() string {
 }
 
 // Action returns the action of the xmlSQLStatement.
-func (s *xmlSQLStatement) Action() action {
+func (s *xmlSQLStatement) Action() sql.Action {
 	return s.action
 }
 
 // ResultMap returns the ResultMap of the xmlSQLStatement.
-func (s *xmlSQLStatement) ResultMap() (ResultMap, error) {
+func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
 	// TODO: implement the ResultMap method.
 	// why is this not implemented?
 	// result map implementation is too complex, and it's not a common feature.
-	return nil, ErrResultMapNotSet
+	return nil, sql.ErrResultMapNotSet
 }
 
 func (s *xmlSQLStatement) BindNodes() []*BindNode {
@@ -129,7 +130,7 @@ func (s *xmlSQLStatement) Build(translator driver.Translator, parameter Paramete
 // It implements the Statement interface and provides methods for query execution.
 type RawSQLStatement struct {
 	query  string
-	action action
+	action sql.Action
 	attrs  map[string]string
 }
 
@@ -162,14 +163,14 @@ func (s RawSQLStatement) Attribute(key string) string {
 }
 
 // Action returns the action of the RawSQLStatement.
-func (s RawSQLStatement) Action() action {
+func (s RawSQLStatement) Action() sql.Action {
 	return s.action
 }
 
 // ResultMap returns the ResultMap of the RawSQLStatement.
-func (s RawSQLStatement) ResultMap() (ResultMap, error) {
+func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
 	// TODO: implement the ResultMap method.
-	return nil, ErrResultMapNotSet
+	return nil, sql.ErrResultMapNotSet
 }
 
 // Build builds the RawSQLStatement with the given parameter.
@@ -198,7 +199,7 @@ func (s *RawSQLStatement) BindNodes() []*BindNode {
 }
 
 // NewRawSQLStatement creates a new raw SQL statement with the given query and action.
-func NewRawSQLStatement(query string, action action) *RawSQLStatement {
+func NewRawSQLStatement(query string, action sql.Action) *RawSQLStatement {
 	return &RawSQLStatement{
 		query:  query,
 		action: action,
