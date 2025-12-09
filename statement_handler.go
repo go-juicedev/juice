@@ -41,13 +41,44 @@ type StatementHandler interface {
 	QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error)
 }
 
+// contextStatementHandler is a StatementHandler that wraps another StatementHandler
+// and reduces the context with the session and parameter.
+type contextStatementHandler struct {
+	session session.Session
+	next    StatementHandler
+}
+
+// QueryContext executes the query with the reduced context.
+func (h *contextStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
+	reducer := ctxreducer.G{
+		ctxreducer.NewSessionContextReducer(h.session),
+		ctxreducer.NewParamContextReducer(param),
+	}
+	ctx = reducer.Reduce(ctx)
+	return h.next.QueryContext(ctx, statement, param)
+}
+
+// ExecContext executes the statement with the reduced context.
+func (h *contextStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
+	reducer := ctxreducer.G{
+		ctxreducer.NewSessionContextReducer(h.session),
+		ctxreducer.NewParamContextReducer(param),
+	}
+	ctx = reducer.Reduce(ctx)
+	return h.next.ExecContext(ctx, statement, param)
+}
+
+// newContextStatementHandler creates a new contextStatementHandler.
+func newContextStatementHandler(sess session.Session, next StatementHandler) StatementHandler {
+	return &contextStatementHandler{session: sess, next: next}
+}
+
 // compiledStatementHandler executes pre-built SQL statements for performance.
 type compiledStatementHandler struct {
 	query         string
 	args          []any
 	middlewares   MiddlewareGroup
 	driver        driver.Driver
-	session       session.Session
 	configuration Configuration
 	queryHandler  QueryHandler
 	execHandler   ExecHandler
@@ -55,11 +86,6 @@ type compiledStatementHandler struct {
 
 // QueryContext executes a query and returns the resulting rows.
 func (s *compiledStatementHandler) QueryContext(ctx context.Context, statement Statement, param Param) (*sql.Rows, error) {
-	contextReducer := ctxreducer.G{
-		ctxreducer.NewSessionContextReducer(s.session),
-		ctxreducer.NewParamContextReducer(param),
-	}
-	ctx = contextReducer.Reduce(ctx)
 	if s.queryHandler == nil {
 		s.queryHandler = SessionQueryHandler
 	}
@@ -68,11 +94,6 @@ func (s *compiledStatementHandler) QueryContext(ctx context.Context, statement S
 
 // ExecContext executes a non-query statement and returns the result.
 func (s *compiledStatementHandler) ExecContext(ctx context.Context, statement Statement, param Param) (sql.Result, error) {
-	contextReducer := ctxreducer.G{
-		ctxreducer.NewSessionContextReducer(s.session),
-		ctxreducer.NewParamContextReducer(param),
-	}
-	ctx = contextReducer.Reduce(ctx)
 	if s.execHandler == nil {
 		s.execHandler = SessionExecHandler
 	}
@@ -108,7 +129,6 @@ func newCompiledStatementHandler(
 	args []any,
 	middlewares MiddlewareGroup,
 	driver driver.Driver,
-	session session.Session,
 	configuration Configuration,
 ) *compiledStatementHandler {
 	handler := &compiledStatementHandler{
@@ -116,7 +136,6 @@ func newCompiledStatementHandler(
 		args:          args,
 		middlewares:   middlewares,
 		driver:        driver,
-		session:       session,
 		configuration: configuration,
 	}
 	return handler
@@ -177,12 +196,11 @@ func (s *preparedStatementHandler) QueryContext(ctx context.Context, statement S
 		args,
 		s.middlewares,
 		s.driver,
-		s.session,
 		s.configuration,
 	)
 	statementHandler = statementHandler.WithQueryHandler(queryHandler)
 
-	return statementHandler.QueryContext(ctx, statement, param)
+	return newContextStatementHandler(s.session, statementHandler).QueryContext(ctx, statement, param)
 }
 
 // ExecContext executes a query that doesn't return rows.
@@ -205,12 +223,11 @@ func (s *preparedStatementHandler) ExecContext(ctx context.Context, statement St
 		args,
 		s.middlewares,
 		s.driver,
-		s.session,
 		s.configuration,
 	)
 	statementHandler = statementHandler.WithExecHandler(execHandler)
 
-	return statementHandler.ExecContext(ctx, statement, param)
+	return newContextStatementHandler(s.session, statementHandler).ExecContext(ctx, statement, param)
 }
 
 // Close closes all prepared statements in the pool and returns any error
@@ -265,10 +282,9 @@ func (s *queryBuildStatementHandler) QueryContext(ctx context.Context, statement
 		args,
 		s.middlewares,
 		s.driver,
-		s.session,
 		s.configuration,
 	)
-	return statementHandler.QueryContext(ctx, statement, param)
+	return newContextStatementHandler(s.session, statementHandler).QueryContext(ctx, statement, param)
 }
 
 // ExecContext executes a non-query SQL statement (such as INSERT, UPDATE, DELETE)
@@ -285,10 +301,9 @@ func (s *queryBuildStatementHandler) ExecContext(ctx context.Context, statement 
 		args,
 		s.middlewares,
 		s.driver,
-		s.session,
 		s.configuration,
 	)
-	return statementHandler.ExecContext(ctx, statement, param)
+	return newContextStatementHandler(s.session, statementHandler).ExecContext(ctx, statement, param)
 }
 
 var _ StatementHandler = (*queryBuildStatementHandler)(nil)
