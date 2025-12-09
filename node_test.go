@@ -150,7 +150,7 @@ func TestReflectValueToString(t *testing.T) {
 func TestSetNode_Accept_Comprehensive(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	tests := []struct {
 		name          string
@@ -181,7 +181,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("name = #{name}"),
 			},
-			params:        newGenericParam(H{"name": "Test"}, ""),
+			params:        eval.NewGenericParam(H{"name": "Test"}, ""),
 			expectedQuery: "SET name = ?",
 			expectedArgs:  []any{"Test"},
 		},
@@ -190,7 +190,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("name = #{name},"),
 			},
-			params:        newGenericParam(H{"name": "Test"}, ""),
+			params:        eval.NewGenericParam(H{"name": "Test"}, ""),
 			expectedQuery: "SET name = ?",
 			expectedArgs:  []any{"Test"},
 		},
@@ -201,7 +201,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 				NewTextNode("name = #{name},"),
 				NewTextNode("age = #{age},"),
 			},
-			params:        newGenericParam(H{"id": 1, "name": "Test", "age": 30}, ""),
+			params:        eval.NewGenericParam(H{"id": 1, "name": "Test", "age": 30}, ""),
 			expectedQuery: "SET id = ?, name = ?, age = ?",
 			expectedArgs:  []any{1, "Test", 30},
 		},
@@ -211,7 +211,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 				NewTextNode("id = #{id},"),
 				NewTextNode("name = #{name}"),
 			},
-			params:        newGenericParam(H{"id": 1, "name": "Test"}, ""),
+			params:        eval.NewGenericParam(H{"id": 1, "name": "Test"}, ""),
 			expectedQuery: "SET id = ?, name = ?",
 			expectedArgs:  []any{1, "Test"},
 		},
@@ -222,7 +222,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 				NewTextNode("name = #{name},"),
 				NewTextNode("status = #{status}"),
 			},
-			params:        newGenericParam(H{"id": 1, "name": "Test", "status": "active"}, ""),
+			params:        eval.NewGenericParam(H{"id": 1, "name": "Test", "status": "active"}, ""),
 			expectedQuery: "SET id = ? name = ?, status = ?", // NodeGroup behavior with spaces and SetNode comma trimming
 			expectedArgs:  []any{1, "Test", "active"},
 		},
@@ -231,7 +231,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("SET id = #{id}, name = #{name}"),
 			},
-			params:        newGenericParam(H{"id": 1, "name": "Test"}, ""),
+			params:        eval.NewGenericParam(H{"id": 1, "name": "Test"}, ""),
 			expectedQuery: "SET id = ?, name = ?",
 			expectedArgs:  []any{1, "Test"},
 		},
@@ -240,7 +240,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("set id = #{id}, name = #{name},"),
 			},
-			params:        newGenericParam(H{"id": 1, "name": "Test"}, ""),
+			params:        eval.NewGenericParam(H{"id": 1, "name": "Test"}, ""),
 			expectedQuery: "set id = ?, name = ?", // Preserves original 'set' case
 			expectedArgs:  []any{1, "Test"},
 		},
@@ -260,7 +260,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 				&IfNode{Nodes: NodeGroup{NewTextNode("age = #{age},")}, expr: parseExprNoError(t, "age > 0")},
 				NewTextNode("modified_at = NOW()"), // Always present
 			},
-			params:        newGenericParam(H{"name": "Valid Name", "age": 0}, ""), // age condition is false
+			params:        eval.NewGenericParam(H{"name": "Valid Name", "age": 0}, ""), // age condition is false
 			expectedQuery: "SET name = ?, modified_at = NOW()",
 			expectedArgs:  []any{"Valid Name"},
 		},
@@ -307,7 +307,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 func TestChooseNode_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	// Helper to create a ConditionNode (WhenNode) for testing
 	newTestWhenNode := func(condition string, content string, paramsForParse Parameter) *ConditionNode {
@@ -331,7 +331,7 @@ func TestChooseNode_Accept(t *testing.T) {
 	}
 
 	paramsWithChoice := func(choice int) Parameter {
-		return newGenericParam(H{"choice": choice, "name": "TestName"}, "")
+		return eval.NewGenericParam(H{"choice": choice, "name": "TestName"}, "")
 	}
 
 	errorWhenNode := &ConditionNode{Nodes: NodeGroup{&mockErrorNode{}}}
@@ -503,7 +503,7 @@ func parseExprNoError(t *testing.T, exprStr string) eval.Expression {
 func TestOtherwiseNode_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	tests := []struct {
 		name          string
@@ -525,7 +525,7 @@ func TestOtherwiseNode_Accept(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("DEFAULT CONTENT WHERE id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 99}, ""),
+			params:        eval.NewGenericParam(H{"id": 99}, ""),
 			expectedQuery: "DEFAULT CONTENT WHERE id = ?",
 			expectedArgs:  []any{99},
 		},
@@ -581,7 +581,7 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 
 	t.Run("Accept_EmptyNodes", func(t *testing.T) {
 		sqlNode := SQLNode{id: "empty", nodes: NodeGroup{}}
-		query, args, err := sqlNode.Accept(translator, newGenericParam(H{}, ""))
+		query, args, err := sqlNode.Accept(translator, eval.NewGenericParam(H{}, ""))
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
 		}
@@ -598,7 +598,7 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 			NewTextNode("SELECT * FROM table WHERE id = #{id}"),
 		}
 		sqlNode := SQLNode{id: "selectUser", nodes: nodes}
-		params := newGenericParam(H{"id": 123}, "")
+		params := eval.NewGenericParam(H{"id": 123}, "")
 		query, args, err := sqlNode.Accept(translator, params)
 
 		if err != nil {
@@ -619,7 +619,7 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 			&mockErrorNode{},
 		}
 		sqlNode := SQLNode{id: "errorNode", nodes: nodes}
-		_, _, err := sqlNode.Accept(translator, newGenericParam(H{}, ""))
+		_, _, err := sqlNode.Accept(translator, eval.NewGenericParam(H{}, ""))
 		if err == nil {
 			t.Errorf("Expected an error, but got nil")
 		}
@@ -656,7 +656,7 @@ var _ interface {
 func TestIncludeNode_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	// SQLNode instances for use in tests. Their IDs must match the refId used by IncludeNode.
 	sqlNodeForIncludeSuccess := &SQLNode{
@@ -698,7 +698,7 @@ func TestIncludeNode_Accept(t *testing.T) {
 			name:           "SuccessfulInclude",
 			refIdToInclude: "includeSuccessRef",
 			nodesToAdd:     []*SQLNode{sqlNodeForIncludeSuccess, anotherSQLNode}, // Add the target node and another one
-			params:         newGenericParam(H{"userId": 100}, ""),
+			params:         eval.NewGenericParam(H{"userId": 100}, ""),
 			expectedQuery:  "SELECT name FROM profiles WHERE user_id = ?",
 			expectedArgs:   []any{100},
 		},
@@ -724,7 +724,7 @@ func TestIncludeNode_Accept(t *testing.T) {
 			name:           "IncludeNodeIsLazyLoadedAndReused",
 			refIdToInclude: "lazyLoadRef",
 			nodesToAdd:     []*SQLNode{sqlNodeForLazyLoad},
-			params:         newGenericParam(H{"key": "testKey"}, ""),
+			params:         eval.NewGenericParam(H{"key": "testKey"}, ""),
 			expectedQuery:  "SELECT data FROM lazy_table WHERE key = ?",
 			expectedArgs:   []any{"testKey"},
 		},
@@ -798,7 +798,7 @@ func TestIncludeNode_Accept(t *testing.T) {
 func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	tests := []struct {
 		name            string
@@ -936,7 +936,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 			name:          "ContentGeneratedWithArgs",
 			nodes:         NodeGroup{NewTextNode("id = #{id}")},
 			prefix:        "WHERE ",
-			params:        newGenericParam(H{"id": 123}, ""),
+			params:        eval.NewGenericParam(H{"id": 123}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{123},
 		},
@@ -994,7 +994,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 func TestNodeGroup_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	t.Run("EmptyNodeGroup", func(t *testing.T) {
 		ng := NodeGroup{}
@@ -1014,7 +1014,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 		ng := NodeGroup{
 			NewTextNode("SELECT * FROM users WHERE id = #{id}"),
 		}
-		params := newGenericParam(H{"id": 1}, "")
+		params := eval.NewGenericParam(H{"id": 1}, "")
 		query, args, err := ng.Accept(translator, params)
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
@@ -1033,7 +1033,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 			NewTextNode("FROM users"),
 			NewTextNode("WHERE id = #{id}"),
 		}
-		params := newGenericParam(H{"id": 1}, "")
+		params := eval.NewGenericParam(H{"id": 1}, "")
 		query, args, err := ng.Accept(translator, params)
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
@@ -1052,7 +1052,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 			NewTextNode(" FROM users "),
 			NewTextNode(" WHERE id = #{id}"),
 		}
-		params := newGenericParam(H{"id": 1}, "")
+		params := eval.NewGenericParam(H{"id": 1}, "")
 		query, args, err := ng.Accept(translator, params)
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
@@ -1074,7 +1074,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 			errorNode,
 			NewTextNode("FROM users"),
 		}
-		params := newGenericParam(H{"id": 1}, "")
+		params := eval.NewGenericParam(H{"id": 1}, "")
 		_, _, err := ng.Accept(translator, params)
 		if err == nil {
 			t.Errorf("Expected an error, but got nil")
@@ -1091,7 +1091,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 			NewTextNode(""), // Empty node
 			NewTextNode("WHERE id = #{id}"),
 		}
-		params := newGenericParam(H{"id": 10}, "")
+		params := eval.NewGenericParam(H{"id": 10}, "")
 		query, args, err := ng.Accept(translator, params)
 		if err != nil {
 			t.Fatalf("Expected no error, but got %v", err)
@@ -1109,7 +1109,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 func TestPureTextNode_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	tests := []struct {
 		name     string
@@ -1515,105 +1515,105 @@ func TestTextNode_Accept_Comprehensive(t *testing.T) {
 		{
 			name:          "NoPlaceholderNoSubstitution",
 			text:          "SELECT * FROM users",
-			params:        newGenericParam(H{}, ""),
+			params:        eval.NewGenericParam(H{}, ""),
 			expectedQuery: "SELECT * FROM users",
 			expectedArgs:  nil,
 		},
 		{
 			name:          "OnlyPlaceholder",
 			text:          "SELECT * FROM users WHERE id = #{id} AND name = #{name}",
-			params:        newGenericParam(H{"id": 1, "name": "Alice"}, ""),
+			params:        eval.NewGenericParam(H{"id": 1, "name": "Alice"}, ""),
 			expectedQuery: "SELECT * FROM users WHERE id = ? AND name = ?",
 			expectedArgs:  []any{1, "Alice"},
 		},
 		{
 			name:          "OnlySubstitution",
 			text:          "SELECT * FROM ${tableName} WHERE status = '${status}'",
-			params:        newGenericParam(H{"tableName": "employees", "status": "active"}, ""),
+			params:        eval.NewGenericParam(H{"tableName": "employees", "status": "active"}, ""),
 			expectedQuery: "SELECT * FROM employees WHERE status = 'active'",
 			expectedArgs:  nil,
 		},
 		{
 			name:          "PlaceholderAndSubstitution",
 			text:          "SELECT name FROM ${tableName} WHERE id = #{id} AND age > #{age}",
-			params:        newGenericParam(H{"tableName": "students", "id": 101, "age": 20}, ""),
+			params:        eval.NewGenericParam(H{"tableName": "students", "id": 101, "age": 20}, ""),
 			expectedQuery: "SELECT name FROM students WHERE id = ? AND age > ?",
 			expectedArgs:  []any{101, 20},
 		},
 		{
 			name:           "PlaceholderMissingParam",
 			text:           "SELECT * FROM users WHERE id = #{missing_id}",
-			params:         newGenericParam(H{"id": 1}, ""),
+			params:         eval.NewGenericParam(H{"id": 1}, ""),
 			expectError:    true,
 			expectedErrMsg: "parameter missing_id not found",
 		},
 		{
 			name:           "SubstitutionMissingParam",
 			text:           "SELECT * FROM ${missing_table}",
-			params:         newGenericParam(H{"id": 1}, ""),
+			params:         eval.NewGenericParam(H{"id": 1}, ""),
 			expectError:    true,
 			expectedErrMsg: "parameter missing_table not found",
 		},
 		{
 			name:          "PlaceholderWithSpaces",
 			text:          "SELECT * FROM users WHERE id = #{  id  }",
-			params:        newGenericParam(H{"id": 5}, ""),
+			params:        eval.NewGenericParam(H{"id": 5}, ""),
 			expectedQuery: "SELECT * FROM users WHERE id = ?",
 			expectedArgs:  []any{5},
 		},
 		{
 			name:          "SubstitutionWithSpaces",
 			text:          "SELECT * FROM ${  tableName  }",
-			params:        newGenericParam(H{"tableName": "orders"}, ""),
+			params:        eval.NewGenericParam(H{"tableName": "orders"}, ""),
 			expectedQuery: "SELECT * FROM orders",
 			expectedArgs:  nil,
 		},
 		{
 			name:          "MultipleOccurrencesOfSamePlaceholder",
 			text:          "SELECT #{id}, name FROM users WHERE id = #{id}",
-			params:        newGenericParam(H{"id": 7}, ""),
+			params:        eval.NewGenericParam(H{"id": 7}, ""),
 			expectedQuery: "SELECT ?, name FROM users WHERE id = ?",
 			expectedArgs:  []any{7, 7},
 		},
 		{
 			name:          "MultipleOccurrencesOfSameSubstitution",
 			text:          "SELECT ${column} FROM ${table} WHERE ${column} = 'test'",
-			params:        newGenericParam(H{"column": "data", "table": "items"}, ""),
+			params:        eval.NewGenericParam(H{"column": "data", "table": "items"}, ""),
 			expectedQuery: "SELECT data FROM items WHERE data = 'test'",
 			expectedArgs:  nil,
 		},
 		{
 			name:          "PlaceholderWithDotNotation",
 			text:          "SELECT * FROM users WHERE name = #{user.name}",
-			params:        newGenericParam(H{"user": map[string]any{"name": "Bob"}}, ""),
+			params:        eval.NewGenericParam(H{"user": map[string]any{"name": "Bob"}}, ""),
 			expectedQuery: "SELECT * FROM users WHERE name = ?",
 			expectedArgs:  []any{"Bob"},
 		},
 		{
 			name:          "SubstitutionWithDotNotation",
 			text:          "SELECT * FROM ${schema.table}",
-			params:        newGenericParam(H{"schema": map[string]any{"table": "public.users"}}, ""),
+			params:        eval.NewGenericParam(H{"schema": map[string]any{"table": "public.users"}}, ""),
 			expectedQuery: "SELECT * FROM public.users",
 			expectedArgs:  nil,
 		},
 		{
 			name:          "EmptyTextNode",
 			text:          "",
-			params:        newGenericParam(H{}, ""),
+			params:        eval.NewGenericParam(H{}, ""),
 			expectedQuery: "",
 			expectedArgs:  nil,
 		},
 		{
 			name:           "TextNodeWithOnlyPlaceholdersNoParams",
 			text:           "id = #{id}",
-			params:         newGenericParam(H{}, ""),
+			params:         eval.NewGenericParam(H{}, ""),
 			expectError:    true,
 			expectedErrMsg: "parameter id not found",
 		},
 		{
 			name:           "TextNodeWithOnlySubstitutionsNoParams",
 			text:           "TABLE ${table}",
-			params:         newGenericParam(H{}, ""),
+			params:         eval.NewGenericParam(H{}, ""),
 			expectError:    true,
 			expectedErrMsg: "parameter table not found",
 		},
@@ -1663,9 +1663,9 @@ func TestConditionNode_Accept(t *testing.T) {
 	translator := drv.Translator()
 
 	trueNode := NewTextNode("CONTENT_IF_TRUE")
-	paramsTrue := newGenericParam(H{"value": true, "number": 10, "text": "hello"}, "")
-	paramsFalse := newGenericParam(H{"value": false, "number": 0, "text": ""}, "")
-	paramsError := newGenericParam(H{"other": "value"}, "")
+	paramsTrue := eval.NewGenericParam(H{"value": true, "number": 10, "text": "hello"}, "")
+	paramsFalse := eval.NewGenericParam(H{"value": false, "number": 0, "text": ""}, "")
+	paramsError := eval.NewGenericParam(H{"other": "value"}, "")
 
 	tests := []struct {
 		name             string
@@ -1881,7 +1881,7 @@ func TestIfNode_Accept(t *testing.T) {
 func TestTextNode_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node := NewTextNode("select * from user where id = #{id}")
-	param := newGenericParam(H{"id": 1}, "")
+	param := eval.NewGenericParam(H{"id": 1}, "")
 	query, args, err := node.Accept(drv.Translator(), param)
 	if err != nil {
 		t.Error(err)
@@ -1915,7 +1915,7 @@ func TestWhereNode_Accept(t *testing.T) {
 		"id":   1,
 		"name": "a",
 	}
-	query, args, err := node.Accept(drv.Translator(), newGenericParam(params, ""))
+	query, args, err := node.Accept(drv.Translator(), eval.NewGenericParam(params, ""))
 	if err != nil {
 		t.Error(err)
 		return
@@ -1937,7 +1937,7 @@ func TestWhereNode_Accept(t *testing.T) {
 func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
-	emptyParams := newGenericParam(H{}, "")
+	emptyParams := eval.NewGenericParam(H{}, "")
 
 	tests := []struct {
 		name          string
@@ -1968,7 +1968,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{1},
 		},
@@ -1977,7 +1977,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("AND id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{1},
 		},
@@ -1986,7 +1986,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("OR id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{1},
 		},
@@ -1995,7 +1995,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("and id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{1},
 		},
@@ -2004,7 +2004,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("or id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{1},
 		},
@@ -2014,7 +2014,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 				NewTextNode("status = #{status}"),
 				NewTextNode("AND name = #{name}"),
 			},
-			params:        newGenericParam(H{"status": "active", "name": "test"}, ""),
+			params:        eval.NewGenericParam(H{"status": "active", "name": "test"}, ""),
 			expectedQuery: "WHERE status = ? AND name = ?",
 			expectedArgs:  []any{"active", "test"},
 		},
@@ -2024,7 +2024,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 				NewTextNode("AND status = #{status}"),
 				NewTextNode("AND name = #{name}"),
 			},
-			params:        newGenericParam(H{"status": "active", "name": "test"}, ""),
+			params:        eval.NewGenericParam(H{"status": "active", "name": "test"}, ""),
 			expectedQuery: "WHERE status = ? AND name = ?",
 			expectedArgs:  []any{"active", "test"},
 		},
@@ -2033,7 +2033,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("WHERE id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "WHERE id = ?",
 			expectedArgs:  []any{1},
 		},
@@ -2042,7 +2042,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 			nodes: NodeGroup{
 				NewTextNode("where id = #{id}"),
 			},
-			params:        newGenericParam(H{"id": 1}, ""),
+			params:        eval.NewGenericParam(H{"id": 1}, ""),
 			expectedQuery: "where id = ?", // Should preserve original case of WHERE
 			expectedArgs:  []any{1},
 		},
@@ -2170,7 +2170,7 @@ func TestSetNode_Accept(t *testing.T) {
 		"id":   1,
 		"name": "a",
 	}
-	query, args, err := node.Accept(drv.Translator(), newGenericParam(params, ""))
+	query, args, err := node.Accept(drv.Translator(), eval.NewGenericParam(params, ""))
 	if err != nil {
 		t.Error(err)
 		return
