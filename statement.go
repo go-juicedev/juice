@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/sql"
 )
 
@@ -32,7 +33,7 @@ type StatementMetadata interface {
 }
 
 type StatementBuilder interface {
-	Build(translator driver.Translator, parameter Parameter) (query string, args []any, err error)
+	Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error)
 }
 
 type Statement interface {
@@ -122,7 +123,7 @@ func (s *xmlSQLStatement) BindNodes() []*BindNode {
 }
 
 // Build builds the xmlSQLStatement with the given parameter.
-func (s *xmlSQLStatement) Build(translator driver.Translator, parameter Parameter) (query string, args []any, err error) {
+func (s *xmlSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
 	query, args, err = s.Nodes.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
@@ -182,7 +183,7 @@ func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
 }
 
 // Build builds the RawSQLStatement with the given parameter.
-func (s RawSQLStatement) Build(translator driver.Translator, parameter Parameter) (query string, args []any, err error) {
+func (s RawSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
 	query, args, err = NewTextNode(s.query).Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err

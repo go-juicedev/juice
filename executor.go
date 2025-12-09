@@ -22,6 +22,7 @@ import (
 	"errors"
 
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/eval"
 	sqllib "github.com/go-juicedev/juice/sql"
 )
 
@@ -32,11 +33,11 @@ var ErrInvalidExecutor = errors.New("juice: invalid executor")
 type Executor[T any] interface {
 	// QueryContext executes the query and returns the direct result.
 	// The args are for any placeholder parameters in the query.
-	QueryContext(ctx context.Context, param Param) (T, error)
+	QueryContext(ctx context.Context, param eval.Param) (T, error)
 
 	// ExecContext executes a query without returning any rows.
 	// The args are for any placeholder parameters in the query.
-	ExecContext(ctx context.Context, param Param) (sql.Result, error)
+	ExecContext(ctx context.Context, param eval.Param) (sql.Result, error)
 
 	// Statement returns the Statement of the current Executor.
 	Statement() Statement
@@ -52,12 +53,12 @@ type invalidExecutor struct {
 }
 
 // QueryContext implements the SQLRowsExecutor interface.
-func (b invalidExecutor) QueryContext(_ context.Context, _ Param) (*sql.Rows, error) {
+func (b invalidExecutor) QueryContext(_ context.Context, _ eval.Param) (*sql.Rows, error) {
 	return nil, b.err
 }
 
 // ExecContext implements the SQLRowsExecutor interface.
-func (b invalidExecutor) ExecContext(_ context.Context, _ Param) (sql.Result, error) {
+func (b invalidExecutor) ExecContext(_ context.Context, _ eval.Param) (sql.Result, error) {
 	return nil, b.err
 }
 
@@ -97,12 +98,12 @@ type sqlRowsExecutor struct {
 }
 
 // QueryContext executes the query and returns the result.
-func (e *sqlRowsExecutor) QueryContext(ctx context.Context, param Param) (*sql.Rows, error) {
+func (e *sqlRowsExecutor) QueryContext(ctx context.Context, param eval.Param) (*sql.Rows, error) {
 	return e.statementHandler.QueryContext(ctx, e.Statement(), param)
 }
 
 // ExecContext executes the query and returns the result.
-func (e *sqlRowsExecutor) ExecContext(ctx context.Context, param Param) (sql.Result, error) {
+func (e *sqlRowsExecutor) ExecContext(ctx context.Context, param eval.Param) (sql.Result, error) {
 	return e.statementHandler.ExecContext(ctx, e.Statement(), param)
 }
 
@@ -129,7 +130,7 @@ type GenericExecutor[T any] struct {
 }
 
 // QueryContext executes the query and returns the scanner.
-func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result T, err error) {
+func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p eval.Param) (result T, err error) {
 	// check the error of the sqlRowsExecutor
 	if exe, ok := isInvalidExecutor(e.SQLRowsExecutor); ok {
 		return result, exe.err
@@ -156,7 +157,7 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p Param) (result 
 }
 
 // ExecContext executes the query and returns the result.
-func (e *GenericExecutor[_]) ExecContext(ctx context.Context, p Param) (result sql.Result, err error) {
+func (e *GenericExecutor[_]) ExecContext(ctx context.Context, p eval.Param) (result sql.Result, err error) {
 	// check the error of the sqlRowsExecutor
 	if exe, ok := isInvalidExecutor(e.SQLRowsExecutor); ok {
 		return nil, exe.err
