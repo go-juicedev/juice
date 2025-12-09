@@ -30,7 +30,7 @@ var errMock = errors.New("mock error")
 
 type mockErrorNode struct{}
 
-func (m *mockErrorNode) Accept(_ driver.Translator, _ Parameter) (query string, args []any, err error) {
+func (m *mockErrorNode) Accept(_ driver.Translator, _ eval.Parameter) (query string, args []any, err error) {
 	return "", nil, errMock
 }
 
@@ -155,7 +155,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name          string
 		nodes         NodeGroup
-		params        Parameter
+		params        eval.Parameter
 		expectedQuery string
 		expectedArgs  []any
 		expectError   bool
@@ -310,7 +310,7 @@ func TestChooseNode_Accept(t *testing.T) {
 	emptyParams := eval.NewGenericParam(H{}, "")
 
 	// Helper to create a ConditionNode (WhenNode) for testing
-	newTestWhenNode := func(condition string, content string, paramsForParse Parameter) *ConditionNode {
+	newTestWhenNode := func(condition string, content string, paramsForParse eval.Parameter) *ConditionNode {
 		cn := &ConditionNode{
 			Nodes: NodeGroup{NewTextNode(content)},
 		}
@@ -330,7 +330,7 @@ func TestChooseNode_Accept(t *testing.T) {
 		}
 	}
 
-	paramsWithChoice := func(choice int) Parameter {
+	paramsWithChoice := func(choice int) eval.Parameter {
 		return eval.NewGenericParam(H{"choice": choice, "name": "TestName"}, "")
 	}
 
@@ -344,7 +344,7 @@ func TestChooseNode_Accept(t *testing.T) {
 		name           string
 		whenNodes      []Node // Should be []*ConditionNode ideally, but Node interface is used
 		otherwiseNode  Node   // Should be *OtherwiseNode
-		params         Parameter
+		params         eval.Parameter
 		expectedQuery  string
 		expectedArgs   []any
 		expectError    bool
@@ -508,7 +508,7 @@ func TestOtherwiseNode_Accept(t *testing.T) {
 	tests := []struct {
 		name          string
 		nodes         NodeGroup
-		params        Parameter
+		params        eval.Parameter
 		expectedQuery string
 		expectedArgs  []any
 		expectError   bool
@@ -688,7 +688,7 @@ func TestIncludeNode_Accept(t *testing.T) {
 		refIdToInclude string     // This is the ID the IncludeNode will try to include
 		nodesToAdd     []*SQLNode // List of SQLNodes to add to the mapper
 		// mapperError    error // Cannot reliably simulate general mapper errors with current setup
-		params         Parameter
+		params         eval.Parameter
 		expectedQuery  string
 		expectedArgs   []any
 		expectError    bool
@@ -807,7 +807,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		prefixOverrides []string
 		suffix          string
 		suffixOverrides []string
-		params          Parameter
+		params          eval.Parameter
 		expectedQuery   string
 		expectedArgs    []any
 		expectError     bool
@@ -1506,7 +1506,7 @@ func TestTextNode_Accept_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name           string
 		text           string
-		params         Parameter
+		params         eval.Parameter
 		expectedQuery  string
 		expectedArgs   []any
 		expectError    bool
@@ -1670,7 +1670,7 @@ func TestConditionNode_Accept(t *testing.T) {
 	tests := []struct {
 		name             string
 		condition        string
-		params           Parameter
+		params           eval.Parameter
 		nodes            NodeGroup
 		expectedQuery    string
 		expectedArgs     []any
@@ -1942,7 +1942,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name          string
 		nodes         NodeGroup
-		params        Parameter
+		params        eval.Parameter
 		expectedQuery string
 		expectedArgs  []any
 		expectError   bool

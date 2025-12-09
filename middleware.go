@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/session"
 	sqllib "github.com/go-juicedev/juice/sql"
@@ -312,7 +313,7 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration C
 		}
 		// try to get param from context
 		// ParamCtxInjectorExecutor is already set in middlewares, so the param should be in the context.
-		param := ParamFromContext(ctx)
+		param := eval.ParamFromContext(ctx)
 
 		if param == nil {
 			return nil, errors.New("useGeneratedKeys is true, but the param is nil")

@@ -90,7 +90,7 @@ var (
 type Node interface {
 	// Accept processes the node with given translator and parameters
 	// to produce a SQL fragment and its arguments.
-	Accept(translator driver.Translator, p Parameter) (query string, args []any, err error)
+	Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error)
 }
 
 // NodeGroup wraps multiple nodes into a single node.
@@ -99,7 +99,7 @@ type NodeGroup []Node
 // Accept processes all nodes in the group and combines their results.
 // The method ensures proper spacing between node outputs and trims any extra whitespace.
 // If the group is empty or no nodes produce output, it returns empty results.
-func (g NodeGroup) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (g NodeGroup) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	// Return early if group is empty
 	nodeLength := len(g)
 	switch nodeLength {
@@ -155,7 +155,7 @@ var _ Node = (*pureTextNode)(nil)
 // It is used to avoid unnecessary parameter replacement.
 type pureTextNode string
 
-func (p pureTextNode) Accept(_ driver.Translator, _ Parameter) (query string, args []any, err error) {
+func (p pureTextNode) Accept(_ driver.Translator, _ eval.Parameter) (query string, args []any, err error) {
 	return string(p), nil, nil
 }
 
@@ -173,7 +173,7 @@ type TextNode struct {
 
 // Accept accepts parameters and returns query and arguments.
 // Accept implements Node interface.
-func (c *TextNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (c *TextNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	// If there is no parameter, return the value as it is.
 	if len(c.placeholder) == 0 && len(c.textSubstitution) == 0 {
 		return c.value, nil, nil
@@ -190,7 +190,7 @@ func (c *TextNode) Accept(translator driver.Translator, p Parameter) (query stri
 	return query, args, nil
 }
 
-func (c *TextNode) replaceHolder(query string, args []any, translator driver.Translator, p Parameter) (string, []any, error) {
+func (c *TextNode) replaceHolder(query string, args []any, translator driver.Translator, p eval.Parameter) (string, []any, error) {
 	if len(c.placeholder) == 0 {
 		return query, args, nil
 	}
@@ -232,7 +232,7 @@ func (c *TextNode) replaceHolder(query string, args []any, translator driver.Tra
 }
 
 // replaceTextSubstitution replaces text substitution.
-func (c *TextNode) replaceTextSubstitution(query string, p Parameter) (string, error) {
+func (c *TextNode) replaceTextSubstitution(query string, p eval.Parameter) (string, error) {
 	if len(c.textSubstitution) == 0 {
 		return query, nil
 	}
@@ -311,7 +311,7 @@ func (c *ConditionNode) Parse(test string) (err error) {
 
 // Accept accepts parameters and returns query and arguments.
 // Accept implements Node interface.
-func (c *ConditionNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (c *ConditionNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	matched, err := c.Match(p)
 	if err != nil {
 		return "", nil, err
@@ -328,7 +328,7 @@ func (c *ConditionNode) Accept(translator driver.Translator, p Parameter) (query
 //   - Integers (signed/unsigned): returns true if non-zero
 //   - Floats: returns true if non-zero
 //   - String: returns true if non-empty
-func (c *ConditionNode) Match(p Parameter) (bool, error) {
+func (c *ConditionNode) Match(p eval.Parameter) (bool, error) {
 	if c.expr == nil {
 		return false, ErrNilExpression
 	}
@@ -378,7 +378,7 @@ type WhereNode struct {
 //	Input:  "OR name = ?"       -> Output: "WHERE name = ?"
 //	Input:  "WHERE age > ?"     -> Output: "WHERE age > ?"
 //	Input:  "status = ?"        -> Output: "WHERE status = ?"
-func (w WhereNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (w WhereNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	query, args, err = w.Nodes.Accept(translator, p)
 	if err != nil {
 		return "", nil, err
@@ -444,7 +444,7 @@ type TrimNode struct {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (t TrimNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (t TrimNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	query, args, err = t.Nodes.Accept(translator, p)
 	if err != nil {
 		return "", nil, err
@@ -544,7 +544,7 @@ type ForeachNode struct {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (f ForeachNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (f ForeachNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 
 	// if item already exists
 	if _, exists := p.Get(f.Item); exists {
@@ -577,7 +577,7 @@ func (f ForeachNode) Accept(translator driver.Translator, p Parameter) (query st
 	}
 }
 
-func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	sliceLength := value.Len()
 
 	if sliceLength == 0 {
@@ -642,7 +642,7 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 	return builder.String(), args, nil
 }
 
-func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	keys := value.MapKeys()
 
 	if len(keys) == 0 {
@@ -756,7 +756,7 @@ type SetNode struct {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (s SetNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (s SetNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	query, args, err = s.Nodes.Accept(translator, p)
 	if err != nil {
 		return "", nil, err
@@ -824,7 +824,7 @@ func (s SQLNode) ID() string {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (s SQLNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (s SQLNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	return s.nodes.Accept(translator, p)
 }
 
@@ -876,7 +876,7 @@ type IncludeNode struct {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (i *IncludeNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (i *IncludeNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	if i.sqlNode == nil {
 		// lazy loading
 		// does it need to be thread safe?
@@ -942,7 +942,7 @@ type ChooseNode struct {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (c ChooseNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (c ChooseNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	for _, node := range c.WhenNodes {
 		q, a, err := node.Accept(translator, p)
 		if err != nil {
@@ -1045,7 +1045,7 @@ type OtherwiseNode struct {
 }
 
 // Accept accepts parameters and returns query and arguments.
-func (o OtherwiseNode) Accept(translator driver.Translator, p Parameter) (query string, args []any, err error) {
+func (o OtherwiseNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	return o.Nodes.Accept(translator, p)
 }
 
@@ -1092,7 +1092,7 @@ func (b *BindNode) Parse(expression string) (err error) {
 
 // Execute evaluates the compiled expression against the provided Parameter
 // and returns the resulting reflect.Value.
-func (b *BindNode) Execute(p Parameter) (reflect.Value, error) {
+func (b *BindNode) Execute(p eval.Parameter) (reflect.Value, error) {
 	value, err := b.expr.Execute(p)
 	if err != nil {
 		return reflect.Value{}, err
@@ -1106,7 +1106,7 @@ var ErrBindVariableNotFound = errors.New("juice: bind variable not found")
 // bindScope provides lookup and execution of bind variables within a scope.
 type bindScope struct {
 	nodes     []*BindNode
-	parameter Parameter
+	parameter eval.Parameter
 }
 
 // Get finds a BindNode by name and executes it using the scope's parameter.

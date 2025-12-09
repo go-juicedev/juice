@@ -20,6 +20,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/session"
 	sqllib "github.com/go-juicedev/juice/sql"
 )
@@ -29,19 +30,19 @@ import (
 // Implementations of this interface should handle SQL query execution and result processing.
 type Runner interface {
 	// Select executes a SELECT query and returns the result rows.
-	Select(ctx context.Context, param Param) (*sql.Rows, error)
+	Select(ctx context.Context, param eval.Param) (*sql.Rows, error)
 
 	// Insert executes an INSERT statement and returns the result.
 	// The result includes the last insert ID and number of rows affected.
-	Insert(ctx context.Context, param Param) (sql.Result, error)
+	Insert(ctx context.Context, param eval.Param) (sql.Result, error)
 
 	// Update executes an UPDATE statement and returns the result.
 	// The result includes the number of rows affected by the update.
-	Update(ctx context.Context, param Param) (sql.Result, error)
+	Update(ctx context.Context, param eval.Param) (sql.Result, error)
 
 	// Delete executes a DELETE statement and returns the result.
 	// The result includes the number of rows affected by the deletion.
-	Delete(ctx context.Context, param Param) (sql.Result, error)
+	Delete(ctx context.Context, param eval.Param) (sql.Result, error)
 }
 
 // ErrorRunner is a Runner implementation that always returns an error.
@@ -54,25 +55,25 @@ type ErrorRunner struct {
 
 // Select implements Runner.Select by returning the stored error.
 // It ignores the context and parameters, always returning nil for rows and the stored error.
-func (r *ErrorRunner) Select(_ context.Context, _ Param) (*sql.Rows, error) {
+func (r *ErrorRunner) Select(_ context.Context, _ eval.Param) (*sql.Rows, error) {
 	return nil, r.error
 }
 
 // Insert implements Runner.Insert by returning the stored error.
 // It ignores the context and parameters, always returning nil for result and the stored error.
-func (r *ErrorRunner) Insert(_ context.Context, _ Param) (sql.Result, error) {
+func (r *ErrorRunner) Insert(_ context.Context, _ eval.Param) (sql.Result, error) {
 	return nil, r.error
 }
 
 // Update implements Runner.Update by returning the stored error.
 // It ignores the context and parameters, always returning nil for result and the stored error.
-func (r *ErrorRunner) Update(_ context.Context, _ Param) (sql.Result, error) {
+func (r *ErrorRunner) Update(_ context.Context, _ eval.Param) (sql.Result, error) {
 	return nil, r.error
 }
 
 // Delete implements Runner.Delete by returning the stored error.
 // It ignores the context and parameters, always returning nil for result and the stored error.
-func (r *ErrorRunner) Delete(_ context.Context, _ Param) (sql.Result, error) {
+func (r *ErrorRunner) Delete(_ context.Context, _ eval.Param) (sql.Result, error) {
 	return nil, r.error
 }
 
@@ -113,35 +114,35 @@ func (r *SQLRunner) BuildExecutor(action sqllib.Action) Executor[*sql.Rows] {
 
 // queryContext executes a SELECT query with the given context and parameters.
 // It returns the query results as sql.Rows and any error that occurred.
-func (r *SQLRunner) queryContext(ctx context.Context, param Param) (*sql.Rows, error) {
+func (r *SQLRunner) queryContext(ctx context.Context, param eval.Param) (*sql.Rows, error) {
 	executor := r.BuildExecutor(sqllib.Select)
 	return executor.QueryContext(ctx, param)
 }
 
 // execContext executes a non-query SQL operation (INSERT, UPDATE, DELETE)
 // with the given context and parameters.
-func (r *SQLRunner) execContext(action sqllib.Action, ctx context.Context, param Param) (sql.Result, error) {
+func (r *SQLRunner) execContext(action sqllib.Action, ctx context.Context, param eval.Param) (sql.Result, error) {
 	executor := r.BuildExecutor(action)
 	return executor.ExecContext(ctx, param)
 }
 
 // Select executes a SELECT query and returns the result rows.
-func (r *SQLRunner) Select(ctx context.Context, param Param) (*sql.Rows, error) {
+func (r *SQLRunner) Select(ctx context.Context, param eval.Param) (*sql.Rows, error) {
 	return r.queryContext(ctx, param)
 }
 
 // Insert executes an INSERT statement and returns the result.
-func (r *SQLRunner) Insert(ctx context.Context, param Param) (sql.Result, error) {
+func (r *SQLRunner) Insert(ctx context.Context, param eval.Param) (sql.Result, error) {
 	return r.execContext(sqllib.Insert, ctx, param)
 }
 
 // Update executes an UPDATE statement and returns the result.
-func (r *SQLRunner) Update(ctx context.Context, param Param) (sql.Result, error) {
+func (r *SQLRunner) Update(ctx context.Context, param eval.Param) (sql.Result, error) {
 	return r.execContext(sqllib.Update, ctx, param)
 }
 
 // Delete executes a DELETE statement and returns the result.
-func (r *SQLRunner) Delete(ctx context.Context, param Param) (sql.Result, error) {
+func (r *SQLRunner) Delete(ctx context.Context, param eval.Param) (sql.Result, error) {
 	return r.execContext(sqllib.Delete, ctx, param)
 }
 
@@ -163,7 +164,7 @@ type GenericRunner[T any] struct {
 
 // Bind binds the result of a SELECT query to a single value of type T.
 // It executes the query with the given context and parameters, then binds the result.
-func (r *GenericRunner[T]) Bind(ctx context.Context, param Param) (result T, err error) {
+func (r *GenericRunner[T]) Bind(ctx context.Context, param eval.Param) (result T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
@@ -174,7 +175,7 @@ func (r *GenericRunner[T]) Bind(ctx context.Context, param Param) (result T, err
 
 // List binds the result of a SELECT query to a list of values of type T.
 // It executes the query with the given context and parameters, then binds the result.
-func (r *GenericRunner[T]) List(ctx context.Context, param Param) (result []T, err error) {
+func (r *GenericRunner[T]) List(ctx context.Context, param eval.Param) (result []T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
@@ -185,7 +186,7 @@ func (r *GenericRunner[T]) List(ctx context.Context, param Param) (result []T, e
 
 // List2 binds the result of a SELECT query to a list of pointers to values of type T.
 // It executes the query with the given context and parameters, then binds the result.
-func (r *GenericRunner[T]) List2(ctx context.Context, param Param) (result []*T, err error) {
+func (r *GenericRunner[T]) List2(ctx context.Context, param eval.Param) (result []*T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
