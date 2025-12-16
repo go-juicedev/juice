@@ -287,8 +287,9 @@ var ErrNilExpression = errors.New("juice: nil expression")
 // ConditionNode represents a conditional SQL fragment with its evaluation expression and child nodes.
 // It is used to conditionally include or exclude SQL fragments based on runtime parameters.
 type ConditionNode struct {
-	expr  eval.Expression
-	Nodes NodeGroup
+	expr      eval.Expression
+	Nodes     NodeGroup
+	BindNodes BindNodeGroup
 }
 
 // Parse compiles the given expression string into an evaluable expression.
@@ -312,6 +313,8 @@ func (c *ConditionNode) Parse(test string) (err error) {
 // Accept accepts parameters and returns query and arguments.
 // Accept implements Node interface.
 func (c *ConditionNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = c.BindNodes.ConvertParameter(p)
+
 	matched, err := c.Match(p)
 	if err != nil {
 		return "", nil, err
@@ -319,6 +322,7 @@ func (c *ConditionNode) Accept(translator driver.Translator, p eval.Parameter) (
 	if !matched {
 		return "", nil, nil
 	}
+
 	return c.Nodes.Accept(translator, p)
 }
 
@@ -332,6 +336,7 @@ func (c *ConditionNode) Match(p eval.Parameter) (bool, error) {
 	if c.expr == nil {
 		return false, ErrNilExpression
 	}
+
 	value, err := c.expr.Execute(p)
 	if err != nil {
 		return false, err
@@ -363,7 +368,8 @@ var _ Node = (*IfNode)(nil)
 // WhereNode represents a SQL WHERE clause and its conditions.
 // It manages a group of condition nodes that form the complete WHERE clause.
 type WhereNode struct {
-	Nodes NodeGroup
+	Nodes     NodeGroup
+	BindNodes BindNodeGroup
 }
 
 // Accept processes the WHERE clause and its conditions.
@@ -379,6 +385,8 @@ type WhereNode struct {
 //	Input:  "WHERE age > ?"     -> Output: "WHERE age > ?"
 //	Input:  "status = ?"        -> Output: "WHERE status = ?"
 func (w WhereNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = w.BindNodes.ConvertParameter(p)
+
 	query, args, err = w.Nodes.Accept(translator, p)
 	if err != nil {
 		return "", nil, err
@@ -441,10 +449,13 @@ type TrimNode struct {
 	PrefixOverrides []string
 	Suffix          string
 	SuffixOverrides []string
+	BindNodes       BindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (t TrimNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = t.BindNodes.ConvertParameter(p)
+
 	query, args, err = t.Nodes.Accept(translator, p)
 	if err != nil {
 		return "", nil, err
@@ -541,10 +552,12 @@ type ForeachNode struct {
 	Open       string
 	Close      string
 	Separator  string
+	BindNodes  BindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (f ForeachNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = f.BindNodes.ConvertParameter(p)
 
 	// if item already exists
 	if _, exists := p.Get(f.Item); exists {
@@ -752,11 +765,14 @@ var _ Node = (*ForeachNode)(nil)
 // proper formatting of the SET clause regardless of which fields
 // are included dynamically.
 type SetNode struct {
-	Nodes NodeGroup
+	Nodes     NodeGroup
+	BindNodes BindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (s SetNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = s.BindNodes.ConvertParameter(p)
+
 	query, args, err = s.Nodes.Accept(translator, p)
 	if err != nil {
 		return "", nil, err
@@ -764,6 +780,7 @@ func (s SetNode) Accept(translator driver.Translator, p eval.Parameter) (query s
 	if len(query) == 0 {
 		return "", args, nil
 	}
+
 	// Remove trailing comma
 	query = strings.TrimSuffix(query, ",")
 
@@ -814,8 +831,9 @@ var _ Node = (*SetNode)(nil)
 // Note: The id must be unique within its mapper context to allow
 // proper statement lookup and execution.
 type SQLNode struct {
-	id    string    // Unique identifier for the SQL statement
-	nodes NodeGroup // Child nodes forming the SQL statement
+	id        string    // Unique identifier for the SQL statement
+	nodes     NodeGroup // Child nodes forming the SQL statement
+	BindNodes BindNodeGroup
 }
 
 // ID returns the id of the node.
@@ -825,6 +843,8 @@ func (s SQLNode) ID() string {
 
 // Accept accepts parameters and returns query and arguments.
 func (s SQLNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = s.BindNodes.ConvertParameter(p)
+
 	return s.nodes.Accept(translator, p)
 }
 
@@ -886,6 +906,7 @@ func (i *IncludeNode) Accept(translator driver.Translator, p eval.Parameter) (qu
 		}
 		i.sqlNode = sqlNode
 	}
+
 	return i.sqlNode.Accept(translator, p)
 }
 
@@ -939,10 +960,13 @@ var _ Node = (*IncludeNode)(nil)
 type ChooseNode struct {
 	WhenNodes     []Node
 	OtherwiseNode Node
+	BindNodes     BindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (c ChooseNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = c.BindNodes.ConvertParameter(p)
+
 	for _, node := range c.WhenNodes {
 		q, a, err := node.Accept(translator, p)
 		if err != nil {
@@ -953,6 +977,7 @@ func (c ChooseNode) Accept(translator driver.Translator, p eval.Parameter) (quer
 			return q, a, nil
 		}
 	}
+
 	// if all when nodes are false, return otherwise node
 	if c.OtherwiseNode != nil {
 		return c.OtherwiseNode.Accept(translator, p)
@@ -1041,11 +1066,14 @@ var _ Node = (*WhenNode)(nil)
 // Note: Unlike WhenNode, OtherwiseNode doesn't evaluate any conditions.
 // It simply provides default SQL fragments when needed.
 type OtherwiseNode struct {
-	Nodes NodeGroup
+	Nodes     NodeGroup
+	BindNodes BindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (o OtherwiseNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	p = o.BindNodes.ConvertParameter(p)
+
 	return o.Nodes.Accept(translator, p)
 }
 
@@ -1098,6 +1126,33 @@ func (b *BindNode) Execute(p eval.Parameter) (reflect.Value, error) {
 		return reflect.Value{}, err
 	}
 	return value, nil
+}
+
+type BindNodeGroup []*BindNode
+
+func (b BindNodeGroup) ConvertParameter(parameter eval.Parameter) eval.Parameter {
+	if len(b) == 0 {
+		return parameter
+	}
+	// decorate the parameter with boundParameterDecorator
+	// to provide binding scope for bind variables
+	boundParam := &boundParameterDecorator{
+		scope: &bindScope{
+			nodes:     b,
+			parameter: parameter,
+		},
+	}
+
+	parameter = eval.ParamGroup{
+		boundParam,
+		parameter,
+	}
+	// another approach is to use ParamGroup to combine boundParam and parameter
+	// but the order matters here.
+	// if we put boundParam after parameter, the boundParam will have lower priority
+	// than the original parameter, which is not what we want.
+	// so we put boundParam before parameter.
+	return parameter
 }
 
 // ErrBindVariableNotFound is returned when a bind variable lookup fails.

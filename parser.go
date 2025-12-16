@@ -554,17 +554,9 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
-			if token.Name.Local == "bind" {
-				bindNode, err := p.parseBind(stmt.mapper, decoder, token)
-				if err != nil {
-					return err
-				}
-				for _, existingBindNode := range stmt.bindNodes {
-					if existingBindNode.Name == bindNode.Name {
-						return fmt.Errorf("duplicate bind name: %s", bindNode.Name)
-					}
-				}
-				stmt.bindNodes = append(stmt.bindNodes, bindNode)
+			if handled, err := p.parseBindAndAppend(decoder, token, &stmt.bindNodes); err != nil {
+				return err
+			} else if handled {
 				continue
 			}
 
@@ -660,6 +652,12 @@ func (p *XMLMappersElementParser) parseSet(mapper *Mapper, decoder *xml.Decoder)
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &setNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
+
 			node, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -702,6 +700,11 @@ func (p *XMLMappersElementParser) parseIf(mapper *Mapper, decoder *xml.Decoder, 
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &ifNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
 			node, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -734,6 +737,11 @@ func (p *XMLMappersElementParser) parseWhere(mapper *Mapper, decoder *xml.Decode
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &whereNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
 			node, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -786,6 +794,11 @@ func (p *XMLMappersElementParser) parseTrim(mapper *Mapper, decoder *xml.Decoder
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &trimNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
 			node, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -836,6 +849,11 @@ func (p *XMLMappersElementParser) parseForeach(mapper *Mapper, decoder *xml.Deco
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &foreachNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
 			node, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -868,6 +886,12 @@ func (p *XMLMappersElementParser) parseChoose(mapper *Mapper, decoder *xml.Decod
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &chooseNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
+
 			switch token.Name.Local {
 			case "when":
 				node, err := p.parseWhen(mapper, decoder, token)
@@ -916,6 +940,11 @@ func (p *XMLMappersElementParser) parseSQLNode(mapper *Mapper, decoder *xml.Deco
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &sqlNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
 			tags, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -958,6 +987,11 @@ func (p *XMLMappersElementParser) parseWhen(mapper *Mapper, decoder *xml.Decoder
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &whenNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
 			node, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -990,6 +1024,12 @@ func (p *XMLMappersElementParser) parseOtherwise(mapper *Mapper, decoder *xml.De
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
+			if handled, err := p.parseBindAndAppend(decoder, token, &otherwiseNode.BindNodes); err != nil {
+				return nil, err
+			} else if handled {
+				continue
+			}
+
 			tags, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
 				return nil, err
@@ -1010,7 +1050,7 @@ func (p *XMLMappersElementParser) parseOtherwise(mapper *Mapper, decoder *xml.De
 	return nil, &nodeUnclosedError{nodeName: "otherwise"}
 }
 
-func (p *XMLMappersElementParser) parseBind(_ *Mapper, decoder *xml.Decoder, token xml.StartElement) (*BindNode, error) {
+func (p *XMLMappersElementParser) parseBind(decoder *xml.Decoder, token xml.StartElement) (*BindNode, error) {
 	bindNode := &BindNode{}
 
 	var value string
@@ -1054,6 +1094,24 @@ func (p *XMLMappersElementParser) parseBind(_ *Mapper, decoder *xml.Decoder, tok
 	}
 
 	return nil, &nodeUnclosedError{nodeName: "bind"}
+}
+
+func (p *XMLMappersElementParser) parseBindAndAppend(decoder *xml.Decoder, token xml.StartElement, dest *BindNodeGroup) (handled bool, err error) {
+	if token.Name.Local != "bind" {
+		return false, nil
+	}
+	bindNode, err := p.parseBind(decoder, token)
+	if err != nil {
+		return true, err
+	}
+	// check duplicate bind name
+	for _, existingBindNode := range *dest {
+		if existingBindNode.Name == bindNode.Name {
+			return true, fmt.Errorf("duplicate bind name: %s", bindNode.Name)
+		}
+	}
+	*dest = append(*dest, bindNode)
+	return true, nil
 }
 
 // parseCharData reads character data from an XML decoder until it encounters the specified end element.

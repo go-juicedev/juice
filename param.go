@@ -29,27 +29,6 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 		eval.PrefixPatternParameter("_parameter", param),
 	}
 
-	if bindNodes := statement.BindNodes(); len(bindNodes) > 0 {
-		// decorate the parameter with boundParameterDecorator
-		// to provide binding scope for bind variables
-		boundParam := &boundParameterDecorator{
-			scope: &bindScope{
-				nodes:     bindNodes,
-				parameter: parameter,
-			},
-		}
-
-		boundParameter := make(eval.ParamGroup, 0, len(parameter)+1)
-		boundParameter = append(boundParameter, boundParam)
-		parameter = append(boundParameter, parameter...)
-
-		// another approach is to use ParamGroup to combine boundParam and parameter
-		// but the order matters here.
-		// if we put boundParam after parameter, the boundParam will have lower priority
-		// than the original parameter, which is not what we want.
-		// so we put boundParam before parameter.
-	}
-
 	return parameter
 }
 
