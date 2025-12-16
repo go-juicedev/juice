@@ -39,7 +39,6 @@ type StatementBuilder interface {
 type Statement interface {
 	Action() sql.Action
 	ResultMap() (sql.ResultMap, error)
-	BindNodes() []*BindNode
 	StatementMetadata
 	StatementBuilder
 }
@@ -49,7 +48,7 @@ type xmlSQLStatement struct {
 	mapper    *Mapper
 	action    sql.Action
 	Nodes     NodeGroup
-	bindNodes []*BindNode
+	bindNodes BindNodeGroup
 	attrs     map[string]string
 	name      string
 	id        string
@@ -118,12 +117,9 @@ func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
 	return nil, sql.ErrResultMapNotSet
 }
 
-func (s *xmlSQLStatement) BindNodes() []*BindNode {
-	return s.bindNodes
-}
-
 // Build builds the xmlSQLStatement with the given parameter.
 func (s *xmlSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
+	parameter = s.bindNodes.ConvertParameter(parameter)
 	query, args, err = s.Nodes.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
@@ -201,10 +197,6 @@ func (s *RawSQLStatement) WithAttribute(key, value string) *RawSQLStatement {
 	}
 	s.attrs[key] = value
 	return s
-}
-
-func (s *RawSQLStatement) BindNodes() []*BindNode {
-	return nil
 }
 
 // NewRawSQLStatement creates a new raw SQL statement with the given query and action.
