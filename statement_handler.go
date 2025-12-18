@@ -18,11 +18,11 @@ package juice
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
+	stdsql "database/sql"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
@@ -30,7 +30,7 @@ import (
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/internal/stmt"
 	"github.com/go-juicedev/juice/session"
-	sqllib "github.com/go-juicedev/juice/sql"
+	"github.com/go-juicedev/juice/sql"
 )
 
 // StatementHandler defines the interface for executing SQL statements.
@@ -39,7 +39,7 @@ type StatementHandler interface {
 	ExecContext(ctx context.Context, statement Statement, param eval.Param) (sql.Result, error)
 
 	// QueryContext executes a query SQL statement (e.g., SELECT).
-	QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error)
+	QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error)
 }
 
 // contextStatementHandler is a StatementHandler that wraps another StatementHandler
@@ -50,7 +50,7 @@ type contextStatementHandler struct {
 }
 
 // QueryContext executes the query with the reduced context.
-func (h *contextStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error) {
+func (h *contextStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error) {
 	reducer := ctxreducer.G{
 		ctxreducer.NewSessionContextReducer(h.session),
 		ctxreducer.NewParamContextReducer(param),
@@ -86,7 +86,7 @@ type compiledStatementHandler struct {
 }
 
 // QueryContext executes a query and returns the resulting rows.
-func (s *compiledStatementHandler) QueryContext(ctx context.Context, statement Statement, _ eval.Param) (*sql.Rows, error) {
+func (s *compiledStatementHandler) QueryContext(ctx context.Context, statement Statement, _ eval.Param) (sql.Rows, error) {
 	if s.queryHandler == nil {
 		s.queryHandler = SessionQueryHandler
 	}
@@ -152,7 +152,7 @@ func buildStatementQuery(statement Statement, cfg Configuration, driver driver.D
 // It maintains a single prepared statement that can be reused if the query is the same.
 // When a different query is encountered, it closes the existing statement and creates a new one.
 type preparedStatementHandler struct {
-	stmts         *sql.Stmt
+	stmts         *stdsql.Stmt
 	middlewares   MiddlewareGroup
 	driver        driver.Driver
 	session       session.Session
@@ -161,7 +161,7 @@ type preparedStatementHandler struct {
 
 // getOrPrepare retrieves an existing prepared statement if the query matches,
 // otherwise closes the current statement (if any) and creates a new one.
-func (s *preparedStatementHandler) getOrPrepare(ctx context.Context, query string) (*sql.Stmt, error) {
+func (s *preparedStatementHandler) getOrPrepare(ctx context.Context, query string) (*stdsql.Stmt, error) {
 	if s.stmts != nil && stmt.Query(s.stmts) == query {
 		return s.stmts, nil
 	}
@@ -178,13 +178,13 @@ func (s *preparedStatementHandler) getOrPrepare(ctx context.Context, query strin
 }
 
 // QueryContext executes a query that returns rows.
-func (s *preparedStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error) {
+func (s *preparedStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error) {
 	query, args, err := buildStatementQuery(statement, s.configuration, s.driver, param)
 	if err != nil {
 		return nil, err
 	}
 
-	queryHandler := func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	queryHandler := func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
 		preparedStmt, err := s.getOrPrepare(ctx, query)
 		if err != nil {
 			return nil, err
@@ -272,7 +272,7 @@ type queryBuildStatementHandler struct {
 // and returns the resulting rows. It builds the query using the provided Param values,
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
-func (s *queryBuildStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error) {
+func (s *queryBuildStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error) {
 	query, args, err := buildStatementQuery(statement, s.configuration, s.driver, param)
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ type sliceBatchStatementHandler struct {
 // and returns the resulting rows. It builds the query using the provided Param values,
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
-func (s *sliceBatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error) {
+func (s *sliceBatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error) {
 	statementHandler := newQueryBuildStatementHandler(s.driver, s.session, s.configuration, s.middlewares...)
 	return statementHandler.QueryContext(ctx, statement, param)
 }
@@ -398,7 +398,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	defer func() { _ = preparedStmtHandler.Close() }()
 
 	var batchErrs error
-	aggregatedResult := &sqllib.BatchResult{}
+	aggregatedResult := &sql.BatchResult{}
 
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
@@ -460,7 +460,7 @@ type mapBatchStatementHandler struct {
 // and returns the resulting rows. It builds the query using the provided Param values,
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
-func (s *mapBatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error) {
+func (s *mapBatchStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error) {
 	statementHandler := newQueryBuildStatementHandler(s.driver, s.session, s.configuration, s.middlewares...)
 	return statementHandler.QueryContext(ctx, statement, param)
 }
@@ -512,7 +512,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	executionParam := batchParam.Interface()
 
 	var batchErrs error
-	aggregatedResult := &sqllib.BatchResult{}
+	aggregatedResult := &sql.BatchResult{}
 
 	// execute the statement in batches.
 	for i := 0; i < times; i++ {
@@ -581,7 +581,7 @@ type batchStatementHandler struct {
 // and returns the resulting rows. It builds the query using the provided Param values,
 // processes the query through any configured middlewares, and then executes it using
 // the associated driver.
-func (b *batchStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (*sql.Rows, error) {
+func (b *batchStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (sql.Rows, error) {
 	statementHandler := newQueryBuildStatementHandler(b.driver, b.session, b.configuration, b.middlewares...)
 	return statementHandler.QueryContext(ctx, statement, param)
 }
