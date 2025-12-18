@@ -16,7 +16,10 @@ limitations under the License.
 
 package sql
 
-import "database/sql"
+import (
+	"database/sql"
+	_ "unsafe" // for go:linkname
+)
 
 // Rows is the result of a query. Its cursor starts before the first row
 // of the result set. Use Next to advance from row to row.
@@ -72,3 +75,13 @@ type Rows interface {
 // var _ Rows = (*sql.Rows)(nil) ensures that *sql.Rows implements the Rows interface.
 // This is a compile-time check and has no runtime overhead.
 var _ Rows = (*sql.Rows)(nil)
+
+// convertAssign is a linkname to the private convertAssign function in database/sql.
+// It is used to perform high-performance, type-safe assignment of database-driver
+// values to user-defined Go variables, following the same rules as sql.Rows.Scan.
+//
+// TODO: This function is linked to the standard library's convertAssign to support
+// custom Rows implementation in the future (e.g. caching, mocking, etc.).
+//
+//go:linkname convertAssign database/sql.convertAssign
+func convertAssign(dest, src any) error
