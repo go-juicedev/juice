@@ -19,7 +19,6 @@ package juice
 import (
 	"cmp"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -33,7 +32,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/session"
-	sqllib "github.com/go-juicedev/juice/sql"
+	"github.com/go-juicedev/juice/sql"
 )
 
 const (
@@ -162,7 +161,7 @@ func (m *DebugMiddleware) QueryContext(stmt Statement, configuration Configurati
 		return next
 	}
 	// wrapper QueryHandler
-	return func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
 		start := time.Now()
 		rows, err := next(ctx, query, args...)
 		spent := time.Since(start)
@@ -226,7 +225,7 @@ func (t TimeoutMiddleware) QueryContext(stmt Statement, _ Configuration, next Qu
 	if timeout <= 0 {
 		return next
 	}
-	return func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
 		ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
 		defer cancel()
 		return next(ctx, query, args...)
@@ -281,7 +280,7 @@ type useGeneratedKeysMiddleware struct {
 // in the parameter object. Supports both single record and batch operations with configurable
 // key properties and increment strategies.
 func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
-	if stmt.Action() != sqllib.Insert {
+	if stmt.Action() != sql.Insert {
 		return next
 	}
 	const _useGeneratedKeys = "useGeneratedKeys"
@@ -491,7 +490,7 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, con
 	if dataSource == "" {
 		return next
 	}
-	return func(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
 		if isInTransaction(ctx) {
 			return next(ctx, query, args...)
 		}

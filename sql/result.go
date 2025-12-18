@@ -18,6 +18,9 @@ package sql
 
 import "database/sql"
 
+// Result is an alias for sql.Result to maintain compatibility
+type Result = sql.Result
+
 // BatchResult is a custom implementation of sql.Result that aggregates
 // results from multiple batch operations. It provides methods to accumulate
 // results from individual batch executions and maintains cumulative statistics.

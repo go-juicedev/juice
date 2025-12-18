@@ -18,12 +18,11 @@ package juice
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
-	sqllib "github.com/go-juicedev/juice/sql"
+	"github.com/go-juicedev/juice/sql"
 )
 
 // ErrInvalidExecutor is a custom error type that is used when an invalid executor is found.
@@ -53,7 +52,7 @@ type invalidExecutor struct {
 }
 
 // QueryContext implements the SQLRowsExecutor interface.
-func (b invalidExecutor) QueryContext(_ context.Context, _ eval.Param) (*sql.Rows, error) {
+func (b invalidExecutor) QueryContext(_ context.Context, _ eval.Param) (sql.Rows, error) {
 	return nil, b.err
 }
 
@@ -68,7 +67,7 @@ func (b invalidExecutor) Statement() Statement { return nil }
 func (b invalidExecutor) Driver() driver.Driver { return nil }
 
 // SQLRowsExecutor defines the interface of the sqlRowsExecutor.
-type SQLRowsExecutor Executor[*sql.Rows]
+type SQLRowsExecutor Executor[sql.Rows]
 
 // inValidExecutor is an invalid sqlRowsExecutor.
 func inValidExecutor(err error) SQLRowsExecutor {
@@ -98,7 +97,7 @@ type sqlRowsExecutor struct {
 }
 
 // QueryContext executes the query and returns the result.
-func (e *sqlRowsExecutor) QueryContext(ctx context.Context, param eval.Param) (*sql.Rows, error) {
+func (e *sqlRowsExecutor) QueryContext(ctx context.Context, param eval.Param) (sql.Rows, error) {
 	return e.statementHandler.QueryContext(ctx, e.Statement(), param)
 }
 
@@ -141,7 +140,7 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p eval.Param) (re
 
 	// ErrResultMapNotSet means the result map is not set, use the default result map.
 	if err != nil {
-		if !errors.Is(err, sqllib.ErrResultMapNotSet) {
+		if !errors.Is(err, sql.ErrResultMapNotSet) {
 			return result, err
 		}
 	}
@@ -153,7 +152,7 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p eval.Param) (re
 	}
 	defer func() { _ = rows.Close() }()
 
-	return sqllib.BindWithResultMap[T](rows, retMap)
+	return sql.BindWithResultMap[T](rows, retMap)
 }
 
 // ExecContext executes the query and returns the result.
