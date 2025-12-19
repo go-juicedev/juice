@@ -26,7 +26,7 @@ import (
 func TestWhenNode_Accept(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("select * from user where ID = #{ID}")
-	var node WhenNode = ConditionNode{
+	var node = WhenNode{
 		Nodes: []Node{node1},
 	}
 
