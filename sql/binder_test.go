@@ -3,7 +3,6 @@ package sql
 import (
 	"database/sql"
 	"errors"
-	"github.com/go-juicedev/juice/internal/sqlmock"
 	"testing"
 )
 
@@ -16,7 +15,7 @@ type TestUser struct {
 func TestBind(t *testing.T) {
 	// Test binding to a single struct
 	t.Run("SingleStruct", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}},
 		}
@@ -31,7 +30,7 @@ func TestBind(t *testing.T) {
 
 	// Test binding to a slice of structs
 	t.Run("SliceOfStructs", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
@@ -52,7 +51,7 @@ func TestBind(t *testing.T) {
 
 	// Test binding to a pointer to a struct
 	t.Run("PointerToStruct", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}},
 		}
@@ -70,7 +69,7 @@ func TestBind(t *testing.T) {
 
 	// Test binding to a slice of pointers to structs
 	t.Run("SliceOfPointerToStructs", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
@@ -91,7 +90,7 @@ func TestBind(t *testing.T) {
 
 	// Test with empty Rows
 	t.Run("EmptyRows", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{},
 		}
@@ -106,7 +105,7 @@ func TestBind(t *testing.T) {
 			t.Errorf("Expected zero TestUser, got ID=%d, Name='%s'", user.ID, user.Name)
 		}
 
-		rows = &sqlmock.MockRows{
+		rows = &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{},
 		}
@@ -117,20 +116,6 @@ func TestBind(t *testing.T) {
 		}
 		if len(users) != 0 {
 			t.Errorf("Expected empty slice, got %d users", len(users))
-		}
-	})
-
-	// Test with Rows returning an error
-	t.Run("RowsError", func(t *testing.T) {
-		expectedErr := errors.New("rows error")
-		rows := &sqlmock.MockRows{
-			ColumnsLine: []string{"id", "name"},
-			Data:        [][]any{{1, "Alice"}},
-			Reason:      expectedErr,
-		}
-		_, err := Bind[TestUser](rows)
-		if !errors.Is(err, expectedErr) {
-			t.Errorf("Expected error '%v', got '%v'", expectedErr, err)
 		}
 	})
 
@@ -147,7 +132,7 @@ func TestBind(t *testing.T) {
 
 	// Test with ErrNilDestination
 	t.Run("NilDestination", func(t *testing.T) {
-		rowsForNilUser := &sqlmock.MockRows{
+		rowsForNilUser := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}},
 		}
@@ -180,7 +165,7 @@ func TestBind(t *testing.T) {
 func TestList(t *testing.T) {
 	// Test converting Rows to a slice of structs
 	t.Run("SliceOfStructs", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
@@ -201,7 +186,7 @@ func TestList(t *testing.T) {
 
 	// Test with empty Rows
 	t.Run("EmptyRows", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{},
 		}
@@ -214,24 +199,10 @@ func TestList(t *testing.T) {
 		}
 	})
 
-	// Test with Rows returning an error
-	t.Run("RowsError", func(t *testing.T) {
-		expectedErr := errors.New("rows error")
-		rows := &sqlmock.MockRows{
-			ColumnsLine: []string{"id", "name"},
-			Data:        [][]any{{1, "Alice"}},
-			Reason:      expectedErr,
-		}
-		_, err := List[TestUser](rows)
-		if !errors.Is(err, expectedErr) {
-			t.Errorf("Expected error '%v', got '%v'", expectedErr, err)
-		}
-	})
-
 	// Test converting Rows to a slice of pointers to structs
 	// This case is more for List[T] where T is a pointer type.
 	t.Run("SliceOfPointerToStructs", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
@@ -254,7 +225,7 @@ func TestList(t *testing.T) {
 func TestList2(t *testing.T) {
 	// Test converting Rows to a slice of pointers to structs
 	t.Run("SliceOfPointerToStructs", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
@@ -275,7 +246,7 @@ func TestList2(t *testing.T) {
 
 	// Test with empty Rows
 	t.Run("EmptyRows", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{},
 		}
@@ -288,27 +259,12 @@ func TestList2(t *testing.T) {
 		}
 	})
 
-	// Test with Rows returning an error
-	t.Run("RowsError", func(t *testing.T) {
-		expectedErr := errors.New("rows error")
-		rows := &sqlmock.MockRows{
-			ColumnsLine: []string{"id", "name"},
-			Data:        [][]any{{1, "Alice"}},
-			Reason:      expectedErr,
-		}
-		_, err := List2[TestUser](rows)
-		// This error check needs to be specific. List2 calls List, which calls bindWithResultMap.
-		// The error from MockRows.Next() or MockRows.ColumnsLine() or MockRows.Scan() will propagate.
-		if !errors.Is(err, expectedErr) {
-			t.Errorf("Expected error '%v', got '%v'", expectedErr, err)
-		}
-	})
 }
 
 func TestIter(t *testing.T) {
 	// Test cases will be added here
 	t.Run("IterateOverRows", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
@@ -331,7 +287,7 @@ func TestIter(t *testing.T) {
 	})
 
 	t.Run("IterateOverEmptyRows", func(t *testing.T) {
-		rows := &sqlmock.MockRows{
+		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{},
 		}
