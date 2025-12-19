@@ -1,9 +1,6 @@
 package juice
 
 import (
-	"errors"
-	"reflect"
-
 	"github.com/go-juicedev/juice/eval"
 )
 
@@ -30,23 +27,4 @@ func buildStatementParameters(param any, statement Statement, driverName string,
 	}
 
 	return parameter
-}
-
-type boundParameterDecorator struct {
-	scope *bindScope
-}
-
-func (e boundParameterDecorator) Get(name string) (reflect.Value, bool) {
-	value, err := e.scope.Get(name)
-	if err != nil {
-		// it means the bind variable is not found in the bind scope
-		// should we handle this error differently?
-		// or just ignore it and let the underlying parameter handle it?
-		if !errors.Is(err, ErrBindVariableNotFound) {
-			// just log it for debugging purpose
-			logger.Printf("[WARN] BindVariableNotFound when getting parameter %s: %v", name, err)
-		}
-		return reflect.Value{}, false
-	}
-	return value, true
 }

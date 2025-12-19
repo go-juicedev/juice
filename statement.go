@@ -18,8 +18,10 @@ package juice
 
 import (
 	"fmt"
+	"github.com/go-juicedev/juice/node"
 	"hash/fnv"
 	"strconv"
+	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
@@ -47,8 +49,8 @@ type Statement interface {
 type xmlSQLStatement struct {
 	mapper    *Mapper
 	action    sql.Action
-	Nodes     NodeGroup
-	bindNodes BindNodeGroup
+	Nodes     node.NodeGroup
+	bindNodes node.BindNodeGroup
 	attrs     map[string]string
 	name      string
 	id        string
@@ -77,8 +79,7 @@ func (s *xmlSQLStatement) ID() string {
 }
 
 func (s *xmlSQLStatement) lazyName() string {
-	var builder = getStringBuilder()
-	defer putStringBuilder(builder)
+	var builder strings.Builder
 	if prefix := s.mapper.mappers.Prefix(); prefix != "" {
 		builder.WriteString(prefix)
 		builder.WriteString(".")
@@ -180,7 +181,7 @@ func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
 
 // Build builds the RawSQLStatement with the given parameter.
 func (s RawSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
-	query, args, err = NewTextNode(s.query).Accept(translator, parameter)
+	query, args, err = node.NewTextNode(s.query).Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
 	}

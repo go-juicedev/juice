@@ -21,7 +21,10 @@ import (
 	"iter"
 	"maps"
 	"os"
+	"regexp"
 )
+
+var formatRegexp = regexp.MustCompile(`\${\s*(\w+(?:\.\w+)*)\s*}`)
 
 // Environment defines a environment.
 // It contains a database connection configuration.
