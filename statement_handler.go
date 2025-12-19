@@ -18,19 +18,19 @@ package juice
 
 import (
 	"context"
+	stdsql "database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
-	stdsql "database/sql"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/internal/ctxreducer"
 	"github.com/go-juicedev/juice/internal/reflectlite"
-	"github.com/go-juicedev/juice/internal/stmt"
 	"github.com/go-juicedev/juice/session"
 	"github.com/go-juicedev/juice/sql"
+	"github.com/go-juicedev/juice/sql/stmt"
 )
 
 // StatementHandler defines the interface for executing SQL statements.
