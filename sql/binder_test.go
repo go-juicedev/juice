@@ -269,12 +269,15 @@ func TestIter(t *testing.T) {
 			Data:        [][]any{{1, "Alice"}, {2, "Bob"}},
 		}
 		var users []TestUser
-		iter := Iter[TestUser](rows)
-		for user := range iter.Iter() {
-			users = append(users, user)
+		seq, err := Iter[TestUser](rows)
+		if err != nil {
+			t.Fatalf("Iter initialization failed: %v", err)
 		}
-		if err := iter.Err(); err != nil {
-			t.Fatalf("Iter failed: %v", err)
+		for user, err := range seq {
+			if err != nil {
+				t.Fatalf("Iter failed: %v", err)
+			}
+			users = append(users, user)
 		}
 		if len(users) != len(rows.Data) {
 			t.Fatalf("Expected %d users, got %d", len(rows.Data), len(users))
@@ -291,13 +294,16 @@ func TestIter(t *testing.T) {
 			ColumnsLine: []string{"id", "name"},
 			Data:        [][]any{},
 		}
-		iter := Iter[TestUser](rows)
-		var users []TestUser
-		for user := range iter.Iter() {
-			users = append(users, user)
+		seq, err := Iter[TestUser](rows)
+		if err != nil {
+			t.Fatalf("Iter initialization failed: %v", err)
 		}
-		if err := iter.Err(); err != nil {
-			t.Fatalf("Iter failed with empty rows: %v", err)
+		var users []TestUser
+		for user, err := range seq {
+			if err != nil {
+				t.Fatalf("Iter failed with empty rows: %v", err)
+			}
+			users = append(users, user)
 		}
 		if len(users) != 0 {
 			t.Errorf("Expected empty slice, got %d users", len(users))

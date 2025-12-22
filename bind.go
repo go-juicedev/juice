@@ -16,7 +16,11 @@ limitations under the License.
 
 package juice
 
-import "github.com/go-juicedev/juice/sql"
+import (
+	"iter"
+
+	"github.com/go-juicedev/juice/sql"
+)
 
 // BindWithResultMap binds database query results to a value of type T using a custom ResultMap.
 // This function provides backward compatibility for code that imports the juice package directly.
@@ -115,22 +119,26 @@ func List2[T any](rows sql.Rows) ([]*T, error) {
 // For new code, consider using sql.Iter directly:
 //
 //	import "github.com/go-juicedev/juice/sql"
-//	iter := sql.Iter[User](rows)
+//	seq, err := sql.Iter[User](rows)
 //
-// The iterator implements Go's iter.Seq[T] interface, allowing use in range loops:
+// The function returns an iter.Seq2[T, error] that yields (value, error) pairs,
+// allowing for immediate error handling in the loop:
 //
-//	iter := Iter[User](rows)
-//	for user := range iter.Iter() {
+//	seq, err := Iter[User](rows)
+//	if err != nil {
+//	    return err
+//	}
+//	for user, err := range seq {
+//	    if err != nil {
+//	        return fmt.Errorf("iteration failed: %w", err)
+//	    }
 //	    // Process each user
 //	    fmt.Println(user.Name)
-//	}
-//	if err := iter.Err(); err != nil {
-//	    // Handle iteration error
 //	}
 //
 // Note: The caller is responsible for closing the rows when iteration is complete.
 //
-// Returns an iterator that yields values of type T.
-func Iter[T any](rows sql.Rows) *sql.RowsIter[T] {
+// Returns an iterator that yields (value, error) pairs of type T, and any initialization error.
+func Iter[T any](rows sql.Rows) (iter.Seq2[T, error], error) {
 	return sql.Iter[T](rows)
 }

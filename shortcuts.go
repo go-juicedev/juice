@@ -19,6 +19,7 @@ package juice
 import (
 	"context"
 	"database/sql"
+	"iter"
 
 	sqllib "github.com/go-juicedev/juice/sql"
 )
@@ -63,4 +64,17 @@ func QueryList2Context[T any](ctx context.Context, statement, param any) (result
 	}
 	defer func() { _ = rows.Close() }()
 	return sqllib.List2[T](rows)
+}
+
+// QueryIterContext executes a query and returns an iterator over T.
+// Rows are automatically closed when iteration completes or stops.
+// (ctx must contain a Manager via ManagerFromContext)
+func QueryIterContext[T any](ctx context.Context, statement, param any) (iter.Seq2[T, error], error) {
+	manager := ManagerFromContext(ctx)
+	rows, err := manager.Object(statement).QueryContext(ctx, param)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return sqllib.Iter[T](rows)
 }
