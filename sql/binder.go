@@ -18,7 +18,6 @@ package sql
 
 import (
 	"database/sql"
-	"iter"
 	"reflect"
 	"time"
 )
@@ -177,65 +176,4 @@ func List2[T any](rows Rows) ([]*T, error) {
 		result[i] = &items[i]
 	}
 	return result, nil
-}
-
-func Iter[T any](rows Rows) (iter.Seq2[T, error], error) {
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	columnDest := &rowDestination{}
-	t := reflect.TypeFor[T]()
-
-	var objectFactory func() T
-
-	isPtr := t.Kind() == reflect.Ptr
-
-	// Override object factory for pointer types to properly allocate memory
-	if isPtr {
-		objectFactory = func() T {
-			result, _ := reflect.TypeAssert[T](reflect.New(t.Elem()))
-			return result
-		}
-	} else {
-		objectFactory = func() T { return *new(T) }
-	}
-
-	// handler encapsulates the row scanning logic and object creation
-	handler := func() (T, error) {
-		var t = objectFactory()
-
-		var v reflect.Value
-
-		if isPtr {
-			v = reflect.ValueOf(t)
-		} else {
-			v = reflect.ValueOf(&t)
-		}
-
-		// Create destination slice for scanning row values
-		dest, err := columnDest.Destination(v, columns)
-		if err != nil {
-			return t, err
-		}
-		if err = rows.Scan(dest...); err != nil {
-			return t, err
-		}
-		return t, nil
-	}
-
-	return func(yield func(T, error) bool) {
-		for rows.Next() {
-			value, err := handler()
-			if !yield(value, err) {
-				return
-			}
-		}
-		// Check for any errors that occurred during iteration
-		if err := rows.Err(); err != nil {
-			var zero T
-			yield(zero, err)
-		}
-	}, nil
 }
