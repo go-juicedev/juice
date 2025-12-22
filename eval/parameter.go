@@ -284,8 +284,7 @@ func (g *GenericParameter) Get(name string) (value reflect.Value, exists bool) {
 
 // Clear clears the cache of the parameter.
 func (g *GenericParameter) Clear() {
-	// avoid calling clear on a nil map; reset to nil to allow GC
-	g.cache = nil
+	clear(g.cache)
 }
 
 // NewGenericParam creates a generic parameter.
