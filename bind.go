@@ -17,8 +17,6 @@ limitations under the License.
 package juice
 
 import (
-	"iter"
-
 	"github.com/go-juicedev/juice/sql"
 )
 
@@ -139,6 +137,6 @@ func List2[T any](rows sql.Rows) ([]*T, error) {
 // Note: The caller is responsible for closing the rows when iteration is complete.
 //
 // Returns an iterator that yields (value, error) pairs of type T, and any initialization error.
-func Iter[T any](rows sql.Rows) (iter.Seq2[T, error], error) {
+func Iter[T any](rows sql.Rows) (sql.Iterator[T], error) {
 	return sql.Iter[T](rows)
 }
