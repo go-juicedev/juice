@@ -195,6 +195,11 @@ type GenericParameter struct {
 	// it will cache the final street value to avoid parsing the path again.
 	cache map[string]reflect.Value
 
+	// pathSegments caches the split path segments to avoid repeated strings.Split operations.
+	// For example, "user.address.street" will be cached as ["user", "address", "street"].
+	// This optimization reduces CPU overhead when the same parameter paths are accessed repeatedly.
+	pathSegments map[string][]string
+
 	// structFieldIndex caches the field indexes for struct types at each path level.
 	// The first key is the position in the path (e.g., for "user.address.street": 0 for user, 1 for address).
 	// The second key is the concrete type of the struct, which ensures correct field lookup for different struct types.
@@ -204,11 +209,25 @@ type GenericParameter struct {
 	structFieldIndex map[int]map[reflect.Type]map[string][]int
 }
 
-func (g *GenericParameter) get(name string) (value reflect.Value, exists bool) {
-	value = g.Value
-	items := strings.Split(name, ".")
-	var param Parameter
-	for i, item := range items {
+func (g *GenericParameter) get(name string) (reflect.Value, bool) {
+	var (
+		param Parameter
+		value = g.Value
+	)
+
+	// get or split the path segments
+	// to avoid repeated strings.Split operations
+	// cache the split segments
+	segments, exists := g.pathSegments[name]
+	if !exists {
+		segments = strings.Split(name, ".")
+		if g.pathSegments == nil {
+			g.pathSegments = make(map[string][]string)
+		}
+		g.pathSegments[name] = segments
+	}
+
+	for i, item := range segments {
 
 		// only unwrap when the value need to call Get method
 		value = reflectlite.Unwrap(value)
