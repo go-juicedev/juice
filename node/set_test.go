@@ -30,7 +30,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		nodes         NodeGroup
+		nodes         Group
 		params        eval.Parameter
 		expectedQuery string
 		expectedArgs  []any
@@ -38,15 +38,15 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 	}{
 		{
 			name:          "EmptyChildNodes",
-			nodes:         NodeGroup{},
+			nodes:         Group{},
 			params:        emptyParams,
 			expectedQuery: "",
 			expectedArgs:  nil,
 		},
 		{
 			name: "ChildNodesProduceEmptyQuery",
-			nodes: NodeGroup{
-				&IfNode{Nodes: NodeGroup{NewTextNode("ID = #{ID},")}},
+			nodes: Group{
+				&IfNode{Nodes: Group{NewTextNode("ID = #{ID},")}},
 			},
 			params:        emptyParams,
 			expectedQuery: "",
@@ -54,7 +54,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleAssignment_NoTrailingComma",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("name = #{name}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"name": "Test"}, ""),
@@ -63,7 +63,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleAssignment_WithTrailingComma",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("name = #{name},"),
 			},
 			params:        eval.NewGenericParam(eval.H{"name": "Test"}, ""),
@@ -72,7 +72,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "MultipleAssignments_AllWithTrailingCommas",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("ID = #{ID},"),
 				NewTextNode("name = #{name},"),
 				NewTextNode("age = #{age},"),
@@ -83,7 +83,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "MultipleAssignments_LastWithoutTrailingComma",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("ID = #{ID},"),
 				NewTextNode("name = #{name}"),
 			},
@@ -93,7 +93,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "MultipleAssignments_MixedTrailingCommas",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("ID = #{ID}"),
 				NewTextNode("name = #{name},"),
 				NewTextNode("status = #{status}"),
@@ -104,7 +104,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "QueryAlreadyStartsWithSET",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("SET ID = #{ID}, name = #{name}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1, "name": "Test"}, ""),
@@ -113,7 +113,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "QueryAlreadyStartsWithLowercaseSet",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("set ID = #{ID}, name = #{name},"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1, "name": "Test"}, ""),
@@ -122,7 +122,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "ChildNodeReturnsError",
-			nodes: NodeGroup{
+			nodes: Group{
 				&mockErrorNode{},
 			},
 			params:      emptyParams,
@@ -130,9 +130,9 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "AssignmentsWithIfNodes",
-			nodes: NodeGroup{
-				&IfNode{Nodes: NodeGroup{NewTextNode("name = #{name},")}, expr: parseExprNoError(t, `name != ""`)},
-				&IfNode{Nodes: NodeGroup{NewTextNode("age = #{age},")}, expr: parseExprNoError(t, "age > 0")},
+			nodes: Group{
+				&IfNode{Nodes: Group{NewTextNode("name = #{name},")}, expr: parseExprNoError(t, `name != ""`)},
+				&IfNode{Nodes: Group{NewTextNode("age = #{age},")}, expr: parseExprNoError(t, "age > 0")},
 				NewTextNode("modified_at = NOW()"),
 			},
 			params:        eval.NewGenericParam(eval.H{"name": "Valid Name", "age": 0}, ""),

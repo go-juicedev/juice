@@ -29,7 +29,7 @@ var ErrNilExpression = errors.New("juice: nil expression")
 // It is used to conditionally include or exclude SQL fragments based on runtime parameters.
 type ConditionNode struct {
 	expr      eval.Expression
-	Nodes     NodeGroup
+	Nodes     Group
 	BindNodes BindNodeGroup
 }
 

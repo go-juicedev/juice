@@ -62,7 +62,7 @@ import (
 // proper formatting of the SET clause regardless of which fields
 // are included dynamically.
 type SetNode struct {
-	Nodes     NodeGroup
+	Nodes     Group
 	BindNodes BindNodeGroup
 }
 

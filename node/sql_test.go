@@ -36,7 +36,7 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 	})
 
 	t.Run("Accept_EmptyNodes", func(t *testing.T) {
-		sqlNode := SQLNode{ID: "empty", Nodes: NodeGroup{}}
+		sqlNode := SQLNode{ID: "empty", Nodes: Group{}}
 		query, args, err := sqlNode.Accept(translator, eval.NewGenericParam(eval.H{}, ""))
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
@@ -50,7 +50,7 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 	})
 
 	t.Run("Accept_WithNodes", func(t *testing.T) {
-		nodes := NodeGroup{
+		nodes := Group{
 			NewTextNode("SELECT * FROM table WHERE ID = #{ID}"),
 		}
 		sqlNode := SQLNode{ID: "selectUser", Nodes: nodes}
@@ -71,7 +71,7 @@ func TestSQLNode_AcceptAndID(t *testing.T) {
 	})
 
 	t.Run("Accept_NodeReturnsError", func(t *testing.T) {
-		nodes := NodeGroup{
+		nodes := Group{
 			&mockErrorNode{},
 		}
 		sqlNode := SQLNode{ID: "errorNode", Nodes: nodes}

@@ -55,7 +55,7 @@ import (
 //	Input:  "AND ID = ? AND name = ?"
 //	Output: "WHERE ID = ? AND name = ?"
 type TrimNode struct {
-	Nodes           NodeGroup
+	Nodes           Group
 	Prefix          string
 	PrefixOverrides []string
 	Suffix          string

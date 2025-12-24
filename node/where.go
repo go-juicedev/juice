@@ -26,7 +26,7 @@ import (
 // WhereNode represents a SQL WHERE clause and its conditions.
 // It manages a group of condition Nodes that form the complete WHERE clause.
 type WhereNode struct {
-	Nodes     NodeGroup
+	Nodes     Group
 	BindNodes BindNodeGroup
 }
 
