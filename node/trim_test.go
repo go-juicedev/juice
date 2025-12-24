@@ -30,7 +30,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		nodes           NodeGroup
+		nodes           Group
 		prefix          string
 		prefixOverrides []string
 		suffix          string
@@ -42,27 +42,27 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 	}{
 		{
 			name:          "AllEmpty",
-			nodes:         NodeGroup{NewTextNode("content")},
+			nodes:         Group{NewTextNode("content")},
 			params:        emptyParams,
 			expectedQuery: "content",
 		},
 		{
 			name:          "OnlyPrefix",
-			nodes:         NodeGroup{NewTextNode("content")},
+			nodes:         Group{NewTextNode("content")},
 			prefix:        "PRE-",
 			params:        emptyParams,
 			expectedQuery: "PRE-content",
 		},
 		{
 			name:          "OnlySuffix",
-			nodes:         NodeGroup{NewTextNode("content")},
+			nodes:         Group{NewTextNode("content")},
 			suffix:        "-SUF",
 			params:        emptyParams,
 			expectedQuery: "content-SUF",
 		},
 		{
 			name:            "PrefixOverrideMatch",
-			nodes:           NodeGroup{NewTextNode("OVERRIDE_ME content")},
+			nodes:           Group{NewTextNode("OVERRIDE_ME content")},
 			prefix:          "NEW_PRE-",
 			prefixOverrides: []string{"OVERRIDE_ME ", "OTHER_"},
 			params:          emptyParams,
@@ -70,7 +70,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "PrefixOverrideNoMatch",
-			nodes:           NodeGroup{NewTextNode("NO_MATCH content")},
+			nodes:           Group{NewTextNode("NO_MATCH content")},
 			prefix:          "PRE-",
 			prefixOverrides: []string{"OVERRIDE_ME "},
 			params:          emptyParams,
@@ -78,7 +78,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "SuffixOverrideMatch",
-			nodes:           NodeGroup{NewTextNode("content SUFF_OVERRIDE")},
+			nodes:           Group{NewTextNode("content SUFF_OVERRIDE")},
 			suffix:          "-NEW_SUF",
 			suffixOverrides: []string{" SUFF_OVERRIDE", " _OTHER"},
 			params:          emptyParams,
@@ -86,7 +86,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "SuffixOverrideNoMatch",
-			nodes:           NodeGroup{NewTextNode("content NO_MATCH")},
+			nodes:           Group{NewTextNode("content NO_MATCH")},
 			suffix:          "-SUF",
 			suffixOverrides: []string{" SUFF_OVERRIDE"},
 			params:          emptyParams,
@@ -94,7 +94,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "AllAttributesSet_OverridesMatch",
-			nodes:           NodeGroup{NewTextNode("PRE_OV content SUF_OV")},
+			nodes:           Group{NewTextNode("PRE_OV content SUF_OV")},
 			prefix:          "PREFIX ",
 			prefixOverrides: []string{"PRE_OV "},
 			suffix:          " SUFFIX",
@@ -104,7 +104,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "AllAttributesSet_OverridesNoMatch",
-			nodes:           NodeGroup{NewTextNode("original content")},
+			nodes:           Group{NewTextNode("original content")},
 			prefix:          "PREFIX ",
 			prefixOverrides: []string{"NO_PRE_OV "},
 			suffix:          " SUFFIX",
@@ -114,7 +114,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:          "ChildNodesReturnEmptyQuery",
-			nodes:         NodeGroup{&IfNode{}},
+			nodes:         Group{&IfNode{}},
 			prefix:        "PRE-",
 			suffix:        "-SUF",
 			params:        emptyParams,
@@ -122,7 +122,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "ChildNodeReturnsError",
-			nodes: NodeGroup{
+			nodes: Group{
 				&mockErrorNode{},
 			},
 			params:      emptyParams,
@@ -130,7 +130,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "PrefixOverrideWithSpaceAtEnd_ContentAlsoHasSpace",
-			nodes:           NodeGroup{NewTextNode("AND ID = 1")},
+			nodes:           Group{NewTextNode("AND ID = 1")},
 			prefix:          "WHERE ",
 			prefixOverrides: []string{"AND ", "OR "},
 			params:          emptyParams,
@@ -138,7 +138,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "SuffixOverrideWithSpaceAtStart_ContentAlsoHasSpace",
-			nodes:           NodeGroup{NewTextNode("ID = 1 ,")},
+			nodes:           Group{NewTextNode("ID = 1 ,")},
 			suffix:          ";",
 			suffixOverrides: []string{" ,", " ;"},
 			params:          emptyParams,
@@ -146,7 +146,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "EmptyPrefixOverrides",
-			nodes:           NodeGroup{NewTextNode("AND content")},
+			nodes:           Group{NewTextNode("AND content")},
 			prefix:          "WHERE ",
 			prefixOverrides: []string{},
 			params:          emptyParams,
@@ -154,7 +154,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:            "EmptySuffixOverrides",
-			nodes:           NodeGroup{NewTextNode("content,")},
+			nodes:           Group{NewTextNode("content,")},
 			suffix:          ";",
 			suffixOverrides: []string{},
 			params:          emptyParams,
@@ -162,7 +162,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name:          "ContentGeneratedWithArgs",
-			nodes:         NodeGroup{NewTextNode("ID = #{ID}")},
+			nodes:         Group{NewTextNode("ID = #{ID}")},
 			prefix:        "WHERE ",
 			params:        eval.NewGenericParam(eval.H{"ID": 123}, ""),
 			expectedQuery: "WHERE ID = ?",

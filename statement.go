@@ -49,7 +49,7 @@ type Statement interface {
 type xmlSQLStatement struct {
 	mapper    *Mapper
 	action    sql.Action
-	Nodes     node.NodeGroup
+	Nodes     node.Group
 	bindNodes node.BindNodeGroup
 	attrs     map[string]string
 	name      string

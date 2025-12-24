@@ -63,7 +63,7 @@ import (
 // Note: Unlike WhenNode, OtherwiseNode doesn't evaluate any conditions.
 // It simply provides default SQL fragments when needed.
 type OtherwiseNode struct {
-	Nodes     NodeGroup
+	Nodes     Group
 	BindNodes BindNodeGroup
 }
 

@@ -92,13 +92,13 @@ type Node interface {
 	Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error)
 }
 
-// NodeGroup wraps multiple Nodes into a single node.
-type NodeGroup []Node
+// Group wraps multiple Nodes into a single node.
+type Group []Node
 
 // Accept processes all Nodes in the group and combines their results.
 // The method ensures proper spacing between node outputs and trims any extra whitespace.
 // If the group is empty or no Nodes produce output, it returns empty results.
-func (g NodeGroup) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	// Return early if group is empty
 	nodeLength := len(g)
 	switch nodeLength {

@@ -58,8 +58,8 @@ import (
 // Note: The ID must be unique within its mapper context to allow
 // proper statement lookup and execution.
 type SQLNode struct {
-	ID        string    // Unique identifier for the SQL statement
-	Nodes     NodeGroup // Child Nodes forming the SQL statement
+	ID        string // Unique identifier for the SQL statement
+	Nodes     Group  // Child Nodes forming the SQL statement
 	BindNodes BindNodeGroup
 }
 

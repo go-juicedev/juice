@@ -30,7 +30,7 @@ func TestOtherwiseNode_Accept(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		nodes         NodeGroup
+		nodes         Group
 		params        eval.Parameter
 		expectedQuery string
 		expectedArgs  []any
@@ -38,14 +38,14 @@ func TestOtherwiseNode_Accept(t *testing.T) {
 	}{
 		{
 			name:          "EmptyNodeGroup",
-			nodes:         NodeGroup{},
+			nodes:         Group{},
 			params:        emptyParams,
 			expectedQuery: "",
 			expectedArgs:  nil,
 		},
 		{
 			name: "NodeGroupWithContent",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("DEFAULT CONTENT WHERE ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 99}, ""),
@@ -54,7 +54,7 @@ func TestOtherwiseNode_Accept(t *testing.T) {
 		},
 		{
 			name: "NodeGroupReturnsError",
-			nodes: NodeGroup{
+			nodes: Group{
 				&mockErrorNode{},
 			},
 			params:      emptyParams,

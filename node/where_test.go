@@ -63,7 +63,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		nodes         NodeGroup
+		nodes         Group
 		params        eval.Parameter
 		expectedQuery string
 		expectedArgs  []any
@@ -71,15 +71,15 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 	}{
 		{
 			name:          "EmptyChildNodes",
-			nodes:         NodeGroup{},
+			nodes:         Group{},
 			params:        emptyParams,
 			expectedQuery: "",
 			expectedArgs:  nil,
 		},
 		{
 			name: "ChildNodesProduceEmptyQuery",
-			nodes: NodeGroup{
-				&IfNode{Nodes: NodeGroup{NewTextNode("ID = #{ID}")}},
+			nodes: Group{
+				&IfNode{Nodes: Group{NewTextNode("ID = #{ID}")}},
 			},
 			params:        emptyParams,
 			expectedQuery: "",
@@ -87,7 +87,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleCondition_NoLeadingAndOr",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -96,7 +96,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleCondition_LeadingAND",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("AND ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -105,7 +105,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleCondition_LeadingOR",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("OR ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -114,7 +114,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleCondition_LeadingLowercaseAND",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("and ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -123,7 +123,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "SingleCondition_LeadingLowercaseOR",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("or ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -132,7 +132,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "MultipleConditions_FirstNoLeading_SecondLeadingAND",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("status = #{status}"),
 				NewTextNode("AND name = #{name}"),
 			},
@@ -142,7 +142,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "MultipleConditions_FirstLeadingAND_SecondLeadingAND",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("AND status = #{status}"),
 				NewTextNode("AND name = #{name}"),
 			},
@@ -152,7 +152,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "QueryAlreadyStartsWithWHERE",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("WHERE ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -161,7 +161,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "QueryAlreadyStartsWithLowercaseWHERE",
-			nodes: NodeGroup{
+			nodes: Group{
 				NewTextNode("where ID = #{ID}"),
 			},
 			params:        eval.NewGenericParam(eval.H{"ID": 1}, ""),
@@ -170,7 +170,7 @@ func TestWhereNode_Accept_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "ChildNodeReturnsError",
-			nodes: NodeGroup{
+			nodes: Group{
 				&mockErrorNode{},
 			},
 			params:      emptyParams,

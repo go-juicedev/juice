@@ -117,7 +117,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 	emptyParams := eval.NewGenericParam(eval.H{}, "")
 
 	t.Run("EmptyNodeGroup", func(t *testing.T) {
-		ng := NodeGroup{}
+		ng := Group{}
 		query, args, err := ng.Accept(translator, emptyParams)
 		if err != nil {
 			t.Errorf("Expected no error, but got %v", err)
@@ -131,7 +131,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 	})
 
 	t.Run("SingleNodeInGroup", func(t *testing.T) {
-		ng := NodeGroup{
+		ng := Group{
 			NewTextNode("SELECT * FROM users WHERE ID = #{ID}"),
 		}
 		params := eval.NewGenericParam(eval.H{"ID": 1}, "")
@@ -148,7 +148,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 	})
 
 	t.Run("MultipleNodesInGroup", func(t *testing.T) {
-		ng := NodeGroup{
+		ng := Group{
 			NewTextNode("SELECT *"),
 			NewTextNode("FROM users"),
 			NewTextNode("WHERE ID = #{ID}"),
@@ -167,7 +167,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 	})
 
 	t.Run("MultipleNodesInGroupWithSpaces", func(t *testing.T) {
-		ng := NodeGroup{
+		ng := Group{
 			NewTextNode("SELECT * "),
 			NewTextNode(" FROM users "),
 			NewTextNode(" WHERE ID = #{ID}"),
@@ -187,7 +187,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 
 	t.Run("NodeReturnsError", func(t *testing.T) {
 		errorNode := &mockErrorNode{}
-		ng := NodeGroup{
+		ng := Group{
 			NewTextNode("SELECT *"),
 			errorNode,
 			NewTextNode("FROM users"),
@@ -203,7 +203,7 @@ func TestNodeGroup_Accept(t *testing.T) {
 	})
 
 	t.Run("NodeGroupWithEmptyAndNonEmptyNodes", func(t *testing.T) {
-		ng := NodeGroup{
+		ng := Group{
 			NewTextNode(""),
 			NewTextNode("SELECT * FROM table"),
 			NewTextNode(""),
