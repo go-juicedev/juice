@@ -136,22 +136,18 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 
 	end := sliceLength - 1
 
-	h := make(eval.H, 2)
-
-	// Create and reuse GenericParameter outside the loop to avoid allocations per iteration
-	genericParameter := &eval.GenericParameter{Value: reflect.ValueOf(h)}
-
-	group := eval.ParamGroup{genericParameter, p}
+	// Create and reuse foreachParameter outside the loop to avoid allocations per iteration
+	fp := eval.NewForeachParameter(p, f.Item, f.Index)
 
 	for i := 0; i < sliceLength; i++ {
 
-		item := value.Index(i).Interface()
-
-		h[f.Item] = item
-		h[f.Index] = i
+		fp.ItemValue = value.Index(i)
+		if f.Index != "" {
+			fp.IndexValue = eval.IntValue(i)
+		}
 
 		for _, node := range f.Nodes {
-			q, a, err := node.Accept(translator, group)
+			q, a, err := node.Accept(translator, fp)
 			if err != nil {
 				return "", nil, err
 			}
@@ -166,7 +162,7 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 		if i < end {
 			builder.WriteString(f.Separator)
 		}
-		genericParameter.Clear()
+		fp.Clear()
 	}
 
 	// if sliceLength is not zero, add close
@@ -176,21 +172,21 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 }
 
 func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
-	keys := value.MapKeys()
+	mapLength := value.Len()
 
-	if len(keys) == 0 {
+	if mapLength == 0 {
 		return "", nil, nil
 	}
 
 	// Pre-allocate args slice capacity to avoid multiple growths
-	// Estimate: number of slice elements * number of Nodes
-	estimatedArgsLen := len(keys) * len(f.Nodes)
+	// Estimate: number of elements * number of Nodes
+	estimatedArgsLen := mapLength * len(f.Nodes)
 
 	args = make([]any, 0, estimatedArgsLen)
 
 	// Pre-allocate string builder capacity to minimize buffer reallocations
 	// Capacity = open + items + separators + close
-	estimatedBuilderCap := len(f.Open) + (2 * len(keys)) + (len(f.Separator) * (len(keys) - 1)) + len(f.Close)
+	estimatedBuilderCap := len(f.Open) + (2 * mapLength) + (len(f.Separator) * (mapLength - 1)) + len(f.Close)
 
 	var builder = getStringBuilder()
 	defer putStringBuilder(builder)
@@ -199,26 +195,22 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 
 	builder.WriteString(f.Open)
 
-	end := len(keys) - 1
+	end := mapLength - 1
 
 	var index int
 
-	h := make(eval.H, 2)
+	// Create and reuse foreachParameter outside the loop to avoid allocations per iteration
+	fp := eval.NewForeachParameter(p, f.Item, f.Index)
 
-	// Create and reuse GenericParameter outside the loop to avoid allocations per iteration
-	genericParameter := &eval.GenericParameter{Value: reflect.ValueOf(h)}
+	iter := value.MapRange()
 
-	group := eval.ParamGroup{genericParameter, p}
+	for iter.Next() {
 
-	for _, key := range keys {
-
-		item := value.MapIndex(key).Interface()
-
-		h[f.Item] = item
-		h[f.Index] = key.Interface()
+		fp.ItemValue = iter.Value()
+		fp.IndexValue = iter.Key()
 
 		for _, node := range f.Nodes {
-			q, a, err := node.Accept(translator, group)
+			q, a, err := node.Accept(translator, fp)
 			if err != nil {
 				return "", nil, err
 			}
@@ -234,7 +226,7 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 			builder.WriteString(f.Separator)
 		}
 
-		genericParameter.Clear()
+		fp.Clear()
 
 		index++
 	}
