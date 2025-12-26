@@ -17,6 +17,7 @@ limitations under the License.
 package node
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -343,5 +344,62 @@ func TestForeachMapNode_Accept(t *testing.T) {
 	expectedArgs2 := []any{2, "b", 1, "a"}
 	if !equalArgs(args, expectedArgs1) && !equalArgs(args, expectedArgs2) {
 		t.Errorf("Args error. Got %v. Expected %v or %v", args, expectedArgs1, expectedArgs2)
+	}
+}
+func BenchmarkForeachNode_Accept(b *testing.B) {
+	drv := driver.MySQLDriver{}
+	textNode := NewTextNode("(#{item.ID}, #{item.Name})")
+	node := ForeachNode{
+		Nodes:      []Node{textNode},
+		Item:       "item",
+		Collection: "list",
+		Separator:  ", ",
+	}
+
+	type User struct {
+		ID   int
+		Name string
+	}
+
+	list := make([]User, 100)
+	for i := 0; i < 100; i++ {
+		list[i] = User{ID: i, Name: "user"}
+	}
+
+	params := eval.H{"list": list}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, _ = node.Accept(drv.Translator(), params)
+	}
+}
+
+func BenchmarkForeachNode_AcceptMap(b *testing.B) {
+	drv := driver.MySQLDriver{}
+	textNode := NewTextNode("(#{item.ID}, #{item.Name})")
+	node := ForeachNode{
+		Nodes:      []Node{textNode},
+		Item:       "item",
+		Index:      "key",
+		Collection: "users",
+		Separator:  ", ",
+	}
+
+	type User struct {
+		ID   int
+		Name string
+	}
+
+	users := make(map[string]User, 100)
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("u%d", i)
+		users[key] = User{ID: i, Name: key}
+	}
+
+	params := eval.H{"users": users}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, _ = node.Accept(drv.Translator(), params)
 	}
 }

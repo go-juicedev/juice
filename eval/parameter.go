@@ -373,3 +373,65 @@ func (p prefixPatternParameter) Get(name string) (value reflect.Value, exists bo
 func PrefixPatternParameter(prefix string, param Param) Parameter {
 	return &prefixPatternParameter{prefix: prefix, param: param}
 }
+
+// intCache is a cache of reflect.Value for small integers.
+// It's used to reduce allocations when creating index values.
+var intCache [256]reflect.Value
+
+func init() {
+	for i := 0; i < 256; i++ {
+		intCache[i] = reflect.ValueOf(i)
+	}
+}
+
+// IntValue returns the reflect.Value of the given integer.
+func IntValue(i int) reflect.Value {
+	if i >= 0 && i < 256 {
+		return intCache[i]
+	}
+	return reflect.ValueOf(i)
+}
+
+// ForeachParameter is a specialized Parameter for ForeachNode to avoid map overhead.
+type ForeachParameter struct {
+	Item       string
+	ItemValue  reflect.Value
+	Index      string
+	IndexValue reflect.Value
+	Parent     Parameter
+
+	itemParam  GenericParameter
+	indexParam GenericParameter
+}
+
+func (p *ForeachParameter) Get(name string) (reflect.Value, bool) {
+	if name == p.Item {
+		return p.ItemValue, true
+	}
+	if p.Index != "" && name == p.Index {
+		return p.IndexValue, true
+	}
+	if p.Item != "" && strings.HasPrefix(name, p.Item+".") {
+		p.itemParam.Value = p.ItemValue
+		return p.itemParam.Get(name[len(p.Item)+1:])
+	}
+	if p.Index != "" && strings.HasPrefix(name, p.Index+".") {
+		p.indexParam.Value = p.IndexValue
+		return p.indexParam.Get(name[len(p.Index)+1:])
+	}
+	return p.Parent.Get(name)
+}
+
+func (p *ForeachParameter) Clear() {
+	p.itemParam.Clear()
+	p.indexParam.Clear()
+}
+
+// NewForeachParameter creates a new ForeachParameter.
+func NewForeachParameter(parent Parameter, item, index string) *ForeachParameter {
+	return &ForeachParameter{
+		Item:   item,
+		Index:  index,
+		Parent: parent,
+	}
+}
