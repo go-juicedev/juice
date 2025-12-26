@@ -68,4 +68,14 @@ func (w WhereNode) Accept(translator driver.Translator, p eval.Parameter) (query
 	return
 }
 
-var _ Node = (*WhereNode)(nil)
+func (w WhereNode) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
+	query, a, err := w.Accept(translator, p)
+	if err != nil {
+		return err
+	}
+	builder.WriteString(query)
+	*args = append(*args, a...)
+	return nil
+}
+
+var _ NodeWriter = (*WhereNode)(nil)

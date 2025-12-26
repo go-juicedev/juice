@@ -18,6 +18,7 @@ package node
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-juicedev/juice/driver"
@@ -45,120 +46,105 @@ var _ NodeWriter = (*pureTextNode)(nil)
 // TextNode is used to replace parameters with placeholders.
 // pureTextNode is used to avoid unnecessary parameter replacement.
 type TextNode struct {
-	value            string
-	placeholder      [][]string // for example, #{ID}
-	textSubstitution [][]string // for example, ${ID}
+	value  string
+	tokens []textToken
+}
+
+type textToken struct {
+	match    string
+	name     string
+	isFormat bool // true for ${...}, false for #{...}
+	index    int
 }
 
 // Accept accepts parameters and returns query and arguments.
 // Accept implements Node interface.
 func (c *TextNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	// If there is no parameter, return the value as it is.
-	if len(c.placeholder) == 0 && len(c.textSubstitution) == 0 {
+	if len(c.tokens) == 0 {
 		return c.value, nil, nil
 	}
-	// Otherwise, replace the parameter with a placeholder.
-	query, args, err = c.replaceHolder(c.value, args, translator, p)
-	if err != nil {
-		return "", nil, err
-	}
-	query, err = c.replaceTextSubstitution(query, p)
-	if err != nil {
-		return "", nil, err
-	}
-	return query, args, nil
-}
-
-func (c *TextNode) replaceHolder(query string, args []any, translator driver.Translator, p eval.Parameter) (string, []any, error) {
-	if len(c.placeholder) == 0 {
-		return query, args, nil
-	}
 
 	builder := getStringBuilder()
 	defer putStringBuilder(builder)
-	builder.Grow(len(query))
 
-	lastIndex := 0
-	newArgs := make([]any, 0, len(args)+len(c.placeholder))
-	newArgs = append(newArgs, args...)
-
-	for _, param := range c.placeholder {
-		if len(param) != 2 {
-			return "", nil, fmt.Errorf("invalid parameter %v", param)
+	var capacity int
+	for _, token := range c.tokens {
+		if !token.isFormat {
+			capacity++
 		}
-		matched, name := param[0], param[1]
+	}
+	args = make([]any, 0, capacity)
 
-		value, exists := p.Get(name)
-		if !exists {
-			return "", nil, fmt.Errorf("parameter %s not found", name)
-		}
-
-		pos := strings.Index(query[lastIndex:], matched)
-		if pos == -1 {
-			continue
-		}
-		pos += lastIndex
-
-		builder.WriteString(query[lastIndex:pos])
-		builder.WriteString(translator.Translate(name))
-		lastIndex = pos + len(matched)
-
-		newArgs = append(newArgs, value.Interface())
+	if err = c.AcceptTo(translator, p, builder, &args); err != nil {
+		return "", nil, err
 	}
 
-	builder.WriteString(query[lastIndex:])
-	return builder.String(), newArgs, nil
+	return builder.String(), args, nil
 }
 
-// replaceTextSubstitution replaces text substitution.
-func (c *TextNode) replaceTextSubstitution(query string, p eval.Parameter) (string, error) {
-	if len(c.textSubstitution) == 0 {
-		return query, nil
+func (c *TextNode) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
+	if len(c.tokens) == 0 {
+		builder.WriteString(c.value)
+		return nil
 	}
-
-	builder := getStringBuilder()
-	defer putStringBuilder(builder)
-	builder.Grow(len(query))
-
 	lastIndex := 0
-	for _, sub := range c.textSubstitution {
-		if len(sub) != 2 {
-			return "", fmt.Errorf("invalid text substitution %v", sub)
-		}
-		matched, name := sub[0], sub[1]
-
-		value, exists := p.Get(name)
+	for _, t := range c.tokens {
+		builder.WriteString(c.value[lastIndex:t.index])
+		value, exists := p.Get(t.name)
 		if !exists {
-			return "", fmt.Errorf("parameter %s not found", name)
+			return fmt.Errorf("parameter %s not found", t.name)
 		}
 
-		pos := strings.Index(query[lastIndex:], matched)
-		if pos == -1 {
-			continue
+		if t.isFormat {
+			builder.WriteString(reflectValueToString(value))
+		} else {
+			builder.WriteString(translator.Translate(t.name))
+			if args != nil {
+				*args = append(*args, value.Interface())
+			}
 		}
-		pos += lastIndex
-
-		builder.WriteString(query[lastIndex:pos])
-		builder.WriteString(reflectValueToString(value))
-		lastIndex = pos + len(matched)
+		lastIndex = t.index + len(t.match)
 	}
-
-	builder.WriteString(query[lastIndex:])
-	return builder.String(), nil
+	builder.WriteString(c.value[lastIndex:])
+	return nil
 }
 
 // NewTextNode creates a new text node based on the input string.
 // It returns either a lightweight pureTextNode for static SQL,
 // or a full TextNode for dynamic SQL with placeholders/substitutions.
 func NewTextNode(str string) Node {
-	placeholder := paramRegex.FindAllStringSubmatch(str, -1)
-
-	textSubstitution := formatRegexp.FindAllStringSubmatch(str, -1)
+	placeholder := paramRegex.FindAllStringSubmatchIndex(str, -1)
+	textSubstitution := formatRegexp.FindAllStringSubmatchIndex(str, -1)
 
 	if len(placeholder) == 0 && len(textSubstitution) == 0 {
 		return pureTextNode(str)
 	}
-	return &TextNode{value: str, placeholder: placeholder, textSubstitution: textSubstitution}
+
+	var tokens []textToken
+	for _, p := range placeholder {
+		tokens = append(tokens, textToken{
+			match:    str[p[0]:p[1]],
+			name:     str[p[2]:p[3]],
+			isFormat: false,
+			index:    p[0],
+		})
+	}
+	for _, s := range textSubstitution {
+		tokens = append(tokens, textToken{
+			match:    str[s[0]:s[1]],
+			name:     str[s[2]:s[3]],
+			isFormat: true,
+			index:    s[0],
+		})
+	}
+
+	// Sort tokens by index
+	sort.Slice(tokens, func(i, j int) bool {
+		return tokens[i].index < tokens[j].index
+	})
+
+	return &TextNode{value: str, tokens: tokens}
 }
 
-var _ Node = (*TextNode)(nil)
+var _ NodeWriter = (*TextNode)(nil)
