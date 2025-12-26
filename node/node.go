@@ -92,6 +92,14 @@ type Node interface {
 	Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error)
 }
 
+// NodeWriter is an optional interface that allows nodes to write their
+// output directly to a strings.Builder and args slice, avoiding allocations.
+type NodeWriter interface {
+	Node
+	// AcceptTo processes the node and writes the result to the provided builder and args.
+	AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error
+}
+
 // Group wraps multiple Nodes into a single node.
 type Group []Node
 
@@ -118,25 +126,9 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 	// Pre-allocate args slice to avoid reallocations
 	args = make([]any, 0, nodeLength)
 
-	lastIdx := nodeLength - 1
-
-	// Process each node in the group
-	for i, node := range g {
-		q, a, err := node.Accept(translator, p)
-		if err != nil {
-			return "", nil, err
-		}
-		if len(q) > 0 {
-			builder.WriteString(q)
-
-			// Add space between Nodes, but not after the last one
-			if i < lastIdx && !strings.HasSuffix(q, " ") {
-				builder.WriteString(" ")
-			}
-		}
-		if len(a) > 0 {
-			args = append(args, a...)
-		}
+	err = g.AcceptTo(translator, p, builder, &args)
+	if err != nil {
+		return "", nil, err
 	}
 
 	// Return empty results if no content was generated
@@ -146,6 +138,47 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 
 	return builder.String(), args, nil
 }
+
+func (g Group) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
+	nodeLength := len(g)
+	if nodeLength == 0 {
+		return nil
+	}
+	lastIdx := nodeLength - 1
+
+	// Process each node in the group
+	for i, node := range g {
+		preLen := builder.Len()
+		var err error
+		if nw, ok := node.(NodeWriter); ok {
+			err = nw.AcceptTo(translator, p, builder, args)
+		} else {
+			var q string
+			var a []any
+			q, a, err = node.Accept(translator, p)
+			if err == nil {
+				builder.WriteString(q)
+				if len(a) > 0 {
+					*args = append(*args, a...)
+				}
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		// Add space between Nodes, but only if something was written
+		// and it's not the last node and doesn't already end with space.
+		if i < lastIdx && builder.Len() > preLen {
+			if s := builder.String(); s[len(s)-1] != ' ' {
+				builder.WriteByte(' ')
+			}
+		}
+	}
+	return nil
+}
+
+var _ NodeWriter = (Group)(nil)
 
 // reflectValueToString converts reflect.Value to string
 func reflectValueToString(v reflect.Value) string {
