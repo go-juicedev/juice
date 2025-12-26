@@ -32,8 +32,13 @@ func (p pureTextNode) Accept(_ driver.Translator, _ eval.Parameter) (query strin
 	return string(p), nil, nil
 }
 
+func (p pureTextNode) AcceptTo(_ driver.Translator, _ eval.Parameter, builder *strings.Builder, _ *[]any) error {
+	builder.WriteString(string(p))
+	return nil
+}
+
 // pureTextNode is a node of pure text.
-var _ Node = (*pureTextNode)(nil)
+var _ NodeWriter = (*pureTextNode)(nil)
 
 // TextNode is a node of text.
 // What is the difference between TextNode and pureTextNode?
