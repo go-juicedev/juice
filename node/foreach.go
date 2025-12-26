@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 // ForeachNode represents a dynamic SQL fragment that iterates over a collection.
@@ -172,7 +173,7 @@ func (f ForeachNode) acceptSliceTo(value reflect.Value, translator driver.Transl
 
 		fp.ItemValue = value.Index(i)
 		if f.Index != "" {
-			fp.IndexValue = eval.IntValue(i)
+			fp.IndexValue = reflectlite.FromInt(i)
 		}
 
 		for _, node := range f.Nodes {

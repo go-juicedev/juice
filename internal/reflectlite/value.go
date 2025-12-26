@@ -18,6 +18,22 @@ package reflectlite
 
 import "reflect"
 
+// FromInt returns a reflect.Value for the given int, using a cache for small integers (0-255).
+func FromInt(i int) reflect.Value {
+	if i >= 0 && i < 256 {
+		return intCache[i]
+	}
+	return reflect.ValueOf(i)
+}
+
+var intCache [256]reflect.Value
+
+func init() {
+	for i := 0; i < 256; i++ {
+		intCache[i] = reflect.ValueOf(i)
+	}
+}
+
 // Unwrap continuously dereferences pointers and interfaces until a non-pointer/non-interface value is reached.
 // If the initial value is not a pointer or interface, it's returned directly.
 // This is useful for getting the underlying concrete value.
