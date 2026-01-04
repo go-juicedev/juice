@@ -17,8 +17,6 @@ limitations under the License.
 package node
 
 import (
-	"strings"
-
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
 )
@@ -72,9 +70,4 @@ func (s SQLNode) Accept(translator driver.Translator, p eval.Parameter) (query s
 	return s.Nodes.Accept(translator, p)
 }
 
-func (s SQLNode) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
-	p = s.BindNodes.ConvertParameter(p)
-	return s.Nodes.AcceptTo(translator, p, builder, args)
-}
-
-var _ NodeWriter = (*SQLNode)(nil)
+var _ Node = (*SQLNode)(nil)
