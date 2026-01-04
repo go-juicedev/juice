@@ -19,7 +19,6 @@ package node
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
@@ -70,38 +69,25 @@ func (c *TextNode) Accept(translator driver.Translator, p eval.Parameter) (query
 	}
 	args = make([]any, 0, capacity)
 
-	if err = c.AcceptTo(translator, p, builder, &args); err != nil {
-		return "", nil, err
-	}
-
-	return builder.String(), args, nil
-}
-
-func (c *TextNode) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
-	if len(c.tokens) == 0 {
-		builder.WriteString(c.value)
-		return nil
-	}
 	lastIndex := 0
 	for _, t := range c.tokens {
 		builder.WriteString(c.value[lastIndex:t.index])
 		value, exists := p.Get(t.name)
 		if !exists {
-			return fmt.Errorf("parameter %s not found", t.name)
+			return "", nil, fmt.Errorf("parameter %s not found", t.name)
 		}
 
 		if t.isFormat {
 			builder.WriteString(reflectValueToString(value))
 		} else {
 			builder.WriteString(translator.Translate(t.name))
-			if args != nil {
-				*args = append(*args, value.Interface())
-			}
+			args = append(args, value.Interface())
 		}
 		lastIndex = t.index + len(t.match)
 	}
 	builder.WriteString(c.value[lastIndex:])
-	return nil
+
+	return builder.String(), args, nil
 }
 
 // NewTextNode creates a new text node based on the input string.
@@ -141,4 +127,4 @@ func NewTextNode(str string) Node {
 	return &TextNode{value: str, tokens: tokens}
 }
 
-var _ NodeWriter = (*TextNode)(nil)
+var _ Node = (*TextNode)(nil)

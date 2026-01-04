@@ -18,7 +18,6 @@ package node
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
@@ -50,20 +49,6 @@ type ConditionNode struct {
 func (c *ConditionNode) Parse(test string) (err error) {
 	c.expr, err = eval.Compile(test)
 	return err
-}
-
-func (c *ConditionNode) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
-	p = c.BindNodes.ConvertParameter(p)
-
-	matched, err := c.Match(p)
-	if err != nil {
-		return err
-	}
-	if !matched {
-		return nil
-	}
-
-	return c.Nodes.AcceptTo(translator, p, builder, args)
 }
 
 // Accept accepts parameters and returns query and arguments.
@@ -100,4 +85,4 @@ func (c *ConditionNode) Match(p eval.Parameter) (bool, error) {
 	return !value.IsZero(), nil
 }
 
-var _ NodeWriter = (*ConditionNode)(nil)
+var _ Node = (*ConditionNode)(nil)
