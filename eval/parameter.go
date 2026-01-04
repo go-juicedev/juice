@@ -374,24 +374,6 @@ func PrefixPatternParameter(prefix string, param Param) Parameter {
 	return &prefixPatternParameter{prefix: prefix, param: param}
 }
 
-// intCache is a cache of reflect.Value for small integers.
-// It's used to reduce allocations when creating index values.
-var intCache [256]reflect.Value
-
-func init() {
-	for i := 0; i < 256; i++ {
-		intCache[i] = reflect.ValueOf(i)
-	}
-}
-
-// IntValue returns the reflect.Value of the given integer.
-func IntValue(i int) reflect.Value {
-	if i >= 0 && i < 256 {
-		return intCache[i]
-	}
-	return reflect.ValueOf(i)
-}
-
 // ForeachParameter is a specialized Parameter for ForeachNode to avoid map overhead.
 type ForeachParameter struct {
 	Item       string

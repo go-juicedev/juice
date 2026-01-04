@@ -19,9 +19,11 @@ package node
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
 // ForeachNode represents a dynamic SQL fragment that iterates over a collection.
@@ -77,22 +79,65 @@ type ForeachNode struct {
 
 // Accept accepts parameters and returns query and arguments.
 func (f ForeachNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+	builder := getStringBuilder()
+	defer putStringBuilder(builder)
+
+	// Estimation logic for pre-allocation
+	var totalPlaceholders int
+	for _, node := range f.Nodes {
+		if t, ok := node.(*TextNode); ok {
+			for _, token := range t.tokens {
+				if !token.isFormat {
+					totalPlaceholders++
+				}
+			}
+		} else {
+			totalPlaceholders += 2
+		}
+	}
+
+	// We don't know the exact length yet, but we can guess from p
+	coll, exists := p.Get(f.Collection)
+	var length int
+	if exists {
+		c := coll
+		for c.Kind() == reflect.Interface || c.Kind() == reflect.Ptr {
+			if c.IsNil() {
+				break
+			}
+			c = c.Elem()
+		}
+		if c.Kind() == reflect.Slice || c.Kind() == reflect.Array || c.Kind() == reflect.Map {
+			length = c.Len()
+		}
+	}
+
+	argsList := make([]any, 0, length*totalPlaceholders)
+
+	if err = f.AcceptTo(translator, p, builder, &argsList); err != nil {
+		return "", nil, err
+	}
+
+	return builder.String(), argsList, nil
+}
+
+func (f ForeachNode) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
 	p = f.BindNodes.ConvertParameter(p)
 
 	// if item already exists
 	if _, exists := p.Get(f.Item); exists {
-		return "", nil, fmt.Errorf("item %s already exists", f.Item)
+		return fmt.Errorf("item %s already exists", f.Item)
 	}
 
 	// one collection from parameter
 	value, exists := p.Get(f.Collection)
 	if !exists {
-		return "", nil, fmt.Errorf("collection %s not found", f.Collection)
+		return fmt.Errorf("collection %s not found", f.Collection)
 	}
 
 	// if valueItem can not be iterated
 	if !value.CanInterface() {
-		return "", nil, fmt.Errorf("collection %s can not be iterated", f.Collection)
+		return fmt.Errorf("collection %s can not be iterated", f.Collection)
 	}
 
 	// if valueItem is not a slice
@@ -102,35 +147,20 @@ func (f ForeachNode) Accept(translator driver.Translator, p eval.Parameter) (que
 
 	switch value.Kind() {
 	case reflect.Array, reflect.Slice:
-		return f.acceptSlice(value, translator, p)
+		return f.acceptSliceTo(value, translator, p, builder, args)
 	case reflect.Map:
-		return f.acceptMap(value, translator, p)
+		return f.acceptMapTo(value, translator, p, builder, args)
 	default:
-		return "", nil, fmt.Errorf("collection %s is not a slice or map", f.Collection)
+		return fmt.Errorf("collection %s is not a slice or map", f.Collection)
 	}
 }
 
-func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+func (f ForeachNode) acceptSliceTo(value reflect.Value, translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
 	sliceLength := value.Len()
 
 	if sliceLength == 0 {
-		return "", nil, nil
+		return nil
 	}
-
-	// Pre-allocate args slice capacity to avoid multiple growths
-	// Estimate: number of slice elements * number of Nodes
-	estimatedArgsLen := sliceLength * len(f.Nodes)
-
-	args = make([]any, 0, estimatedArgsLen)
-
-	// Pre-allocate string builder capacity to minimize buffer reallocations
-	// Capacity = open + items + separators + close
-	estimatedBuilderCap := len(f.Open) + (2 * sliceLength) + (len(f.Separator) * (sliceLength - 1)) + len(f.Close)
-
-	var builder = getStringBuilder()
-	defer putStringBuilder(builder)
-
-	builder.Grow(estimatedBuilderCap)
 
 	builder.WriteString(f.Open)
 
@@ -143,19 +173,25 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 
 		fp.ItemValue = value.Index(i)
 		if f.Index != "" {
-			fp.IndexValue = eval.IntValue(i)
+			fp.IndexValue = reflectlite.FromInt(i)
 		}
 
 		for _, node := range f.Nodes {
-			q, a, err := node.Accept(translator, fp)
-			if err != nil {
-				return "", nil, err
-			}
-			if len(q) > 0 {
-				builder.WriteString(q)
-			}
-			if len(a) > 0 {
-				args = append(args, a...)
+			if nw, ok := node.(NodeWriter); ok {
+				if err := nw.AcceptTo(translator, fp, builder, args); err != nil {
+					return err
+				}
+			} else {
+				q, a, err := node.Accept(translator, fp)
+				if err != nil {
+					return err
+				}
+				if len(q) > 0 {
+					builder.WriteString(q)
+				}
+				if len(a) > 0 {
+					*args = append(*args, a...)
+				}
 			}
 		}
 
@@ -168,30 +204,15 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 	// if sliceLength is not zero, add close
 	builder.WriteString(f.Close)
 
-	return builder.String(), args, nil
+	return nil
 }
 
-func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
+func (f ForeachNode) acceptMapTo(value reflect.Value, translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
 	mapLength := value.Len()
 
 	if mapLength == 0 {
-		return "", nil, nil
+		return nil
 	}
-
-	// Pre-allocate args slice capacity to avoid multiple growths
-	// Estimate: number of elements * number of Nodes
-	estimatedArgsLen := mapLength * len(f.Nodes)
-
-	args = make([]any, 0, estimatedArgsLen)
-
-	// Pre-allocate string builder capacity to minimize buffer reallocations
-	// Capacity = open + items + separators + close
-	estimatedBuilderCap := len(f.Open) + (2 * mapLength) + (len(f.Separator) * (mapLength - 1)) + len(f.Close)
-
-	var builder = getStringBuilder()
-	defer putStringBuilder(builder)
-
-	builder.Grow(estimatedBuilderCap)
 
 	builder.WriteString(f.Open)
 
@@ -210,15 +231,21 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 		fp.IndexValue = iter.Key()
 
 		for _, node := range f.Nodes {
-			q, a, err := node.Accept(translator, fp)
-			if err != nil {
-				return "", nil, err
-			}
-			if len(q) > 0 {
-				builder.WriteString(q)
-			}
-			if len(a) > 0 {
-				args = append(args, a...)
+			if nw, ok := node.(NodeWriter); ok {
+				if err := nw.AcceptTo(translator, fp, builder, args); err != nil {
+					return err
+				}
+			} else {
+				q, a, err := node.Accept(translator, fp)
+				if err != nil {
+					return err
+				}
+				if len(q) > 0 {
+					builder.WriteString(q)
+				}
+				if len(a) > 0 {
+					*args = append(*args, a...)
+				}
 			}
 		}
 
@@ -233,7 +260,7 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 
 	builder.WriteString(f.Close)
 
-	return builder.String(), args, nil
+	return nil
 }
 
-var _ Node = (*ForeachNode)(nil)
+var _ NodeWriter = (*ForeachNode)(nil)

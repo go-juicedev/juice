@@ -153,28 +153,35 @@ var _ Node = (Group)(nil)
 // reflectValueToString converts reflect.Value to string
 func reflectValueToString(v reflect.Value) string {
 	v = reflectlite.Unwrap(v)
-	switch t := v.Interface().(type) {
-	case nil:
+	if !v.IsValid() {
 		return ""
-	case string:
-		return t
-	case []byte:
-		return string(v.Bytes())
-	case fmt.Stringer:
-		return t.String()
-	case int, int8, int16, int32, int64:
-		return strconv.FormatInt(v.Int(), 10)
-	case uint, uint8, uint16, uint32, uint64:
-		return strconv.FormatUint(v.Uint(), 10)
-	case float32:
-		return strconv.FormatFloat(v.Float(), 'g', -1, 32)
-	case float64:
-		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
-	case bool:
-		return strconv.FormatBool(v.Bool())
-	default:
-		return fmt.Sprintf("%v", t)
 	}
+	switch v.Kind() {
+	case reflect.String:
+		return v.String()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(v.Uint(), 10)
+	case reflect.Float32:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 32)
+	case reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool())
+	case reflect.Slice:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return string(v.Bytes())
+		}
+	}
+
+	if v.CanInterface() {
+		if t, ok := v.Interface().(fmt.Stringer); ok {
+			return t.String()
+		}
+		return fmt.Sprintf("%v", v.Interface())
+	}
+	return ""
 }
 
 // bindScope provides lookup and execution of bind variables within a scope.
