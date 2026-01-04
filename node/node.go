@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
@@ -92,14 +91,6 @@ type Node interface {
 	Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error)
 }
 
-// NodeWriter is an optional interface that allows nodes to write their
-// output directly to a strings.Builder and args slice, avoiding allocations.
-type NodeWriter interface {
-	Node
-	// AcceptTo processes the node and writes the result to the provided builder and args.
-	AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error
-}
-
 // Group wraps multiple Nodes into a single node.
 type Group []Node
 
@@ -126,45 +117,18 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 	// Pre-allocate args slice to avoid reallocations
 	args = make([]any, 0, nodeLength)
 
-	err = g.AcceptTo(translator, p, builder, &args)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// Return empty results if no content was generated
-	if builder.Len() == 0 {
-		return "", nil, nil
-	}
-
-	return builder.String(), args, nil
-}
-
-func (g Group) AcceptTo(translator driver.Translator, p eval.Parameter, builder *strings.Builder, args *[]any) error {
-	nodeLength := len(g)
-	if nodeLength == 0 {
-		return nil
-	}
 	lastIdx := nodeLength - 1
 
 	// Process each node in the group
 	for i, node := range g {
 		preLen := builder.Len()
-		var err error
-		if nw, ok := node.(NodeWriter); ok {
-			err = nw.AcceptTo(translator, p, builder, args)
-		} else {
-			var q string
-			var a []any
-			q, a, err = node.Accept(translator, p)
-			if err == nil {
-				builder.WriteString(q)
-				if len(a) > 0 {
-					*args = append(*args, a...)
-				}
-			}
-		}
+		q, a, err := node.Accept(translator, p)
 		if err != nil {
-			return err
+			return "", nil, err
+		}
+		builder.WriteString(q)
+		if len(a) > 0 {
+			args = append(args, a...)
 		}
 
 		// Add space between Nodes, but only if something was written
@@ -175,10 +139,16 @@ func (g Group) AcceptTo(translator driver.Translator, p eval.Parameter, builder 
 			}
 		}
 	}
-	return nil
+
+	// Return empty results if no content was generated
+	if builder.Len() == 0 {
+		return "", nil, nil
+	}
+
+	return builder.String(), args, nil
 }
 
-var _ NodeWriter = (Group)(nil)
+var _ Node = (Group)(nil)
 
 // reflectValueToString converts reflect.Value to string
 func reflectValueToString(v reflect.Value) string {
