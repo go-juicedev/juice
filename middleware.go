@@ -375,7 +375,7 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration C
 
 // isInTransaction checks if the current context is within a transaction
 func isInTransaction(ctx context.Context) bool {
-	manager := ManagerFromContext(ctx)
+	manager, _ := ManagerFromContext(ctx)
 	return IsTxManager(manager)
 }
 
@@ -448,7 +448,7 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) chooseDataSourceName(dataSourceN
 // - The manager is not an Engine
 // - The chosen datasource is the same as the requested one
 func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Context, dataSourceName string) (context.Context, error) {
-	manager := ManagerFromContext(ctx)
+	manager, _ := ManagerFromContext(ctx)
 	engine, ok := manager.(*Engine)
 	if !ok {
 		// In current implementation, this case should never happen.

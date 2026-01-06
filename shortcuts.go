@@ -27,7 +27,10 @@ import (
 // QueryContext executes a query with the provided context and scans a single result into T.
 // (ctx must contain a Manager via ManagerFromContext)
 func QueryContext[T any](ctx context.Context, statement, param any) (result T, err error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return result, err
+	}
 	executor := NewGenericManager[T](manager).Object(statement)
 	return executor.QueryContext(ctx, param)
 }
@@ -35,7 +38,10 @@ func QueryContext[T any](ctx context.Context, statement, param any) (result T, e
 // ExecContext executes a statement that does not return rows and returns a sql.Result.
 // (ctx must contain a Manager via ManagerFromContext)
 func ExecContext(ctx context.Context, statement, param any) (result sql.Result, err error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	executor := manager.Object(statement)
 	return executor.ExecContext(ctx, param)
 }
@@ -43,7 +49,10 @@ func ExecContext(ctx context.Context, statement, param any) (result sql.Result, 
 // QueryListContext executes a query and returns a slice of T. Rows are closed after reading.
 // (ctx must contain a Manager via ManagerFromContext)
 func QueryListContext[T any](ctx context.Context, statement, param any) (result []T, err error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := manager.Object(statement).QueryContext(ctx, param)
 	if err != nil {
 		return nil, err
@@ -55,7 +64,10 @@ func QueryListContext[T any](ctx context.Context, statement, param any) (result 
 // QueryList2Context executes a query and returns a slice of pointers to T. Rows are closed after reading.
 // (ctx must contain a Manager via ManagerFromContext)
 func QueryList2Context[T any](ctx context.Context, statement, param any) (result []*T, err error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := manager.Object(statement).QueryContext(ctx, param)
 	if err != nil {
 		return nil, err
@@ -68,7 +80,10 @@ func QueryList2Context[T any](ctx context.Context, statement, param any) (result
 // Rows are automatically closed when iteration completes or stops.
 // (ctx must contain a Manager via ManagerFromContext)
 func QueryIterContext[T any](ctx context.Context, statement, param any) (sqllib.Iterator[T], error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := manager.Object(statement).QueryContext(ctx, param)
 	if err != nil {
 		return nil, err

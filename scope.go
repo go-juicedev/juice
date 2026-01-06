@@ -48,7 +48,10 @@ var ErrCommitOnSpecific = tx.ErrCommitOnSpecific
 //			// handle error
 //		}
 func Transaction(ctx context.Context, handler func(ctx context.Context) error, opts ...tx.TransactionOptionFunc) (err error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return err
+	}
 	engine, ok := manager.(*Engine)
 	if !ok {
 		return ErrInvalidManager
@@ -71,7 +74,10 @@ func Transaction(ctx context.Context, handler func(ctx context.Context) error, o
 // If the manager is a TxManager, it will execute the handler within the existing transaction.
 // Otherwise, it will create a new transaction and execute the handler within the new transaction.
 func NestedTransaction(ctx context.Context, handler func(ctx context.Context) error, opts ...tx.TransactionOptionFunc) (err error) {
-	manager := ManagerFromContext(ctx)
+	manager, err := ManagerFromContext(ctx)
+	if err != nil {
+		return err
+	}
 	if IsTxManager(manager) {
 		return handler(ctx)
 	}
