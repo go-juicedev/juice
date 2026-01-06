@@ -35,6 +35,9 @@ var (
 
 	// ErrNoStatementFound is an error that is returned when the statement is not found.
 	ErrNoStatementFound = errors.New("no statement found")
+
+	// ErrNoManagerFoundInContext is an error that is returned when the manager is not found in context.
+	ErrNoManagerFoundInContext = errors.New("no manager found in context")
 )
 
 // nodeUnclosedError is an error that is returned when the node is not closed.

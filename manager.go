@@ -149,9 +149,12 @@ func managerFromContext(ctx context.Context) (Manager, bool) {
 }
 
 // ManagerFromContext returns the Manager from the context.
-func ManagerFromContext(ctx context.Context) Manager {
-	manager, _ := managerFromContext(ctx)
-	return manager
+func ManagerFromContext(ctx context.Context) (Manager, error) {
+	manager, ok := managerFromContext(ctx)
+	if !ok {
+		return nil, ErrNoManagerFoundInContext
+	}
+	return manager, nil
 }
 
 // ContextWithManager returns a new context with the given Manager.
