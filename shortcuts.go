@@ -79,6 +79,9 @@ func QueryList2Context[T any](ctx context.Context, statement, param any) (result
 // QueryIterContext executes a query and returns an iterator over T.
 // Rows are automatically closed when iteration completes or stops.
 // (ctx must contain a Manager via ManagerFromContext)
+//
+// IMPORTANT: The returned iterator MUST be iterated over (even partially),
+// otherwise the underlying database rows will not be closed, leading to resource leaks.
 func QueryIterContext[T any](ctx context.Context, statement, param any) (sqllib.Iterator[T], error) {
 	manager, err := ManagerFromContext(ctx)
 	if err != nil {
@@ -88,6 +91,16 @@ func QueryIterContext[T any](ctx context.Context, statement, param any) (sqllib.
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-	return sqllib.Iter[T](rows)
+
+	iterator, err := sqllib.Iter[T](rows)
+	if err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+
+	// Wrap the iterator to ensure rows are closed after iteration
+	return func(yield func(T, error) bool) {
+		defer func() { _ = rows.Close() }()
+		iterator(yield)
+	}, nil
 }
