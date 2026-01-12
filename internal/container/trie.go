@@ -18,7 +18,6 @@ package container
 
 import (
 	"sort"
-	"strings"
 )
 
 // TrieNode represents a node in the trie
@@ -80,21 +79,29 @@ func (t *Trie[T]) Insert(key string, value T) {
 		return
 	}
 
-	parts := strings.Split(key, ".")
 	current := t.root
 
-	for _, part := range parts {
-		idx, found := current.findChild(part)
-		if !found {
-			// Pre-allocate space for children to reduce reallocations
-			node := &TrieNode[T]{
-				part:     part,
-				children: make([]*TrieNode[T], 0, 4), // Start with capacity 4
+	// Iterate through the key character by character to avoid splitting into parts
+	start := 0
+	for i := 0; i <= len(key); i++ {
+		if i == len(key) || key[i] == '.' {
+			// Extract the part between start and i-1
+			if i > start { // avoid empty parts
+				part := key[start:i]
+				idx, found := current.findChild(part)
+				if !found {
+					// Pre-allocate space for children to reduce reallocations
+					node := &TrieNode[T]{
+						part:     part,
+						children: make([]*TrieNode[T], 0, 4), // Start with capacity 4
+					}
+					current.insertChild(node)
+					idx, _ = current.findChild(part)
+				}
+				current = current.children[idx]
 			}
-			current.insertChild(node)
-			idx, _ = current.findChild(part)
+			start = i + 1
 		}
-		current = current.children[idx]
 	}
 
 	if !current.hasValue {
@@ -108,34 +115,36 @@ func (t *Trie[T]) Insert(key string, value T) {
 // Time complexity: O(k * log n) where k is the number of parts in the key
 // and n is the average number of children per node
 func (t *Trie[T]) Get(key string) (T, bool) {
-	var (
-		current *TrieNode[T]
-		parts   []string
-	)
-
 	if key == "" {
-		goto notFound
+		var zero T
+		return zero, false
 	}
 
-	parts = strings.Split(key, ".")
-	current = t.root
+	current := t.root
 
-	for _, part := range parts {
-		idx, found := current.findChild(part)
-		if !found {
-			goto notFound
+	// Iterate through the key character by character to avoid splitting into parts
+	start := 0
+	for i := 0; i <= len(key); i++ {
+		if i == len(key) || key[i] == '.' {
+			// Extract the part between start and i-1
+			if i > start { // avoid empty parts
+				part := key[start:i]
+				idx, found := current.findChild(part)
+				if !found {
+					var zero T
+					return zero, false
+				}
+				current = current.children[idx]
+			}
+			start = i + 1
 		}
-		current = current.children[idx]
 	}
 
 	if !current.hasValue {
-		goto notFound
+		var zero T
+		return zero, false
 	}
 	return current.value, true
-
-notFound:
-	var zero T
-	return zero, false
 }
 
 // removeChild removes a child node at the specified index
@@ -152,22 +161,30 @@ func (t *Trie[T]) Delete(key string) bool {
 		return false
 	}
 
-	// Pre-allocate slices with expected capacity
-	parts := strings.Split(key, ".")
 	current := t.root
-	nodes := make([]*TrieNode[T], 0, len(parts)+1)
-	indices := make([]int, 0, len(parts))
+	var nodes []*TrieNode[T]
+	var indices []int
+
+	// Pre-allocate with initial capacity
 	nodes = append(nodes, current)
 
-	// Find the node and collect path
-	for _, part := range parts {
-		idx, found := current.findChild(part)
-		if !found {
-			return false
+	// Find the node and collect path by iterating through the key character by character
+	start := 0
+	for i := 0; i <= len(key); i++ {
+		if i == len(key) || key[i] == '.' {
+			// Extract the part between start and i-1
+			if i > start { // avoid empty parts
+				part := key[start:i]
+				idx, found := current.findChild(part)
+				if !found {
+					return false
+				}
+				indices = append(indices, idx)
+				current = current.children[idx]
+				nodes = append(nodes, current)
+			}
+			start = i + 1
 		}
-		indices = append(indices, idx)
-		current = current.children[idx]
-		nodes = append(nodes, current)
 	}
 
 	if !current.hasValue {
@@ -233,16 +250,23 @@ func (t *Trie[T]) GetByPrefix(prefix string) []KeyValue[T] {
 		return nil
 	}
 
-	parts := strings.Split(prefix, ".")
 	current := t.root
 
-	// Navigate to the prefix node
-	for _, part := range parts {
-		idx, found := current.findChild(part)
-		if !found {
-			return nil
+	// Navigate to the prefix node by iterating through the prefix character by character
+	start := 0
+	for i := 0; i <= len(prefix); i++ {
+		if i == len(prefix) || prefix[i] == '.' {
+			// Extract the part between start and i-1
+			if i > start { // avoid empty parts
+				part := prefix[start:i]
+				idx, found := current.findChild(part)
+				if !found {
+					return nil
+				}
+				current = current.children[idx]
+			}
+			start = i + 1
 		}
-		current = current.children[idx]
 	}
 
 	// Pre-allocate result slice with a reasonable capacity
