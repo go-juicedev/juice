@@ -195,11 +195,6 @@ type GenericParameter struct {
 	// it will cache the final street value to avoid parsing the path again.
 	cache map[string]reflect.Value
 
-	// pathSegments caches the split path segments to avoid repeated strings.Split operations.
-	// For example, "user.address.street" will be cached as ["user", "address", "street"].
-	// This optimization reduces CPU overhead when the same parameter paths are accessed repeatedly.
-	pathSegments map[string][]string
-
 	// structFieldIndex caches the field indexes for struct types at each path level.
 	// The first key is the position in the path (e.g., for "user.address.street": 0 for user, 1 for address).
 	// The second key is the concrete type of the struct, which ensures correct field lookup for different struct types.
@@ -215,67 +210,68 @@ func (g *GenericParameter) get(name string) (reflect.Value, bool) {
 		value = g.Value
 	)
 
-	// get or split the path segments
-	// to avoid repeated strings.Split operations
-	// cache the split segments
-	segments, exists := g.pathSegments[name]
-	if !exists {
-		segments = strings.Split(name, ".")
-		if g.pathSegments == nil {
-			g.pathSegments = make(map[string][]string)
-		}
-		g.pathSegments[name] = segments
-	}
+	// Iterate through the name character by character to avoid strings.Split allocation
+	start := 0
+	i := 0 // path segment index for structFieldIndex cache
+	for j := 0; j <= len(name); j++ {
+		if j == len(name) || name[j] == '.' {
+			// Extract the segment between start and j
+			if j > start { // avoid empty segments
+				item := name[start:j]
 
-	for i, item := range segments {
+				// only unwrap when the value need to call Get method
+				value = reflectlite.Unwrap(value)
 
-		// only unwrap when the value need to call Get method
-		value = reflectlite.Unwrap(value)
+				// match the value type
+				// only map, struct, slice and array can be wrapped as parameter
+				switch value.Kind() {
+				case reflect.Map:
+					// if the map key is not a string type, then return false
+					if value.Type().Key().Kind() != reflect.String {
+						return reflect.Value{}, false
+					}
+					param = mapParameter{Value: value}
+				case reflect.Struct:
+					// Initialize the three-level cache if not exists:
+					// Level 1: path position -> to handle different levels in the path (e.g., user.address.street)
+					// Level 2: concrete type -> to handle different struct types at the same position
+					// Level 3: field name -> to cache the actual field indexes
+					if g.structFieldIndex == nil {
+						g.structFieldIndex = make(map[int]map[reflect.Type]map[string][]int)
+					}
 
-		// match the value type
-		// only map, struct, slice and array can be wrapped as parameter
-		switch value.Kind() {
-		case reflect.Map:
-			// if the map key is not a string type, then return false
-			if value.Type().Key().Kind() != reflect.String {
-				return reflect.Value{}, false
-			}
-			param = mapParameter{Value: value}
-		case reflect.Struct:
-			// Initialize the three-level cache if not exists:
-			// Level 1: path position -> to handle different levels in the path (e.g., user.address.street)
-			// Level 2: concrete type -> to handle different struct types at the same position
-			// Level 3: field name -> to cache the actual field indexes
-			if g.structFieldIndex == nil {
-				g.structFieldIndex = make(map[int]map[reflect.Type]map[string][]int)
-			}
+					// Cache the type to avoid multiple calls to Type()
+					valueType := value.Type()
 
-			// Cache the type to avoid multiple calls to Type()
-			valueType := value.Type()
+					// Get or create the type-level cache for current path position
+					structFieldIndex, in := g.structFieldIndex[i]
+					if !in {
+						// Initialize with the current type to avoid another map lookup
+						structFieldIndex = map[reflect.Type]map[string][]int{
+							valueType: {},
+						}
+						g.structFieldIndex[i] = structFieldIndex
+					}
 
-			// Get or create the type-level cache for current path position
-			structFieldIndex, in := g.structFieldIndex[i]
-			if !in {
-				// Initialize with the current type to avoid another map lookup
-				structFieldIndex = map[reflect.Type]map[string][]int{
-					valueType: {},
+					// Create a new structParameter with its field cache pointing to
+					// the cached indexes for its specific type, ensuring different
+					// struct types don't share the same field index cache
+					param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
+				case reflect.Slice, reflect.Array:
+					param = sliceParameter{Value: value}
+				default:
+					// otherwise, return false
+					return reflect.Value{}, false
 				}
-				g.structFieldIndex[i] = structFieldIndex
-			}
 
-			// Create a new structParameter with its field cache pointing to
-			// the cached indexes for its specific type, ensuring different
-			// struct types don't share the same field index cache
-			param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
-		case reflect.Slice, reflect.Array:
-			param = sliceParameter{Value: value}
-		default:
-			// otherwise, return false
-			return reflect.Value{}, false
-		}
-		value, exists = param.Get(item)
-		if !exists {
-			return reflect.Value{}, false
+				var exists bool
+				value, exists = param.Get(item)
+				if !exists {
+					return reflect.Value{}, false
+				}
+				i++
+			}
+			start = j + 1
 		}
 	}
 	return value, true
@@ -351,21 +347,31 @@ type prefixPatternParameter struct {
 }
 
 func (p prefixPatternParameter) Get(name string) (value reflect.Value, exists bool) {
-	items := strings.Split(name, ".")
-	prefix := items[0]
+	// Find the first dot to extract the prefix
+	dotIdx := strings.IndexByte(name, '.')
+
+	var prefix string
+	if dotIdx == -1 {
+		// No dot found, the entire name is the prefix
+		prefix = name
+	} else {
+		prefix = name[:dotIdx]
+	}
 
 	if p.prefix != prefix {
 		return reflect.Value{}, false
 	}
 
-	if len(items) == 1 {
+	if dotIdx == -1 {
+		// Only prefix, return the param itself
 		return reflect.ValueOf(p.param), true
 	}
 
 	if p.parameter == nil {
 		p.parameter = NewGenericParam(p.param, "")
 	}
-	return p.parameter.Get(strings.Join(items[1:], "."))
+	// Pass the remaining part after the prefix (skip the dot)
+	return p.parameter.Get(name[dotIdx+1:])
 }
 
 // PrefixPatternParameter is a parameter that supports prefix pattern.
