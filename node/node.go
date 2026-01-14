@@ -132,6 +132,7 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 
 		// Add space between Nodes, but only if something was written
 		// and it's not the last node and doesn't already end with space.
+		// Check q directly instead of builder.String() to avoid string allocation.
 		if i < lastIdx && len(q) > 0 && q[len(q)-1] != ' ' {
 			builder.WriteByte(' ')
 		}
