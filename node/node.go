@@ -121,7 +121,6 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 
 	// Process each node in the group
 	for i, node := range g {
-		preLen := builder.Len()
 		q, a, err := node.Accept(translator, p)
 		if err != nil {
 			return "", nil, err
@@ -133,10 +132,8 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 
 		// Add space between Nodes, but only if something was written
 		// and it's not the last node and doesn't already end with space.
-		if i < lastIdx && builder.Len() > preLen {
-			if s := builder.String(); s[len(s)-1] != ' ' {
-				builder.WriteByte(' ')
-			}
+		if i < lastIdx && len(q) > 0 && q[len(q)-1] != ' ' {
+			builder.WriteByte(' ')
 		}
 	}
 
