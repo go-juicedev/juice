@@ -242,13 +242,13 @@ func TestXMLParseErrorIntegration(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp file: %v", err)
 			}
-			defer os.Remove(tmpFile.Name())
-			defer tmpFile.Close()
+			defer func() { _ = os.Remove(tmpFile.Name()) }()
+			defer func() { _ = tmpFile.Close() }()
 
 			if _, err := tmpFile.WriteString(tt.xmlContent); err != nil {
 				t.Fatalf("Failed to write to temp file: %v", err)
 			}
-			tmpFile.Close()
+			_ = tmpFile.Close()
 
 			// Parse the mapper
 			parser := &XMLMappersElementParser{parser: &XMLParser{FS: fsys}}
@@ -256,7 +256,7 @@ func TestXMLParseErrorIntegration(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to open temp file: %v", err)
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			_, parseErr := parser.parseMapperByReader(file)
 
