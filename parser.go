@@ -284,7 +284,8 @@ func (p *XMLSettingsElementParser) parseSettings(decoder *xml.Decoder) (keyValue
 }
 
 type XMLMappersElementParser struct {
-	parser *XMLParser
+	parser           *XMLParser
+	currentNamespace string // tracks the current mapper namespace being parsed
 }
 
 func (p *XMLMappersElementParser) MatchElement(token xml.StartElement) bool {
@@ -383,6 +384,9 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 	if namespace == "" {
 		return nil, &nodeAttributeRequiredError{nodeName: "mapper", attrName: "namespace"}
 	}
+
+	// Set current namespace for error reporting
+	p.currentNamespace = namespace
 
 	mapper.namespace = namespace
 	mapper.statements = make(map[string]*xmlSQLStatement)
@@ -542,7 +546,7 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 		stmt.setAttribute(attr.Name.Local, attr.Value)
 	}
 	if stmt.id = stmt.Attribute("id"); stmt.id == "" {
-		return fmt.Errorf("%s xmlSQLStatement id is required", stmt.Action())
+		return p.wrapParseError(decoder, token, fmt.Errorf("%s xmlSQLStatement id is required", stmt.Action()))
 	}
 
 	for {
@@ -556,14 +560,14 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &stmt.bindNodes); err != nil {
-				return err
+				return p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 
 			n, err := p.parseTags(stmt.mapper, decoder, token)
 			if err != nil {
-				return err
+				return p.wrapParseError(decoder, token, err)
 			}
 			stmt.Nodes = append(stmt.Nodes, n)
 		case xml.CharData:
@@ -608,7 +612,7 @@ func (p *XMLMappersElementParser) parseTags(mapper *Mapper, decoder *xml.Decoder
 func (p *XMLMappersElementParser) parseInclude(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (node.Node, error) {
 	ref := getXMLAttr("refid", token.Attr)
 	if ref == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "include", attrName: "refid"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "include", attrName: "refid"})
 	}
 
 	// try to find sql xmlSQLStatement by refid
@@ -653,14 +657,14 @@ func (p *XMLMappersElementParser) parseSet(mapper *Mapper, decoder *xml.Decoder)
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &setNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 
 			n, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			setNode.Nodes = append(setNode.Nodes, n)
 		case xml.CharData:
@@ -682,12 +686,12 @@ func (p *XMLMappersElementParser) parseIf(mapper *Mapper, decoder *xml.Decoder, 
 
 	test := getXMLAttr("test", token.Attr)
 	if test == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "if", attrName: "test"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "if", attrName: "test"})
 	}
 
 	// parse condition expression
 	if err := ifNode.Parse(test); err != nil {
-		return nil, err
+		return nil, p.wrapParseError(decoder, token, err)
 	}
 	for {
 		token, err := decoder.Token()
@@ -700,13 +704,13 @@ func (p *XMLMappersElementParser) parseIf(mapper *Mapper, decoder *xml.Decoder, 
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &ifNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 			n, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			ifNode.Nodes = append(ifNode.Nodes, n)
 		case xml.CharData:
@@ -736,13 +740,13 @@ func (p *XMLMappersElementParser) parseWhere(mapper *Mapper, decoder *xml.Decode
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &whereNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 			n, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			whereNode.Nodes = append(whereNode.Nodes, n)
 		case xml.CharData:
@@ -792,13 +796,13 @@ func (p *XMLMappersElementParser) parseTrim(mapper *Mapper, decoder *xml.Decoder
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &trimNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 			n, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			trimNode.Nodes = append(trimNode.Nodes, n)
 		case xml.EndElement:
@@ -834,7 +838,7 @@ func (p *XMLMappersElementParser) parseForeach(mapper *Mapper, decoder *xml.Deco
 		foreachNode.Collection = eval.DefaultParamKey()
 	}
 	if foreachNode.Item == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "foreach", attrName: "item"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "foreach", attrName: "item"})
 	}
 	for {
 		token, err := decoder.Token()
@@ -847,13 +851,13 @@ func (p *XMLMappersElementParser) parseForeach(mapper *Mapper, decoder *xml.Deco
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &foreachNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 			n, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			foreachNode.Nodes = append(foreachNode.Nodes, n)
 		case xml.CharData:
@@ -883,7 +887,7 @@ func (p *XMLMappersElementParser) parseChoose(mapper *Mapper, decoder *xml.Decod
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &chooseNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
@@ -892,16 +896,16 @@ func (p *XMLMappersElementParser) parseChoose(mapper *Mapper, decoder *xml.Decod
 			case "when":
 				n, err := p.parseWhen(mapper, decoder, token)
 				if err != nil {
-					return nil, err
+					return nil, p.wrapParseError(decoder, token, err)
 				}
 				chooseNode.WhenNodes = append(chooseNode.WhenNodes, n)
 			case "otherwise":
 				if chooseNode.OtherwiseNode != nil {
-					return nil, errors.New("otherwise is only once")
+					return nil, p.wrapParseError(decoder, token, errors.New("otherwise is only once"))
 				}
 				n, err := p.parseOtherwise(mapper, decoder)
 				if err != nil {
-					return nil, err
+					return nil, p.wrapParseError(decoder, token, err)
 				}
 				chooseNode.OtherwiseNode = n
 			}
@@ -920,10 +924,10 @@ func (p *XMLMappersElementParser) parseSQLNode(mapper *Mapper, decoder *xml.Deco
 
 	sqlNode.ID = getXMLAttr("id", token.Attr)
 	if sqlNode.ID == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "sql", attrName: "id"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "sql", attrName: "id"})
 	}
 	if strings.Contains(sqlNode.ID, ".") {
-		return nil, fmt.Errorf("sql id can not contain '.' %s", sqlNode.ID)
+		return nil, p.wrapParseError(decoder, token, fmt.Errorf("sql id can not contain '.' %s", sqlNode.ID))
 	}
 
 	for {
@@ -937,13 +941,13 @@ func (p *XMLMappersElementParser) parseSQLNode(mapper *Mapper, decoder *xml.Deco
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &sqlNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 			tags, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			sqlNode.Nodes = append(sqlNode.Nodes, tags)
 		case xml.CharData:
@@ -965,12 +969,12 @@ func (p *XMLMappersElementParser) parseWhen(mapper *Mapper, decoder *xml.Decoder
 
 	test := getXMLAttr("test", token.Attr)
 	if test == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "when", attrName: "test"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "when", attrName: "test"})
 	}
 
 	// parse condition expression
 	if err := whenNode.Parse(test); err != nil {
-		return nil, err
+		return nil, p.wrapParseError(decoder, token, err)
 	}
 	for {
 		token, err := decoder.Token()
@@ -983,13 +987,13 @@ func (p *XMLMappersElementParser) parseWhen(mapper *Mapper, decoder *xml.Decoder
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &whenNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 			n, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			whenNode.Nodes = append(whenNode.Nodes, n)
 		case xml.CharData:
@@ -1019,14 +1023,14 @@ func (p *XMLMappersElementParser) parseOtherwise(mapper *Mapper, decoder *xml.De
 		switch token := token.(type) {
 		case xml.StartElement:
 			if handled, err := p.parseBindAndAppend(decoder, token, &otherwiseNode.BindNodes); err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			} else if handled {
 				continue
 			}
 
 			tags, err := p.parseTags(mapper, decoder, token)
 			if err != nil {
-				return nil, err
+				return nil, p.wrapParseError(decoder, token, err)
 			}
 			otherwiseNode.Nodes = append(otherwiseNode.Nodes, tags)
 		case xml.CharData:
@@ -1058,16 +1062,16 @@ func (p *XMLMappersElementParser) parseBind(decoder *xml.Decoder, token xml.Star
 	}
 
 	if bindNode.Name == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "bind", attrName: "name"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "bind", attrName: "name"})
 	}
 
 	if value == "" {
-		return nil, &nodeAttributeRequiredError{nodeName: "bind", attrName: "value"}
+		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "bind", attrName: "value"})
 	}
 
 	// parse expression
 	if err := bindNode.Parse(value); err != nil {
-		return nil, err
+		return nil, p.wrapParseError(decoder, token, err)
 	}
 
 	for {
@@ -1164,4 +1168,41 @@ func getXMLAttr(key string, attrs []xml.Attr) string {
 		}
 	}
 	return ""
+}
+
+// wrapParseError wraps an error with XML parsing context including namespace and XML content.
+func (p *XMLMappersElementParser) wrapParseError(decoder *xml.Decoder, token xml.StartElement, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// If it's already an XMLParseError, return as is
+	if _, ok := err.(*XMLParseError); ok {
+		return err
+	}
+
+	// Build XML content string
+	xmlContent := buildXMLContent(token)
+
+	return &XMLParseError{
+		Namespace:  p.currentNamespace,
+		XMLContent: xmlContent,
+		Err:        err,
+	}
+}
+
+// buildXMLContent constructs a string representation of the XML element.
+func buildXMLContent(token xml.StartElement) string {
+	var builder strings.Builder
+	builder.WriteString("<")
+	builder.WriteString(token.Name.Local)
+	for _, attr := range token.Attr {
+		builder.WriteString(" ")
+		builder.WriteString(attr.Name.Local)
+		builder.WriteString("=\"")
+		builder.WriteString(attr.Value)
+		builder.WriteString("\"")
+	}
+	builder.WriteString(">")
+	return builder.String()
 }
