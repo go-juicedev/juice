@@ -19,6 +19,7 @@ package juice
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-juicedev/juice/sql"
 )
@@ -71,6 +72,41 @@ type nodeAttributeConflictError struct {
 // Error returns the error message.
 func (e *nodeAttributeConflictError) Error() string {
 	return fmt.Sprintf("node %s has conflicting attribute %s", e.nodeName, e.attrName)
+}
+
+// XMLParseError represents an error occurred during XML parsing with detailed context.
+type XMLParseError struct {
+	// Namespace is the namespace of the mapper being parsed
+	Namespace string
+	// XMLContent is the XML element content that caused the error
+	XMLContent string
+	// Err is the underlying error
+	Err error
+}
+
+// Error returns the error message.
+func (e *XMLParseError) Error() string {
+	var builder strings.Builder
+	builder.WriteString("XML parse error")
+	if e.Namespace != "" {
+		builder.WriteString(" in namespace '")
+		builder.WriteString(e.Namespace)
+		builder.WriteString("'")
+	}
+	if e.XMLContent != "" {
+		builder.WriteString(": ")
+		builder.WriteString(e.XMLContent)
+	}
+	if e.Err != nil {
+		builder.WriteString(": ")
+		builder.WriteString(e.Err.Error())
+	}
+	return builder.String()
+}
+
+// Unwrap returns the underlying error.
+func (e *XMLParseError) Unwrap() error {
+	return e.Err
 }
 
 // unreachable is a function that is used to mark unreachable code.
