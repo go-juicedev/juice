@@ -43,7 +43,7 @@ const (
 )
 
 // Middleware defines the interface for intercepting and processing SQL statement executions.
-// It implements the interceptor pattern, allowing cross-cutting concerns like logging, 
+// It implements the interceptor pattern, allowing cross-cutting concerns like logging,
 // timeout management, and connection switching to be handled transparently.
 type Middleware interface {
 	// QueryContext intercepts and processes SELECT query executions.
@@ -94,39 +94,17 @@ func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration
 	return next
 }
 
-// NoopQueryContextMiddleware is a middleware that performs no operations on QueryContext.
-// It simply passes through the query execution without any modifications or interceptions.
-// This middleware can be useful as a base implementation or placeholder when you need
-// a middleware that doesn't affect query execution flow.
-type NoopQueryContextMiddleware struct{}
+// NoopMiddleware is a middleware that performs no operations.
+// It simply returns the original next handler.
+type NoopMiddleware struct{}
 
-// QueryContext implements Middleware interface.
-// It returns the next handler in the chain without any modifications.
-func (n NoopQueryContextMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
+// QueryContext implements Middleware.
+func (n NoopMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
 	return next
 }
 
-// ExecContext implements Middleware interface.
-// It does nothing for ExecContext and returns the next handler as-is.
-func (n NoopQueryContextMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
-	panic("implement me")
-}
-
-// NoopExecContextMiddleware is a middleware that performs no operations on ExecContext.
-// It simply passes through the execution without any modifications or interceptions.
-// This middleware can be useful as a base implementation or placeholder when you need
-// a middleware that doesn't affect execution flow.
-type NoopExecContextMiddleware struct{}
-
-// QueryContext implements Middleware interface.
-// It does nothing for QueryContext and returns the next handler as-is.
-func (n NoopExecContextMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
-	panic("implement me")
-}
-
-// ExecContext implements Middleware interface.
-// It returns the next handler in the chain without any modifications.
-func (n NoopExecContextMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
+// ExecContext implements Middleware.
+func (n NoopMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
 	return next
 }
 
@@ -271,7 +249,7 @@ var errStructPointerOrSliceArrayRequired = errors.New(
 // It retrieves the last insert ID from the database result and sets it to the appropriate field in the parameter object.
 // This middleware supports both single record and batch insert operations, with configurable key properties and increment strategies.
 type useGeneratedKeysMiddleware struct {
-	NoopQueryContextMiddleware
+	NoopMiddleware
 }
 
 // ExecContext implements Middleware.
@@ -392,7 +370,7 @@ func isInTransaction(ctx context.Context) bool {
 // The middleware ensures that datasource switching only occurs outside of transactions
 // to maintain data consistency and connection stability.
 type TxSensitiveDataSourceSwitchMiddleware struct {
-	NoopExecContextMiddleware
+	NoopMiddleware
 }
 
 // selectRandomDataSource randomly selects a datasource from all available sources.
