@@ -30,7 +30,6 @@ import (
 	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/session"
 	"github.com/go-juicedev/juice/sql"
-	"github.com/go-juicedev/juice/sql/stmt"
 )
 
 // StatementHandler defines the interface for executing SQL statements.
@@ -153,6 +152,7 @@ func buildStatementQuery(statement Statement, cfg Configuration, driver driver.D
 // When a different query is encountered, it closes the existing statement and creates a new one.
 type preparedStatementHandler struct {
 	stmts         *stdsql.Stmt
+	lastQuery     string
 	middlewares   MiddlewareGroup
 	driver        driver.Driver
 	session       session.Session
@@ -162,7 +162,7 @@ type preparedStatementHandler struct {
 // getOrPrepare retrieves an existing prepared statement if the query matches,
 // otherwise closes the current statement (if any) and creates a new one.
 func (s *preparedStatementHandler) getOrPrepare(ctx context.Context, query string) (*stdsql.Stmt, error) {
-	if s.stmts != nil && stmt.Query(s.stmts) == query {
+	if s.stmts != nil && s.lastQuery == query {
 		return s.stmts, nil
 	}
 	// it means the prepared statement is not what we want
@@ -174,6 +174,7 @@ func (s *preparedStatementHandler) getOrPrepare(ctx context.Context, query strin
 	if err != nil {
 		return nil, fmt.Errorf("prepare statement failed: %w", err)
 	}
+	s.lastQuery = query
 	return s.stmts, nil
 }
 
