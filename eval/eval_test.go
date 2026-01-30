@@ -189,52 +189,6 @@ func TestSubJoin(t *testing.T) {
 	}
 }
 
-func TestContains(t *testing.T) {
-	param := H{
-		"a": []string{"eat", "more", "apple"},
-		"b": []int64{1, 2, 3},
-	}
-	result, err := testEval(`contains(a, "eat")`, param)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if !result.Bool() {
-		t.Error("eval error")
-		return
-	}
-
-	result, err = testEval(`contains("eatmoreapple", "eat")`, param)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if !result.Bool() {
-		t.Error("eval error")
-		return
-	}
-
-	result, err = testEval(`contains(b, 3)`, param)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if !result.Bool() {
-		t.Error("eval error")
-		return
-	}
-
-	result, err = testEval(`contains(b, 4)`, param)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if result.Bool() {
-		t.Error("eval error")
-		return
-	}
-}
-
 func TestSlice(t *testing.T) {
 	param := H{
 		"a": []string{"eat", "more", "apple"},

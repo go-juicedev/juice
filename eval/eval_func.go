@@ -18,7 +18,6 @@ package eval
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -85,31 +84,6 @@ func strJoin(v any, sep string) (string, error) {
 	default:
 	}
 	return "", errors.New("join: invalid argument type")
-}
-
-// contains returns true if the value is in the array or string.
-func contains(s any, v any) (bool, error) {
-	switch t := s.(type) {
-	case string:
-		value, ok := v.(string)
-		if !ok {
-			value = fmt.Sprintf("%v", v)
-		}
-		return strings.Contains(t, value), nil
-	default:
-		rv := reflect.Indirect(reflect.ValueOf(s))
-		switch rv.Kind() {
-		case reflect.Array, reflect.Slice, reflect.Map:
-			for i := 0; i < rv.Len(); i++ {
-				if rv.Index(i).Interface() == v {
-					return true, nil
-				}
-			}
-			return false, nil
-		default:
-		}
-	}
-	return false, errors.New("contains: invalid argument type")
 }
 
 // slice returns a slice of the array or string.
@@ -234,7 +208,6 @@ func init() {
 	MustRegisterEvalFunc("len", length)
 	MustRegisterEvalFunc("substr", strSub)
 	MustRegisterEvalFunc("join", strJoin)
-	MustRegisterEvalFunc("contains", contains)
 	MustRegisterEvalFunc("slice", slice)
 	MustRegisterEvalFunc("lower", lower)
 	MustRegisterEvalFunc("upper", upper)
