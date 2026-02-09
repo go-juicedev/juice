@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestPureTextNode_Accept(t *testing.T) {
+func TestPureTextNode_Accept_text_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")
@@ -68,7 +68,7 @@ func TestPureTextNode_Accept(t *testing.T) {
 	}
 }
 
-func TestTextNode_Accept_Comprehensive(t *testing.T) {
+func TestTextNode_Accept_Comprehensive_text_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 
@@ -227,7 +227,7 @@ func TestTextNode_Accept_Comprehensive(t *testing.T) {
 	}
 }
 
-func TestTextNode_Accept(t *testing.T) {
+func TestTextNode_Accept_text_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node := NewTextNode("select * from user where ID = #{ID}")
 	param := eval.NewGenericParam(eval.H{"ID": 1}, "")

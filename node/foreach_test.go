@@ -25,7 +25,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestForeachNode_Accept(t *testing.T) {
+func TestForeachNode_Accept_foreach_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	textNode := NewTextNode("(#{item.ID}, #{item.name})")
 	node := ForeachNode{
@@ -57,7 +57,7 @@ func TestForeachNode_Accept(t *testing.T) {
 	}
 }
 
-func TestForeachNode_Accept_Comprehensive(t *testing.T) {
+func TestForeachNode_Accept_Comprehensive_foreach_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 
@@ -296,7 +296,7 @@ func TestForeachNode_Accept_Comprehensive(t *testing.T) {
 	}
 }
 
-func TestForeachMapNode_Accept(t *testing.T) {
+func TestForeachMapNode_Accept_foreach_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	textNode := NewTextNode("(#{item}, #{index})")
 	node := ForeachNode{

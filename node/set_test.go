@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestSetNode_Accept_Comprehensive(t *testing.T) {
+func TestSetNode_Accept_Comprehensive_set_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")
@@ -176,7 +176,7 @@ func TestSetNode_Accept_Comprehensive(t *testing.T) {
 	}
 }
 
-func TestSetNode_Accept(t *testing.T) {
+func TestSetNode_Accept_set_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("ID = #{ID},")
 	node := NewTextNode("name = #{name},")

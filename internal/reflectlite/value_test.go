@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestValue_FindFieldFromTag(t *testing.T) {
+func TestValue_FindFieldFromTag_value_test(t *testing.T) {
 	type A struct {
 		AName string `param:"a_name"`
 	}
@@ -31,7 +31,7 @@ func TestValue_FindFieldFromTag(t *testing.T) {
 	}
 }
 
-func TestValue_GetFieldIndexesFromTag(t *testing.T) {
+func TestValue_GetFieldIndexesFromTag_value_test(t *testing.T) {
 	type A struct {
 		AName string `param:"a_name"`
 	}
@@ -78,7 +78,7 @@ func TestValue_GetFieldIndexesFromTag(t *testing.T) {
 	}
 }
 
-func TestValue_Unwrap(t *testing.T) {
+func TestValue_Unwrap_value_test(t *testing.T) {
 	s := "hello"
 	ps := &s
 	pps := &ps
@@ -107,7 +107,7 @@ func TestValue_Unwrap(t *testing.T) {
 	}
 }
 
-func TestValue_IndirectType(t *testing.T) {
+func TestValue_IndirectType_value_test(t *testing.T) {
 	s := "world"
 	ps := &s
 
@@ -121,7 +121,7 @@ func TestValue_IndirectType(t *testing.T) {
 	}
 }
 
-func TestValue_IndirectKind(t *testing.T) {
+func TestValue_IndirectKind_value_test(t *testing.T) {
 	i := 123
 	pi := &i
 	valPi := ValueOf(pi)
@@ -134,7 +134,7 @@ func TestValue_IndirectKind(t *testing.T) {
 	}
 }
 
-func TestValue_FindFieldFromTag_MoreScenarios(t *testing.T) {
+func TestValue_FindFieldFromTag_MoreScenarios_value_test(t *testing.T) {
 	type InnerMost struct {
 		DeepField string `tag:"deep"`
 	}
@@ -205,7 +205,7 @@ func TestValue_FindFieldFromTag_MoreScenarios(t *testing.T) {
 	}
 }
 
-func TestIsNilable(t *testing.T) {
+func TestIsNilable_value_test(t *testing.T) {
 	var s string
 	var ps *string
 	var i int
@@ -279,7 +279,7 @@ func TestIsNilable(t *testing.T) {
 	}
 }
 
-func TestUnwrap_Global(t *testing.T) {
+func TestUnwrap_Global_value_test(t *testing.T) {
 	s := "test"
 	ps := &s
 	pps := &ps

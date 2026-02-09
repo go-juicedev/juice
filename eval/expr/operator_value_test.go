@@ -7,7 +7,7 @@ import (
 	"github.com/go-juicedev/juice/eval/expr"
 )
 
-func TestIntOperator_Addition(t *testing.T) {
+func TestIntOperator_Addition_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5)
 	right := reflect.ValueOf(3)
 	operator := expr.IntOperator{OperatorExpr: expr.Add}
@@ -23,7 +23,7 @@ func TestIntOperator_Addition(t *testing.T) {
 	}
 }
 
-func TestIntOperator_Subtraction(t *testing.T) {
+func TestIntOperator_Subtraction_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5)
 	right := reflect.ValueOf(3)
 	operator := expr.IntOperator{OperatorExpr: expr.Sub}
@@ -39,7 +39,7 @@ func TestIntOperator_Subtraction(t *testing.T) {
 	}
 }
 
-func TestIntOperator_InvalidType(t *testing.T) {
+func TestIntOperator_InvalidType_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5)
 	right := reflect.ValueOf("3")
 	operator := expr.IntOperator{OperatorExpr: expr.Add}
@@ -51,7 +51,7 @@ func TestIntOperator_InvalidType(t *testing.T) {
 	}
 }
 
-func TestStringOperator_Addition(t *testing.T) {
+func TestStringOperator_Addition_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf("Hello")
 	right := reflect.ValueOf(" World")
 	operator := expr.StringOperator{OperatorExpr: expr.Add}
@@ -67,7 +67,7 @@ func TestStringOperator_Addition(t *testing.T) {
 	}
 }
 
-func TestStringOperator_InvalidType(t *testing.T) {
+func TestStringOperator_InvalidType_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf("Hello")
 	right := reflect.ValueOf(3)
 	operator := expr.StringOperator{OperatorExpr: expr.Add}
@@ -79,7 +79,7 @@ func TestStringOperator_InvalidType(t *testing.T) {
 	}
 }
 
-func TestUintOperator_Addition(t *testing.T) {
+func TestUintOperator_Addition_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(uint(5))
 	right := reflect.ValueOf(uint(3))
 	operator := expr.UintOperator{OperatorExpr: expr.Add}
@@ -95,7 +95,7 @@ func TestUintOperator_Addition(t *testing.T) {
 	}
 }
 
-func TestUintOperator_Subtraction(t *testing.T) {
+func TestUintOperator_Subtraction_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(uint(5))
 	right := reflect.ValueOf(uint(3))
 	operator := expr.UintOperator{OperatorExpr: expr.Sub}
@@ -111,7 +111,7 @@ func TestUintOperator_Subtraction(t *testing.T) {
 	}
 }
 
-func TestUintOperator_InvalidType(t *testing.T) {
+func TestUintOperator_InvalidType_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(uint(5))
 	right := reflect.ValueOf("3")
 	operator := expr.UintOperator{OperatorExpr: expr.Add}
@@ -123,7 +123,7 @@ func TestUintOperator_InvalidType(t *testing.T) {
 	}
 }
 
-func TestFloatOperator_Addition(t *testing.T) {
+func TestFloatOperator_Addition_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5.5)
 	right := reflect.ValueOf(3.3)
 	operator := expr.FloatOperator{OperatorExpr: expr.Add}
@@ -139,7 +139,7 @@ func TestFloatOperator_Addition(t *testing.T) {
 	}
 }
 
-func TestFloatOperator_InvalidType(t *testing.T) {
+func TestFloatOperator_InvalidType_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5.5)
 	right := reflect.ValueOf("3.3")
 	operator := expr.FloatOperator{OperatorExpr: expr.Add}
@@ -151,7 +151,7 @@ func TestFloatOperator_InvalidType(t *testing.T) {
 	}
 }
 
-func TestComplexOperator_Addition(t *testing.T) {
+func TestComplexOperator_Addition_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5.5 + 3i)
 	right := reflect.ValueOf(3.3 + 2i)
 	operator := expr.ComplexOperator{OperatorExpr: expr.Add}
@@ -167,7 +167,7 @@ func TestComplexOperator_Addition(t *testing.T) {
 	}
 }
 
-func TestComplexOperator_InvalidType(t *testing.T) {
+func TestComplexOperator_InvalidType_operator_value_test(t *testing.T) {
 	left := reflect.ValueOf(5.5 + 3i)
 	right := reflect.ValueOf("3.3 + 2i")
 	operator := expr.ComplexOperator{OperatorExpr: expr.Add}
@@ -179,7 +179,7 @@ func TestComplexOperator_InvalidType(t *testing.T) {
 	}
 }
 
-func TestNilEq(t *testing.T) {
+func TestNilEq_operator_value_test(t *testing.T) {
 
 	left := reflect.ValueOf(new(int))
 	right := reflect.ValueOf(nil)
@@ -195,7 +195,7 @@ func TestNilEq(t *testing.T) {
 	}
 }
 
-func TestNilNe(t *testing.T) {
+func TestNilNe_operator_value_test(t *testing.T) {
 
 	left := reflect.ValueOf(new(int))
 	right := reflect.ValueOf(nil)

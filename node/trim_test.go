@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestTrimNode_Accept_Comprehensive(t *testing.T) {
+func TestTrimNode_Accept_Comprehensive_trim_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")
@@ -219,7 +219,7 @@ func TestTrimNode_Accept_Comprehensive(t *testing.T) {
 	}
 }
 
-func TestTrimNode_Accept(t *testing.T) {
+func TestTrimNode_Accept_trim_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("name,")
 	ifNode := &IfNode{

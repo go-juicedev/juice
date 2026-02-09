@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestConditionNode_Accept(t *testing.T) {
+func TestConditionNode_Accept_condition_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 

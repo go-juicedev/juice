@@ -43,7 +43,7 @@ func (m *mockNodeManager) GetSQLNodeByID(id string) (Node, error) {
 	return node, nil
 }
 
-func TestIncludeNode_Accept(t *testing.T) {
+func TestIncludeNode_Accept_include_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	params := eval.NewGenericParam(eval.H{"ID": 1}, "")

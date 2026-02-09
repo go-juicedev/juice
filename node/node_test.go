@@ -45,7 +45,7 @@ type nonStringer struct {
 	val int
 }
 
-func TestReflectValueToString(t *testing.T) {
+func TestReflectValueToString_node_test(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    any
@@ -111,7 +111,7 @@ func TestReflectValueToString(t *testing.T) {
 	}
 }
 
-func TestNodeGroup_Accept(t *testing.T) {
+func TestNodeGroup_Accept_node_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")

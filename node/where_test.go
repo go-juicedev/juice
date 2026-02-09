@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestWhereNode_Accept(t *testing.T) {
+func TestWhereNode_Accept_where_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("AND ID = #{ID}")
 	node := NewTextNode("AND name = #{name}")
@@ -56,7 +56,7 @@ func TestWhereNode_Accept(t *testing.T) {
 	}
 }
 
-func TestWhereNode_Accept_Comprehensive(t *testing.T) {
+func TestWhereNode_Accept_Comprehensive_where_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")
