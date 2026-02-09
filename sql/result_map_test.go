@@ -77,7 +77,7 @@ func (rs *RowScannerStruct) ScanRows(rows Rows) error {
 
 // --- Test Cases ---
 
-func TestSingleRowResultMap_MapTo_Success(t *testing.T) {
+func TestSingleRowResultMap_MapTo_Success_result_map_test(t *testing.T) {
 	mapper := SingleRowResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id", "name", "age"},
@@ -103,7 +103,7 @@ func TestSingleRowResultMap_MapTo_Success(t *testing.T) {
 	}
 }
 
-func TestSingleRowResultMap_MapTo_PointerToBasicType(t *testing.T) {
+func TestSingleRowResultMap_MapTo_PointerToBasicType_result_map_test(t *testing.T) {
 	mapper := SingleRowResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"count"},
@@ -132,7 +132,7 @@ func TestSingleRowResultMap_MapTo_PointerToBasicType(t *testing.T) {
 	}
 }
 
-func TestSingleRowResultMap_MapTo_NoRows(t *testing.T) {
+func TestSingleRowResultMap_MapTo_NoRows_result_map_test(t *testing.T) {
 	mapper := SingleRowResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id", "name"},
@@ -145,7 +145,7 @@ func TestSingleRowResultMap_MapTo_NoRows(t *testing.T) {
 	}
 }
 
-func TestSingleRowResultMap_MapTo_TooManyRows(t *testing.T) {
+func TestSingleRowResultMap_MapTo_TooManyRows_result_map_test(t *testing.T) {
 	mapper := SingleRowResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id"},
@@ -161,7 +161,7 @@ func TestSingleRowResultMap_MapTo_TooManyRows(t *testing.T) {
 	}
 }
 
-func TestSingleRowResultMap_MapTo_NotAPointer(t *testing.T) {
+func TestSingleRowResultMap_MapTo_NotAPointer_result_map_test(t *testing.T) {
 	mapper := SingleRowResultMap{}
 	rows := &RowsBuffer{}
 	var result SimpleStruct // Not a pointer
@@ -171,7 +171,7 @@ func TestSingleRowResultMap_MapTo_NotAPointer(t *testing.T) {
 	}
 }
 
-func TestMultiRowsResultMap_MapTo_Success_SliceOfStructs(t *testing.T) {
+func TestMultiRowsResultMap_MapTo_Success_SliceOfStructs_result_map_test(t *testing.T) {
 	mapper := MultiRowsResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id", "name"},
@@ -196,7 +196,7 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfStructs(t *testing.T) {
 	}
 }
 
-func TestMultiRowsResultMap_MapTo_Success_SliceOfPointersToStructs(t *testing.T) {
+func TestMultiRowsResultMap_MapTo_Success_SliceOfPointersToStructs_result_map_test(t *testing.T) {
 	mapper := MultiRowsResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id", "name"},
@@ -221,7 +221,7 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfPointersToStructs(t *testing.T)
 	}
 }
 
-func TestMultiRowsResultMap_MapTo_Success_SliceOfBasicType(t *testing.T) {
+func TestMultiRowsResultMap_MapTo_Success_SliceOfBasicType_result_map_test(t *testing.T) {
 	mapper := MultiRowsResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id"},
@@ -250,7 +250,7 @@ func TestMultiRowsResultMap_MapTo_Success_SliceOfBasicType(t *testing.T) {
 	}
 }
 
-func TestMultiRowsResultMap_MapTo_EmptyResult(t *testing.T) {
+func TestMultiRowsResultMap_MapTo_EmptyResult_result_map_test(t *testing.T) {
 	mapper := MultiRowsResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"id", "name"},
@@ -291,7 +291,7 @@ func TestMultiRowsResultMap_MapTo_EmptyResult(t *testing.T) {
 	resultMapPreserveNilSlice = false
 }
 
-func TestMultiRowsResultMap_MapTo_WithNewFunc(t *testing.T) {
+func TestMultiRowsResultMap_MapTo_WithNewFunc_result_map_test(t *testing.T) {
 	var newCalls int
 	mapper := MultiRowsResultMap{
 		New: func() reflect.Value {
@@ -316,7 +316,7 @@ func TestMultiRowsResultMap_MapTo_WithNewFunc(t *testing.T) {
 	}
 }
 
-func TestMultiRowsResultMap_MapTo_RowScanner(t *testing.T) {
+func TestMultiRowsResultMap_MapTo_RowScanner_result_map_test(t *testing.T) {
 	mapper := MultiRowsResultMap{}
 	rows := &RowsBuffer{
 		ColumnsLine: []string{"col_id", "col_content"}, // Column names for RowScannerStruct
@@ -344,7 +344,7 @@ func TestMultiRowsResultMap_MapTo_RowScanner(t *testing.T) {
 
 // --- rowDestination Tests (indirectly tested via mappers, but some direct unit tests are useful) ---
 
-func TestRowDestination_Destination_Basic(t *testing.T) {
+func TestRowDestination_Destination_Basic_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var s SimpleStruct
 	rv := reflect.ValueOf(&s).Elem()
@@ -389,7 +389,7 @@ func TestRowDestination_Destination_Basic(t *testing.T) {
 	}
 }
 
-func TestRowDestination_Destination_AnonymousStruct(t *testing.T) {
+func TestRowDestination_Destination_AnonymousStruct_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var as AnonymousStruct
 	rv := reflect.ValueOf(&as).Elem()
@@ -444,7 +444,7 @@ func TestRowDestination_Destination_AnonymousStruct(t *testing.T) {
 	}
 }
 
-func TestRowDestination_Destination_CustomTag(t *testing.T) {
+func TestRowDestination_Destination_CustomTag_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var cts CustomTagStruct
 	rv := reflect.ValueOf(&cts).Elem()
@@ -465,7 +465,7 @@ func TestRowDestination_Destination_CustomTag(t *testing.T) {
 	}
 }
 
-func TestRowDestination_Destination_SingleColumnNonStruct(t *testing.T) {
+func TestRowDestination_Destination_SingleColumnNonStruct_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var i int
 	rv := reflect.ValueOf(&i)
@@ -499,7 +499,7 @@ func TestRowDestination_Destination_SingleColumnNonStruct(t *testing.T) {
 	}
 }
 
-func TestRowDestination_Destination_SingleColumn_Time(t *testing.T) {
+func TestRowDestination_Destination_SingleColumn_Time_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var tm time.Time
 	rv := reflect.ValueOf(&tm)
@@ -520,7 +520,7 @@ func TestRowDestination_Destination_SingleColumn_Time(t *testing.T) {
 	}
 }
 
-func TestRowDestination_Destination_SingleColumn_Scanner(t *testing.T) {
+func TestRowDestination_Destination_SingleColumn_Scanner_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var ss ScannerStruct
 	rv := reflect.ValueOf(&ss)
@@ -544,7 +544,7 @@ func TestRowDestination_Destination_SingleColumn_Scanner(t *testing.T) {
 	}
 }
 
-func TestRowDestination_Destination_Error_MultiColumnNonceStruct(t *testing.T) {
+func TestRowDestination_Destination_Error_MultiColumnNonceStruct_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var i int
 	rv := reflect.ValueOf(&i)
@@ -559,7 +559,7 @@ func TestRowDestination_Destination_Error_MultiColumnNonceStruct(t *testing.T) {
 	}
 }
 
-func TestIsImplementsRowScanner(t *testing.T) {
+func TestIsImplementsRowScanner_result_map_test(t *testing.T) {
 	var rs *RowScannerStruct
 	rt := reflect.TypeOf(rs) // reflect.TypeOf((*RowScannerStruct)(nil))
 	if !isImplementsRowScanner(rt) {

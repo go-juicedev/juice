@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestWhenNode_Accept(t *testing.T) {
+func TestWhenNode_Accept_when_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("select * from user where ID = #{ID}")
 	var node = WhenNode{

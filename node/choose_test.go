@@ -24,7 +24,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestChooseNode_Accept(t *testing.T) {
+func TestChooseNode_Accept_choose_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")

@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestRowsBuffer(t *testing.T) {
+func TestRowsBuffer_buf_test(t *testing.T) {
 	columns := []string{"id", "name"}
 	data := [][]any{
 		{1, "alice"},
@@ -88,7 +88,7 @@ func TestRowsBuffer(t *testing.T) {
 	}
 }
 
-func TestRowsBuffer_ScanError(t *testing.T) {
+func TestRowsBuffer_ScanError_buf_test(t *testing.T) {
 	columns := []string{"id"}
 	data := [][]any{{1}}
 	rb := NewRowsBuffer(columns, data)

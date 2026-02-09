@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestTrie_Basic(t *testing.T) {
+func TestTrie_Basic_trie_test(t *testing.T) {
 	trie := NewTrie[string]()
 
 	// Test empty trie
@@ -47,7 +47,7 @@ func TestTrie_Basic(t *testing.T) {
 	}
 }
 
-func TestTrie_Delete(t *testing.T) {
+func TestTrie_Delete_trie_test(t *testing.T) {
 	trie := NewTrie[string]()
 
 	// Insert some values
@@ -100,7 +100,7 @@ func TestTrie_Delete(t *testing.T) {
 	}
 }
 
-func TestTrie_GetByPrefix(t *testing.T) {
+func TestTrie_GetByPrefix_trie_test(t *testing.T) {
 	trie := NewTrie[string]()
 
 	// Insert test data
@@ -185,7 +185,7 @@ func TestTrie_GetByPrefix(t *testing.T) {
 	}
 }
 
-func TestTrie_Overwrite(t *testing.T) {
+func TestTrie_Overwrite_trie_test(t *testing.T) {
 	trie := NewTrie[string]()
 
 	// Test overwriting values
@@ -209,7 +209,7 @@ func TestTrie_Overwrite(t *testing.T) {
 	}
 }
 
-func TestTrie_LongKeys(t *testing.T) {
+func TestTrie_LongKeys_trie_test(t *testing.T) {
 	trie := NewTrie[string]()
 
 	// Test very long key with many segments

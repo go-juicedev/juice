@@ -12,7 +12,7 @@ func testEval(expr string, v any) (result reflect.Value, err error) {
 	return Eval(expr, param)
 }
 
-func TestEval(t *testing.T) {
+func TestEval_eval_test(t *testing.T) {
 	param := H{
 		"id":   1,
 		"age":  18,
@@ -106,7 +106,7 @@ func BenchmarkEval2(b *testing.B) {
 	// BenchmarkEval2-8   	 5736370	       180.8 ns/op
 }
 
-func TestLen(t *testing.T) {
+func TestLen_eval_test(t *testing.T) {
 	param := H{
 		"a": []any{"a", "b", "c"},
 		"b": "aaa",
@@ -141,7 +141,7 @@ func TestLen(t *testing.T) {
 	}
 }
 
-func TestSubStr(t *testing.T) {
+func TestSubStr_eval_test(t *testing.T) {
 	param := H{
 		"a": "eatmoreapple",
 	}
@@ -174,7 +174,7 @@ func TestSubStr(t *testing.T) {
 	}
 }
 
-func TestSubJoin(t *testing.T) {
+func TestSubJoin_eval_test(t *testing.T) {
 	param := H{
 		"a": []string{"eat", "more", "apple"},
 	}
@@ -189,7 +189,7 @@ func TestSubJoin(t *testing.T) {
 	}
 }
 
-func TestSlice(t *testing.T) {
+func TestSlice_eval_test(t *testing.T) {
 	param := H{
 		"a": []string{"eat", "more", "apple"},
 	}
@@ -208,7 +208,7 @@ func TestSlice(t *testing.T) {
 	}
 }
 
-func TestLparenRparen(t *testing.T) {
+func TestLparenRparen_eval_test(t *testing.T) {
 	result, err := testEval(`2 * (2 + 5) == 14`, nil)
 	if err != nil {
 		t.Error(err)
@@ -229,7 +229,7 @@ func TestLparenRparen(t *testing.T) {
 	}
 }
 
-func TestComment(t *testing.T) {
+func TestComment_eval_test(t *testing.T) {
 	result, err := Eval(`2 * (2 + 5) + 1 // 2 * (2 + 5) == 14`, nil)
 	if err != nil {
 		t.Error(err)
@@ -241,7 +241,7 @@ func TestComment(t *testing.T) {
 	}
 }
 
-func TestUnaryExpr(t *testing.T) {
+func TestUnaryExpr_eval_test(t *testing.T) {
 	result, err := Eval(`-2`, nil)
 	if err != nil {
 		t.Error(err)
@@ -253,7 +253,7 @@ func TestUnaryExpr(t *testing.T) {
 	}
 }
 
-func TestUnaryExpr2(t *testing.T) {
+func TestUnaryExpr2_eval_test(t *testing.T) {
 	result, err := Eval(`-2 * 3`, nil)
 	if err != nil {
 		t.Error(err)
@@ -265,7 +265,7 @@ func TestUnaryExpr2(t *testing.T) {
 	}
 }
 
-func TestIndexExprSlice(t *testing.T) {
+func TestIndexExprSlice_eval_test(t *testing.T) {
 	param := H{
 		"a": []string{"eat", "more", "apple"},
 	}
@@ -289,7 +289,7 @@ func TestIndexExprSlice(t *testing.T) {
 	}
 }
 
-func TestIndexExprMap(t *testing.T) {
+func TestIndexExprMap_eval_test(t *testing.T) {
 	param := H{
 		"a": map[string]string{
 			"eat": "more",
@@ -306,7 +306,7 @@ func TestIndexExprMap(t *testing.T) {
 	}
 }
 
-func TestStarExpr(t *testing.T) {
+func TestStarExpr_eval_test(t *testing.T) {
 	result, err := Eval(`*2`, nil)
 	if err != nil {
 		t.Error(err)
@@ -327,7 +327,7 @@ func TestStarExpr(t *testing.T) {
 	}
 }
 
-func TestSliceExpr(t *testing.T) {
+func TestSliceExpr_eval_test(t *testing.T) {
 	param := H{
 		"a": []string{"eat", "more", "apple"},
 	}
@@ -384,7 +384,7 @@ func TestSliceExpr(t *testing.T) {
 	}
 }
 
-func TestAnd(t *testing.T) {
+func TestAnd_eval_test(t *testing.T) {
 	result, err := Eval(`1 + 1 < 0 && 1 + 1 == 2`, nil)
 	if err != nil {
 		t.Error(err)
@@ -414,7 +414,7 @@ func TestAnd(t *testing.T) {
 	}
 }
 
-func TestOr(t *testing.T) {
+func TestOr_eval_test(t *testing.T) {
 	result, err := Eval(`1 + 1 < 0 || 1 + 1 == 2`, nil)
 	if err != nil {
 		t.Error(err)
@@ -435,7 +435,7 @@ func TestOr(t *testing.T) {
 	}
 }
 
-func TestAndOr(t *testing.T) {
+func TestAndOr_eval_test(t *testing.T) {
 	result, err := Eval(`1 + 1 < 0 || 1 + 1 == 2 && 1 + 1 == 3`, nil)
 	if err != nil {
 		t.Error(err)
@@ -447,7 +447,7 @@ func TestAndOr(t *testing.T) {
 	}
 }
 
-func TestAndOr2(t *testing.T) {
+func TestAndOr2_eval_test(t *testing.T) {
 	result, err := Eval(`1 + 1 < 0 && 1 + 1 == 2 || 1 + 1 == 3`, nil)
 	if err != nil {
 		t.Error(err)
@@ -459,7 +459,7 @@ func TestAndOr2(t *testing.T) {
 	}
 }
 
-func TestNot(t *testing.T) {
+func TestNot_eval_test(t *testing.T) {
 	result, err := Eval(`!(1 + 1 == 2)`, nil)
 	if err != nil {
 		t.Error(err)
@@ -471,7 +471,7 @@ func TestNot(t *testing.T) {
 	}
 }
 
-func TestNot2(t *testing.T) {
+func TestNot2_eval_test(t *testing.T) {
 	result, err := Eval(`!true`, nil)
 	if err != nil {
 		t.Error(err)
@@ -483,7 +483,7 @@ func TestNot2(t *testing.T) {
 	}
 }
 
-func TestSlice3(t *testing.T) {
+func TestSlice3_eval_test(t *testing.T) {
 	param := H{
 		"a": []string{"eat", "more", "apple"},
 	}
@@ -502,7 +502,7 @@ func TestSlice3(t *testing.T) {
 	}
 }
 
-func TestNil(t *testing.T) {
+func TestNil_eval_test(t *testing.T) {
 	result, err := Eval(`nil`, nil)
 	if err != nil {
 		t.Error(err)
@@ -514,7 +514,7 @@ func TestNil(t *testing.T) {
 	}
 }
 
-func TestExprNilEQ(t *testing.T) {
+func TestExprNilEQ_eval_test(t *testing.T) {
 	result, err := Eval("a == nil", H{"a": nil})
 	if err != nil {
 		t.Error(err)
@@ -549,7 +549,7 @@ func TestExprNilEQ(t *testing.T) {
 	}
 }
 
-func TestExprNilNEQ(t *testing.T) {
+func TestExprNilNEQ_eval_test(t *testing.T) {
 	result, err := Eval("a != nil", H{"a": nil})
 	if err != nil {
 		t.Error(err)
@@ -604,7 +604,7 @@ func TestExprNilNEQ(t *testing.T) {
 	}
 }
 
-func TestSelector(t *testing.T) {
+func TestSelector_eval_test(t *testing.T) {
 	var entity struct {
 		A int `param:"a"`
 	}
@@ -626,7 +626,7 @@ func (t testStruct) Test() (bool, error) {
 	return true, nil
 }
 
-func TestSelectorFunc(t *testing.T) {
+func TestSelectorFunc_eval_test(t *testing.T) {
 	var entity struct {
 		A *testStruct `param:"a"`
 	}
@@ -656,7 +656,7 @@ func TestSelectorFunc(t *testing.T) {
 	}
 }
 
-func TestMapDefaultMap(t *testing.T) {
+func TestMapDefaultMap_eval_test(t *testing.T) {
 	result, err := Eval("a.b", H{"a": H{"b": 1}})
 	if err != nil {
 		t.Error(err)
@@ -839,7 +839,7 @@ func BenchmarkStaticExprOptimizer(b *testing.B) {
 }
 
 // TestStaticExprOptimizer tests the correctness of static expression optimization
-func TestStaticExprOptimizer(t *testing.T) {
+func TestStaticExprOptimizer_eval_test(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
@@ -881,7 +881,7 @@ func TestStaticExprOptimizer(t *testing.T) {
 }
 
 // TestVariadicSliceUnpacking tests the slice unpacking syntax for variadic function calls
-func TestVariadicSliceUnpacking(t *testing.T) {
+func TestVariadicSliceUnpacking_eval_test(t *testing.T) {
 	// Test variadic function
 	sumFunc := func(nums ...int) (int, error) {
 		sum := 0
@@ -982,7 +982,7 @@ func TestVariadicSliceUnpacking(t *testing.T) {
 }
 
 // TestVariadicErrors tests error cases for variadic functions
-func TestVariadicErrors(t *testing.T) {
+func TestVariadicErrors_eval_test(t *testing.T) {
 	sumFunc := func(nums ...int) (int, error) {
 		return 0, nil
 	}
@@ -1023,7 +1023,7 @@ func TestVariadicErrors(t *testing.T) {
 	}
 }
 
-func TestLexer_Tokenize(t *testing.T) {
+func TestLexer_Tokenize_eval_test(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string

@@ -12,7 +12,7 @@ type TestUser struct {
 	Name string `column:"name"`
 }
 
-func TestBind(t *testing.T) {
+func TestBind_binder_test(t *testing.T) {
 	// Test binding to a single struct
 	t.Run("SingleStruct", func(t *testing.T) {
 		rows := &RowsBuffer{
@@ -162,7 +162,7 @@ func TestBind(t *testing.T) {
 
 }
 
-func TestList(t *testing.T) {
+func TestList_binder_test(t *testing.T) {
 	// Test converting Rows to a slice of structs
 	t.Run("SliceOfStructs", func(t *testing.T) {
 		rows := &RowsBuffer{
@@ -222,7 +222,7 @@ func TestList(t *testing.T) {
 	})
 }
 
-func TestList2(t *testing.T) {
+func TestList2_binder_test(t *testing.T) {
 	// Test converting Rows to a slice of pointers to structs
 	t.Run("SliceOfPointerToStructs", func(t *testing.T) {
 		rows := &RowsBuffer{
@@ -261,7 +261,7 @@ func TestList2(t *testing.T) {
 
 }
 
-func TestIter(t *testing.T) {
+func TestIter_binder_test(t *testing.T) {
 	// Test cases will be added here
 	t.Run("IterateOverRows", func(t *testing.T) {
 		rows := &RowsBuffer{

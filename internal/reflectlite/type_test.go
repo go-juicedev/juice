@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-func TestTypeIdentify_BasicType(t *testing.T) {
+func TestTypeIdentify_BasicType_type_test(t *testing.T) {
 	result := TypeIdentify[int]()
 	if result != "int" {
 		t.Errorf("Expected 'int', got '%s'", result)
 	}
 }
 
-func TestTypeIdentify_StructType(t *testing.T) {
+func TestTypeIdentify_StructType_type_test(t *testing.T) {
 	type testType struct {
 		field string // nolint:unused
 	}
@@ -22,7 +22,7 @@ func TestTypeIdentify_StructType(t *testing.T) {
 	}
 }
 
-func TestTypeIdentify_SliceType(t *testing.T) {
+func TestTypeIdentify_SliceType_type_test(t *testing.T) {
 	type testType []int
 	result := TypeIdentify[testType]()
 	if result != "slice[int]" {
@@ -30,7 +30,7 @@ func TestTypeIdentify_SliceType(t *testing.T) {
 	}
 }
 
-func TestTypeIdentify_MapType(t *testing.T) {
+func TestTypeIdentify_MapType_type_test(t *testing.T) {
 	type testType map[string]int
 	result := TypeIdentify[testType]()
 	if result != "map[string]int" {
@@ -38,7 +38,7 @@ func TestTypeIdentify_MapType(t *testing.T) {
 	}
 }
 
-func TestTypeIdentify_PointerType(t *testing.T) {
+func TestTypeIdentify_PointerType_type_test(t *testing.T) {
 	type testType *int
 	result := TypeIdentify[testType]()
 	if result != "ptr[int]" {
@@ -46,7 +46,7 @@ func TestTypeIdentify_PointerType(t *testing.T) {
 	}
 }
 
-func TestTypeIdentify_AnonymousStruct(t *testing.T) {
+func TestTypeIdentify_AnonymousStruct_type_test(t *testing.T) {
 	type testType struct {
 		field string // nolint:unused
 	}
@@ -56,7 +56,7 @@ func TestTypeIdentify_AnonymousStruct(t *testing.T) {
 	}
 }
 
-func TestType_Indirect(t *testing.T) {
+func TestType_Indirect_type_test(t *testing.T) {
 	type myInt int
 	type ptrMyInt *myInt
 
@@ -99,7 +99,7 @@ func TestType_Indirect(t *testing.T) {
 	}
 }
 
-func TestType_GetFieldIndexesFromTag_Caching(t *testing.T) {
+func TestType_GetFieldIndexesFromTag_Caching_type_test(t *testing.T) {
 	type CacheStruct struct {
 		FieldA string `testtag:"field_a"`
 		FieldB int    `testtag:"field_b"`
@@ -143,7 +143,7 @@ func TestType_GetFieldIndexesFromTag_Caching(t *testing.T) {
 	}
 }
 
-func TestType_GetFieldIndexesFromTag_NestedAndAnonymous(t *testing.T) {
+func TestType_GetFieldIndexesFromTag_NestedAndAnonymous_type_test(t *testing.T) {
 	type InnerMost struct {
 		DeepField string `tag:"deep"`
 	}
@@ -196,7 +196,7 @@ func TestType_GetFieldIndexesFromTag_NestedAndAnonymous(t *testing.T) {
 	// The current test structure for GetFieldIndexesFromTag is correct for its intended use.
 }
 
-func TestTypeIdentify_MoreComplexTypes(t *testing.T) {
+func TestTypeIdentify_MoreComplexTypes_type_test(t *testing.T) {
 	tests := []struct {
 		name     string
 		typeOf   func() reflect.Type

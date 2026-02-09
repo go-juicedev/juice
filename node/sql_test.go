@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestSQLNode_AcceptAndID(t *testing.T) {
+func TestSQLNode_AcceptAndID_sql_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
 

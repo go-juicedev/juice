@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestOracleDriver(t *testing.T) {
+func TestOracleDriver_oracle_test(t *testing.T) {
 	driver := OracleDriver{}
 	translator := driver.Translator()
 	for i := 0; i < 10; i++ {

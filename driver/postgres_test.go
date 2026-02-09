@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestPostgresDriver(t *testing.T) {
+func TestPostgresDriver_postgres_test(t *testing.T) {
 	driver := PostgresDriver{}
 	translator := driver.Translator()
 	for i := 0; i < 10; i++ {

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestXMLParseError(t *testing.T) {
+func TestXMLParseError_parser_test(t *testing.T) {
 	tests := []struct {
 		name      string
 		xmlErr    *XMLParseError
@@ -66,7 +66,7 @@ func TestXMLParseError(t *testing.T) {
 	}
 }
 
-func TestXMLParseErrorUnwrap(t *testing.T) {
+func TestXMLParseErrorUnwrap_parser_test(t *testing.T) {
 	originalErr := errors.New("original error")
 	xmlErr := &XMLParseError{
 		Namespace: "test.namespace",
@@ -78,7 +78,7 @@ func TestXMLParseErrorUnwrap(t *testing.T) {
 	}
 }
 
-func TestBuildXMLContent(t *testing.T) {
+func TestBuildXMLContent_parser_test(t *testing.T) {
 	tests := []struct {
 		name  string
 		token StartElement
@@ -147,7 +147,7 @@ type StartElement struct {
 }
 
 // TestXMLParseErrorIntegration tests the XML parsing error reporting with actual XML files
-func TestXMLParseErrorIntegration(t *testing.T) {
+func TestXMLParseErrorIntegration_parser_test(t *testing.T) {
 	fsys := os.DirFS(".")
 
 	tests := []struct {

@@ -2,7 +2,7 @@ package driver
 
 import "testing"
 
-func TestSQLiteDriver(t *testing.T) {
+func TestSQLiteDriver_sqlite_test(t *testing.T) {
 	driver := SQLiteDriver{}
 	translator := driver.Translator()
 	if translator.Translate("foo") != "?" {

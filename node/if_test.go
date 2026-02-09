@@ -23,7 +23,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-func TestIfNode_Accept(t *testing.T) {
+func TestIfNode_Accept_if_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("select * from user where ID = #{ID}")
 	node := &IfNode{
