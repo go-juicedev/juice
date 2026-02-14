@@ -25,6 +25,7 @@ import (
 	"unicode"
 
 	"github.com/go-juicedev/juice/internal/reflectlite"
+	"github.com/go-juicedev/juice/internal/stringutil"
 )
 
 // Param is an alias of any type.
@@ -210,69 +211,66 @@ func (g *GenericParameter) get(name string) (reflect.Value, bool) {
 		value = g.Value
 	)
 
-	// Iterate through the name character by character to avoid strings.Split allocation
-	start := 0
-	i := 0 // path segment index for structFieldIndex cache
-	for j := 0; j <= len(name); j++ {
-		if j == len(name) || name[j] == '.' {
-			// Extract the segment between start and j
-			if j > start { // avoid empty segments
-				item := name[start:j]
+	var found = true
+	stringutil.WalkByStep(name, '.', func(i int, item string) bool {
+		// only unwrap when the value need to call Get method
+		value = reflectlite.Unwrap(value)
 
-				// only unwrap when the value need to call Get method
-				value = reflectlite.Unwrap(value)
-
-				// match the value type
-				// only map, struct, slice and array can be wrapped as parameter
-				switch value.Kind() {
-				case reflect.Map:
-					// if the map key is not a string type, then return false
-					if value.Type().Key().Kind() != reflect.String {
-						return reflect.Value{}, false
-					}
-					param = mapParameter{Value: value}
-				case reflect.Struct:
-					// Initialize the three-level cache if not exists:
-					// Level 1: path position -> to handle different levels in the path (e.g., user.address.street)
-					// Level 2: concrete type -> to handle different struct types at the same position
-					// Level 3: field name -> to cache the actual field indexes
-					if g.structFieldIndex == nil {
-						g.structFieldIndex = make(map[int]map[reflect.Type]map[string][]int)
-					}
-
-					// Cache the type to avoid multiple calls to Type()
-					valueType := value.Type()
-
-					// Get or create the type-level cache for current path position
-					structFieldIndex, in := g.structFieldIndex[i]
-					if !in {
-						// Initialize with the current type to avoid another map lookup
-						structFieldIndex = map[reflect.Type]map[string][]int{
-							valueType: {},
-						}
-						g.structFieldIndex[i] = structFieldIndex
-					}
-
-					// Create a new structParameter with its field cache pointing to
-					// the cached indexes for its specific type, ensuring different
-					// struct types don't share the same field index cache
-					param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
-				case reflect.Slice, reflect.Array:
-					param = sliceParameter{Value: value}
-				default:
-					// otherwise, return false
-					return reflect.Value{}, false
-				}
-
-				var exists bool
-				value, exists = param.Get(item)
-				if !exists {
-					return reflect.Value{}, false
-				}
-				i++
+		// match the value type
+		// only map, struct, slice and array can be wrapped as parameter
+		switch value.Kind() {
+		case reflect.Map:
+			// if the map key is not a string type, then return false
+			if value.Type().Key().Kind() != reflect.String {
+				found = false
+				return false
 			}
-			start = j + 1
+			param = mapParameter{Value: value}
+		case reflect.Struct:
+			// Initialize the three-level cache if not exists:
+			// Level 1: path position -> to handle different levels in the path (e.g., user.address.street)
+			// Level 2: concrete type -> to handle different struct types at the same position
+			// Level 3: field name -> to cache the actual field indexes
+			if g.structFieldIndex == nil {
+				g.structFieldIndex = make(map[int]map[reflect.Type]map[string][]int)
+			}
+
+			// Cache the type to avoid multiple calls to Type()
+			valueType := value.Type()
+
+			// Get or create the type-level cache for current path position
+			structFieldIndex, in := g.structFieldIndex[i]
+			if !in {
+				// Initialize with the current type to avoid another map lookup
+				structFieldIndex = map[reflect.Type]map[string][]int{
+					valueType: {},
+				}
+				g.structFieldIndex[i] = structFieldIndex
+			}
+
+			// Create a new structParameter with its field cache pointing to
+			// the cached indexes for its specific type, ensuring different
+			// struct types don't share the same field index cache
+			param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
+		case reflect.Slice, reflect.Array:
+			param = sliceParameter{Value: value}
+		default:
+			// otherwise, return false
+			found = false
+			return false
 		}
+
+		var exists bool
+		value, exists = param.Get(item)
+		if !exists {
+			found = false
+			return false
+		}
+		return true
+	})
+
+	if !found {
+		return reflect.Value{}, false
 	}
 	return value, true
 }

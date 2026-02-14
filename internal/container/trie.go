@@ -18,6 +18,8 @@ package container
 
 import (
 	"sort"
+
+	"github.com/go-juicedev/juice/internal/stringutil"
 )
 
 // TrieNode represents a node in the trie
@@ -80,29 +82,19 @@ func (t *Trie[T]) Insert(key string, value T) {
 	}
 
 	current := t.root
-
-	// Iterate through the key character by character to avoid splitting into parts
-	start := 0
-	for i := 0; i <= len(key); i++ {
-		if i == len(key) || key[i] == '.' {
-			// Extract the part between start and i-1
-			if i > start { // avoid empty parts
-				part := key[start:i]
-				idx, found := current.findChild(part)
-				if !found {
-					// Pre-allocate space for children to reduce reallocations
-					node := &TrieNode[T]{
-						part:     part,
-						children: make([]*TrieNode[T], 0, 4), // Start with capacity 4
-					}
-					current.insertChild(node)
-					idx, _ = current.findChild(part)
-				}
-				current = current.children[idx]
+	stringutil.WalkByStep(key, '.', func(_ int, part string) bool {
+		idx, found := current.findChild(part)
+		if !found {
+			node := &TrieNode[T]{
+				part:     part,
+				children: make([]*TrieNode[T], 0, 4),
 			}
-			start = i + 1
+			current.insertChild(node)
+			idx, _ = current.findChild(part)
 		}
-	}
+		current = current.children[idx]
+		return true
+	})
 
 	if !current.hasValue {
 		t.size++
@@ -121,26 +113,18 @@ func (t *Trie[T]) Get(key string) (T, bool) {
 	}
 
 	current := t.root
-
-	// Iterate through the key character by character to avoid splitting into parts
-	start := 0
-	for i := 0; i <= len(key); i++ {
-		if i == len(key) || key[i] == '.' {
-			// Extract the part between start and i-1
-			if i > start { // avoid empty parts
-				part := key[start:i]
-				idx, found := current.findChild(part)
-				if !found {
-					var zero T
-					return zero, false
-				}
-				current = current.children[idx]
-			}
-			start = i + 1
+	found := true
+	stringutil.WalkByStep(key, '.', func(_ int, part string) bool {
+		idx, exists := current.findChild(part)
+		if !exists {
+			found = false
+			return false
 		}
-	}
+		current = current.children[idx]
+		return true
+	})
 
-	if !current.hasValue {
+	if !found || !current.hasValue {
 		var zero T
 		return zero, false
 	}
@@ -164,30 +148,22 @@ func (t *Trie[T]) Delete(key string) bool {
 	current := t.root
 	var nodes []*TrieNode[T]
 	var indices []int
-
-	// Pre-allocate with initial capacity
 	nodes = append(nodes, current)
 
-	// Find the node and collect path by iterating through the key character by character
-	start := 0
-	for i := 0; i <= len(key); i++ {
-		if i == len(key) || key[i] == '.' {
-			// Extract the part between start and i-1
-			if i > start { // avoid empty parts
-				part := key[start:i]
-				idx, found := current.findChild(part)
-				if !found {
-					return false
-				}
-				indices = append(indices, idx)
-				current = current.children[idx]
-				nodes = append(nodes, current)
-			}
-			start = i + 1
+	found := true
+	stringutil.WalkByStep(key, '.', func(_ int, part string) bool {
+		idx, exists := current.findChild(part)
+		if !exists {
+			found = false
+			return false
 		}
-	}
+		indices = append(indices, idx)
+		current = current.children[idx]
+		nodes = append(nodes, current)
+		return true
+	})
 
-	if !current.hasValue {
+	if !found || !current.hasValue {
 		return false
 	}
 
@@ -251,22 +227,19 @@ func (t *Trie[T]) GetByPrefix(prefix string) []KeyValue[T] {
 	}
 
 	current := t.root
-
-	// Navigate to the prefix node by iterating through the prefix character by character
-	start := 0
-	for i := 0; i <= len(prefix); i++ {
-		if i == len(prefix) || prefix[i] == '.' {
-			// Extract the part between start and i-1
-			if i > start { // avoid empty parts
-				part := prefix[start:i]
-				idx, found := current.findChild(part)
-				if !found {
-					return nil
-				}
-				current = current.children[idx]
-			}
-			start = i + 1
+	found := true
+	stringutil.WalkByStep(prefix, '.', func(_ int, part string) bool {
+		idx, exists := current.findChild(part)
+		if !exists {
+			found = false
+			return false
 		}
+		current = current.children[idx]
+		return true
+	})
+
+	if !found {
+		return nil
 	}
 
 	// Pre-allocate result slice with a reasonable capacity
