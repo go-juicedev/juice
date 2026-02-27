@@ -404,10 +404,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	// execute the statement in batches.
 	for i := range times {
 		start := i * int(s.batchSize)
-		end := (i + 1) * int(s.batchSize)
-		if end > length {
-			end = length
-		}
+		end := min((i+1)*int(s.batchSize), length)
 		batchParam := s.value.Slice(start, end).Interface()
 		result, err := preparedStmtHandler.ExecContext(ctx, statement, batchParam)
 		if err != nil {
@@ -518,10 +515,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	// execute the statement in batches.
 	for i := range times {
 		start := i * int(s.batchSize)
-		end := (i + 1) * int(s.batchSize)
-		if end > length {
-			end = length
-		}
+		end := min((i+1)*int(s.batchSize), length)
 		batchParam.SetMapIndex(keyValue, value.Slice(start, end))
 		result, err := preparedStmtHandler.ExecContext(ctx, statement, executionParam)
 		if err != nil {
