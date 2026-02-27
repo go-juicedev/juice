@@ -29,7 +29,7 @@ func FromInt(i int) reflect.Value {
 var intCache [256]reflect.Value
 
 func init() {
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		intCache[i] = reflect.ValueOf(i)
 	}
 }
@@ -118,7 +118,7 @@ func findFieldFromTagRecursive(val *Value, tagName, tagValue string) (*Value, bo
 
 	// Iterate through the fields of the struct.
 	numFields := valType.NumField()
-	for i := 0; i < numFields; i++ {
+	for i := range numFields {
 		field := valType.Field(i)         // This is a reflect.StructField
 		fieldVal := val.Unwrap().Field(i) // This is a reflect.Value for the field
 

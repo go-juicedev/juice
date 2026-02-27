@@ -351,7 +351,7 @@ func prepareCallArgs(exp *ast.CallExpr, fnType reflect.Type, params Parameter) (
 	args := make([]reflect.Value, 0, len(exp.Args))
 
 	// Handle required arguments
-	for i := 0; i < minArgs; i++ {
+	for i := range minArgs {
 		value, err := eval(exp.Args[i], params)
 		if err != nil {
 			return nil, err
