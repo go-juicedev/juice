@@ -110,7 +110,7 @@ func BenchmarkFuncNameAlloc(b *testing.B) {
 
 	b.Run("many_different_funcs", func(b *testing.B) {
 		var funcs []uintptr
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			f := func() {}
 			funcs = append(funcs, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Entry())
 		}
@@ -175,7 +175,7 @@ func BenchmarkFuncNameAlloc(b *testing.B) {
 
 func BenchmarkFuncNameUnderMemoryPressure(b *testing.B) {
 	pressure := make([][]byte, 0)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		pressure = append(pressure, make([]byte, 1024*1024)) // 1MB each
 	}
 

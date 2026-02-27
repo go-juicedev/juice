@@ -45,7 +45,7 @@ type IncrementalBatchInsertIDStrategy struct {
 func (in IncrementalBatchInsertIDStrategy) BatchInsertID(v reflect.Value) error {
 	length := v.Len()
 	pk := in.ID
-	for i := 0; i < length; i++ {
+	for i := range length {
 		value := v.Index(i)
 		if in.isPtr {
 			value = value.Elem()

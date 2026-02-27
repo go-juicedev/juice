@@ -362,7 +362,7 @@ func BenchmarkForeachNode_Accept(b *testing.B) {
 	}
 
 	list := make([]User, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		list[i] = User{ID: i, Name: "user"}
 	}
 
@@ -391,7 +391,7 @@ func BenchmarkForeachNode_AcceptMap(b *testing.B) {
 	}
 
 	users := make(map[string]User, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		key := fmt.Sprintf("u%d", i)
 		users[key] = User{ID: i, Name: key}
 	}

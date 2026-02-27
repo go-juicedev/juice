@@ -402,7 +402,7 @@ func (s *sliceBatchStatementHandler) ExecContext(ctx context.Context, statement 
 	aggregatedResult := &sql.BatchResult{}
 
 	// execute the statement in batches.
-	for i := 0; i < times; i++ {
+	for i := range times {
 		start := i * int(s.batchSize)
 		end := (i + 1) * int(s.batchSize)
 		if end > length {
@@ -516,7 +516,7 @@ func (s *mapBatchStatementHandler) ExecContext(ctx context.Context, statement St
 	aggregatedResult := &sql.BatchResult{}
 
 	// execute the statement in batches.
-	for i := 0; i < times; i++ {
+	for i := range times {
 		start := i * int(s.batchSize)
 		end := (i + 1) * int(s.batchSize)
 		if end > length {

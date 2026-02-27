@@ -130,7 +130,7 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 
 	var args []any
 
-	for i := 0; i < sliceLength; i++ {
+	for i := range sliceLength {
 
 		fp.ItemValue = value.Index(i)
 		if f.Index != "" {
