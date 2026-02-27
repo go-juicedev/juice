@@ -324,7 +324,7 @@ func TestUnwrap_Global_value_test(t *testing.T) {
 				isActuallyNil = true
 			} else {
 				switch unwrapped.Kind() {
-				case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+				case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
 					isActuallyNil = unwrapped.IsNil()
 				default: // Other kinds (string, int, struct, etc.) cannot be nil.
 					isActuallyNil = false
