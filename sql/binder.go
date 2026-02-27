@@ -63,7 +63,7 @@ func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 	}
 	rv := reflect.ValueOf(v)
 
-	if rv.Kind() != reflect.Ptr {
+	if rv.Kind() != reflect.Pointer {
 		return ErrPointerRequired
 	}
 
@@ -88,7 +88,7 @@ func BindWithResultMap[T any](rows Rows, resultMap ResultMap) (result T, err err
 	var ptr any = &result
 
 	// if the result is a pointer, we need to create a new instance of the element.
-	if valueType := reflect.TypeFor[T](); valueType.Kind() == reflect.Ptr {
+	if valueType := reflect.TypeFor[T](); valueType.Kind() == reflect.Pointer {
 		// create a new instance of the element type.
 		result, _ = reflect.TypeAssert[T](reflect.New(valueType.Elem()))
 		ptr = result
@@ -155,7 +155,7 @@ func List[T any](rows Rows) (result []T, err error) {
 
 	// using reflect.New to create a new instance of the element is a very time-consuming operation.
 	// if the element is not a pointer, we can create a new instance of it directly.
-	if element.Kind() != reflect.Ptr {
+	if element.Kind() != reflect.Pointer {
 		multiRowsResultMap.New = func() reflect.Value { return reflect.ValueOf(new(T)) }
 	}
 

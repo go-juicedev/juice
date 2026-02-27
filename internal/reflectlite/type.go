@@ -12,7 +12,7 @@ func IndirectType(t reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
 	}
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t
@@ -33,7 +33,7 @@ func writeTypeString(sb *strings.Builder, t reflect.Type) {
 		return
 	}
 	switch t.Kind() {
-	case reflect.Slice, reflect.Array, reflect.Ptr, reflect.Chan:
+	case reflect.Slice, reflect.Array, reflect.Pointer, reflect.Chan:
 		sb.WriteString(t.Kind().String())
 		sb.WriteString("[")
 		writeTypeString(sb, t.Elem())

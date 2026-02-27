@@ -43,7 +43,7 @@ func Iter[T any](rows Rows) (Iterator[T], error) {
 
 	var objectFactory func() T
 
-	isPtr := t.Kind() == reflect.Ptr
+	isPtr := t.Kind() == reflect.Pointer
 
 	// Override object factory for pointer types to properly allocate memory
 	if isPtr {

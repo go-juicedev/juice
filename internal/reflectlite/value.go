@@ -40,7 +40,7 @@ func init() {
 func Unwrap(value reflect.Value) reflect.Value {
 	for value.IsValid() { // Ensure value is valid before checking Kind
 		switch value.Kind() {
-		case reflect.Ptr, reflect.Interface:
+		case reflect.Pointer, reflect.Interface:
 			if value.IsNil() { // Stop if we encounter a nil pointer/interface
 				return value
 			}
@@ -60,7 +60,7 @@ func IsNilable(v reflect.Value) bool {
 		return true
 	}
 	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice, reflect.UnsafePointer:
 		return true
 	default:
 		return false

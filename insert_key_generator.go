@@ -155,7 +155,7 @@ type singleKeyGenerator struct {
 // GenerateKeyTo generates a key for the given reflect.Value based on the key property and sets it to the id.
 // It returns an error if the operation fails.
 func (s singleKeyGenerator) GenerateKeyTo(v reflect.Value) error {
-	if v.Kind() != reflect.Ptr {
+	if v.Kind() != reflect.Pointer {
 		return ErrPointerRequired
 	}
 	v = reflect.Indirect(v)
@@ -205,7 +205,7 @@ func (s batchKeyGenerator) GenerateKeyTo(v reflect.Value) error {
 
 	// slice or array element type
 	elementType := v.Type().Elem()
-	isPrt := elementType.Kind() == reflect.Ptr
+	isPrt := elementType.Kind() == reflect.Pointer
 
 	if isPrt {
 		elementType = elementType.Elem()

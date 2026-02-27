@@ -46,7 +46,7 @@ type SingleRowResultMap struct{}
 // If more than one row is returned from the query, it returns an ErrTooManyRows error.
 func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	// Validate input is a pointer
-	if rv.Kind() != reflect.Ptr {
+	if rv.Kind() != reflect.Pointer {
 		return ErrPointerRequired
 	}
 
@@ -146,7 +146,7 @@ func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows Rows) error {
 
 // validateInput validates that the input reflect.Value is a pointer to a slice
 func (m MultiRowsResultMap) validateInput(rv reflect.Value) error {
-	if rv.Kind() != reflect.Ptr {
+	if rv.Kind() != reflect.Pointer {
 		return fmt.Errorf("%w: expected pointer to slice", ErrPointerRequired)
 	}
 	if rv.Elem().Kind() != reflect.Slice {
@@ -157,7 +157,7 @@ func (m MultiRowsResultMap) validateInput(rv reflect.Value) error {
 
 // resolveTypes returns the element type, whether it's a pointer, and the actual type
 func (m MultiRowsResultMap) resolveTypes(elementType reflect.Type) (bool, bool) {
-	isPointer := elementType.Kind() == reflect.Ptr
+	isPointer := elementType.Kind() == reflect.Pointer
 	pointerType := elementType
 	if !isPointer {
 		pointerType = reflect.PointerTo(elementType)
