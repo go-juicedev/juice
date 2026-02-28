@@ -72,7 +72,7 @@ func qualifiedName(t reflect.Type) string {
 func TypeIdentify[T any]() string {
 	// Use reflect.TypeOf((*T)(nil)).Elem() to get the type of T itself,
 	// as reflect.TypeOf(T) would result in "reflect.rtype" if T is a type.
-	return typeToString(reflect.TypeOf((*T)(nil)).Elem())
+	return typeToString(reflect.TypeFor[T]())
 }
 
 // Type is a wrapper around reflect.Type that provides additional utility methods

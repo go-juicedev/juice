@@ -296,7 +296,7 @@ func TestMultiRowsResultMap_MapTo_WithNewFunc_result_map_test(t *testing.T) {
 	mapper := MultiRowsResultMap{
 		New: func() reflect.Value {
 			newCalls++
-			return reflect.New(reflect.TypeOf(SimpleStruct{}))
+			return reflect.New(reflect.TypeFor[SimpleStruct]())
 		},
 	}
 	rows := &RowsBuffer{
@@ -560,14 +560,12 @@ func TestRowDestination_Destination_Error_MultiColumnNonceStruct_result_map_test
 }
 
 func TestIsImplementsRowScanner_result_map_test(t *testing.T) {
-	var rs *RowScannerStruct
-	rt := reflect.TypeOf(rs) // reflect.TypeOf((*RowScannerStruct)(nil))
+	rt := reflect.TypeFor[*RowScannerStruct]() // reflect.TypeOf((*RowScannerStruct)(nil))
 	if !isImplementsRowScanner(rt) {
 		t.Errorf("Expected *RowScannerStruct to implement RowScanner")
 	}
 
-	var s SimpleStruct
-	st := reflect.TypeOf(&s) // reflect.TypeOf((*SimpleStruct)(nil))
+	st := reflect.TypeFor[*SimpleStruct]() // reflect.TypeOf((*SimpleStruct)(nil))
 	if isImplementsRowScanner(st) {
 		t.Errorf("Expected *SimpleStruct to not implement RowScanner")
 	}
@@ -581,7 +579,7 @@ func TestIsImplementsRowScanner_result_map_test(t *testing.T) {
 	// or elementType.Implements(rowScannerType) if elementType is already a pointer.
 	// So we should test with what it expects.
 
-	rsNonPointer := reflect.TypeOf(RowScannerStruct{})
+	rsNonPointer := reflect.TypeFor[RowScannerStruct]()
 	if isImplementsRowScanner(rsNonPointer) { // This should be false because RowScanner has pointer receiver
 		t.Errorf("Expected RowScannerStruct (non-pointer) to NOT directly implement RowScanner for isImplementsRowScanner check")
 	}
@@ -590,8 +588,7 @@ func TestIsImplementsRowScanner_result_map_test(t *testing.T) {
 	// isImplementsRowScanner(pointerType)
 	// So if elementType is RowScannerStruct{}, pointerType becomes *RowScannerStruct, which implements it.
 
-	var val int
-	vt := reflect.TypeOf(&val)
+	vt := reflect.TypeFor[*int]()
 	if isImplementsRowScanner(vt) {
 		t.Errorf("Expected *int to not implement RowScanner")
 	}

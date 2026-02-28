@@ -60,11 +60,8 @@ func TestType_Indirect_type_test(t *testing.T) {
 	type myInt int
 	type ptrMyInt *myInt
 
-	var i myInt = 10
-	var p ptrMyInt = &i
-
 	// Test with a non-pointer type
-	rtNonPtr := reflect.TypeOf(i)
+	rtNonPtr := reflect.TypeFor[myInt]()
 	typeWrapperNonPtr := TypeFrom(rtNonPtr)
 	indirectTypeWrapperNonPtr := typeWrapperNonPtr.Indirect() // Call first time
 	if indirectTypeWrapperNonPtr.Type != rtNonPtr {
@@ -76,7 +73,7 @@ func TestType_Indirect_type_test(t *testing.T) {
 	_ = typeWrapperNonPtr.Indirect() // Call second time to check cache usage (implicitly)
 
 	// Test with a pointer type
-	rtPtr := reflect.TypeOf(p)
+	rtPtr := reflect.TypeFor[ptrMyInt]()
 	typeWrapperPtr := TypeFrom(rtPtr)
 	indirectTypeWrapperPtr := typeWrapperPtr.Indirect() // Call first time
 	if indirectTypeWrapperPtr.Type != rtNonPtr {        // Should be myInt, not *myInt
@@ -104,8 +101,7 @@ func TestType_GetFieldIndexesFromTag_Caching_type_test(t *testing.T) {
 		FieldA string `testtag:"field_a"`
 		FieldB int    `testtag:"field_b"`
 	}
-	cs := CacheStruct{}
-	rt := reflect.TypeOf(cs)
+	rt := reflect.TypeFor[CacheStruct]()
 	typeWrapper := TypeFrom(rt)
 
 	// Call first time to populate cache
@@ -159,8 +155,7 @@ func TestType_GetFieldIndexesFromTag_NestedAndAnonymous_type_test(t *testing.T) 
 		Ptr *Outer `tag:"ptr_outer"`
 	}
 
-	outer := Outer{}
-	rtOuter := reflect.TypeOf(outer)
+	rtOuter := reflect.TypeFor[Outer]()
 	typeWrapperOuter := TypeFrom(rtOuter)
 
 	// Test direct field on Outer
@@ -182,7 +177,7 @@ func TestType_GetFieldIndexesFromTag_NestedAndAnonymous_type_test(t *testing.T) 
 	}
 
 	// Test with pointer to struct
-	ptrOuterType := reflect.TypeOf(PtrOuter{})
+	ptrOuterType := reflect.TypeFor[PtrOuter]()
 	typeWrapperPtrOuter := TypeFrom(ptrOuterType)
 	idxPtr, okPtr := typeWrapperPtrOuter.GetFieldIndexesFromTag("tag", "ptr_outer")
 	if !okPtr || len(idxPtr) != 1 || idxPtr[0] != 0 {
@@ -204,27 +199,27 @@ func TestTypeIdentify_MoreComplexTypes_type_test(t *testing.T) {
 	}{
 		{
 			name:     "map[string]*struct{f int}",
-			typeOf:   func() reflect.Type { type T map[string]*struct{ f int }; return reflect.TypeOf((*T)(nil)).Elem() },
+			typeOf:   func() reflect.Type { type T map[string]*struct{ f int }; return reflect.TypeFor[T]() },
 			expected: "map[string]ptr[struct { f int }]",
 		},
 		{
 			name:     "[]*map[int]string",
-			typeOf:   func() reflect.Type { type T []*map[int]string; return reflect.TypeOf((*T)(nil)).Elem() },
+			typeOf:   func() reflect.Type { type T []*map[int]string; return reflect.TypeFor[T]() },
 			expected: "slice[ptr[map[int]string]]",
 		},
 		{
 			name:     "chan struct{}",
-			typeOf:   func() reflect.Type { type T chan struct{}; return reflect.TypeOf((*T)(nil)).Elem() },
+			typeOf:   func() reflect.Type { type T chan struct{}; return reflect.TypeFor[T]() },
 			expected: "chan[struct {}]",
 		},
 		{
 			name:     "func() error",
-			typeOf:   func() reflect.Type { type T func() error; return reflect.TypeOf((*T)(nil)).Elem() },
+			typeOf:   func() reflect.Type { type T func() error; return reflect.TypeFor[T]() },
 			expected: "github.com/go-juicedev/juice/internal/reflectlite.T",
 		},
 		{
 			name:     "interface{}",
-			typeOf:   func() reflect.Type { return reflect.TypeOf((*any)(nil)).Elem() },
+			typeOf:   func() reflect.Type { return reflect.TypeFor[any]() },
 			expected: "interface {}", // Or "any" depending on Go version and exact stdlib representation
 		},
 	}
