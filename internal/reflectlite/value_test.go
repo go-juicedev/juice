@@ -112,7 +112,7 @@ func TestValue_IndirectType_value_test(t *testing.T) {
 	ps := &s
 
 	valPs := ValueOf(ps)
-	expectedType := reflect.TypeOf(s)
+	expectedType := reflect.TypeFor[string]()
 
 	// Test IndirectType
 	type1 := valPs.IndirectType()

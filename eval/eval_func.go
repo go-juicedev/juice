@@ -185,7 +185,7 @@ func MustRegisterEvalFunc(name string, v any) {
 }
 
 // errType is the reflect.Type of error.
-var errType = reflect.TypeOf((*error)(nil)).Elem()
+var errType = reflect.TypeFor[error]()
 
 // builtins is a map of built-in functions.
 var builtins = map[string]reflect.Value{}

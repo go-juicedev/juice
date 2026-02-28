@@ -49,7 +49,7 @@ type RowScanner interface {
 }
 
 // rowScannerType is the type of the RowScanner interface
-var rowScannerType = reflect.TypeOf((*RowScanner)(nil)).Elem()
+var rowScannerType = reflect.TypeFor[RowScanner]()
 
 // rowScannerTypeImplementations is a thread-safe cache that stores information about
 // whether types implement the RowScanner interface.
