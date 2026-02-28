@@ -60,8 +60,6 @@ func TestType_Indirect_type_test(t *testing.T) {
 	type myInt int
 	type ptrMyInt *myInt
 
-	var i myInt = 10
-
 	// Test with a non-pointer type
 	rtNonPtr := reflect.TypeFor[myInt]()
 	typeWrapperNonPtr := TypeFrom(rtNonPtr)
