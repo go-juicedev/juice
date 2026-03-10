@@ -146,7 +146,7 @@ func eval(exp ast.Expr, params Parameter) (reflect.Value, error) {
 	case *ast.IndexExpr:
 		return evalIndexExpr(exp, params)
 	case *ast.StarExpr:
-		return eval(exp.X, params)
+		return evalStarExpr(exp, params)
 	case *ast.SliceExpr:
 		return evalSliceExpr(exp, params)
 	default:
@@ -204,21 +204,49 @@ func evalUnaryExpr(exp *ast.UnaryExpr, params Parameter) (reflect.Value, error) 
 	if err != nil {
 		return reflect.Value{}, err
 	}
+	value = reflectlite.Unwrap(value)
 	switch exp.Op {
 	case token.SUB:
+		if !isSignedIntValue(value) {
+			return reflect.Value{}, fmt.Errorf("%w: %s", errUnsupportedUnaryExpr, exp.Op)
+		}
 		return reflect.ValueOf(-value.Int()), nil
 	case token.ADD:
+		if !isSignedIntValue(value) {
+			return reflect.Value{}, fmt.Errorf("%w: %s", errUnsupportedUnaryExpr, exp.Op)
+		}
 		return reflect.ValueOf(+value.Int()), nil
 	case token.NOT:
+		if value.Kind() != reflect.Bool {
+			return reflect.Value{}, fmt.Errorf("%w: %s", errUnsupportedUnaryExpr, exp.Op)
+		}
 		return reflect.ValueOf(!value.Bool()), nil
 	case token.XOR:
+		if !isSignedIntValue(value) {
+			return reflect.Value{}, fmt.Errorf("%w: %s", errUnsupportedUnaryExpr, exp.Op)
+		}
 		return reflect.ValueOf(^value.Int()), nil
 	case token.AND:
-		return reflect.ValueOf(^value.Int()), nil
-	case token.MUL:
-		return reflect.ValueOf(value.Pointer()), nil
+		return reflect.Value{}, fmt.Errorf("%w: %s", errUnsupportedUnaryExpr, exp.Op)
 	default:
-		return reflect.Value{}, errUnsupportedUnaryExpr
+		return reflect.Value{}, fmt.Errorf("%w: %s", errUnsupportedUnaryExpr, exp.Op)
+	}
+}
+
+func evalStarExpr(exp *ast.StarExpr, params Parameter) (reflect.Value, error) {
+	_, err := eval(exp.X, params)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	return reflect.Value{}, fmt.Errorf("%w: *", errUnsupportedUnaryExpr)
+}
+
+func isSignedIntValue(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return true
+	default:
+		return false
 	}
 }
 

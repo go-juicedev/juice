@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"errors"
 	"go/parser"
 	"reflect"
 	"strings"
@@ -307,16 +308,15 @@ func TestIndexExprMap_eval_test(t *testing.T) {
 }
 
 func TestStarExpr_eval_test(t *testing.T) {
-	result, err := Eval(`*2`, nil)
-	if err != nil {
-		t.Error(err)
-		return
+	_, err := Eval(`*2`, nil)
+	if err == nil {
+		t.Fatal("expected error for unary *")
 	}
-	if result.Int() != 2 {
-		t.Error("eval error")
-		return
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected unsupported unary expression, got %v", err)
 	}
-	result, err = Eval(`2 *2`, nil)
+
+	result, err := Eval(`2 *2`, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -324,6 +324,16 @@ func TestStarExpr_eval_test(t *testing.T) {
 	if result.Int() != 4 {
 		t.Error("eval error")
 		return
+	}
+}
+
+func TestUnaryUnsupportedOperators_eval_test(t *testing.T) {
+	_, err := testEval(`&id`, H{"id": 1})
+	if err == nil {
+		t.Fatal("expected error for unary &")
+	}
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected unsupported unary expression, got %v", err)
 	}
 }
 
