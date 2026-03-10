@@ -169,15 +169,20 @@ func RegisterEnvValueProvider(name string, provider EnvValueProvider) {
 	envValueProviderLibraries[name] = provider
 }
 
-// defaultEnvValueProvider is a default environment value provider.
-var defaultEnvValueProvider EnvValueProviderFunc = func(key string) (string, error) { return key, nil }
+// passthroughEnvValueProvider returns the key unchanged and never errors.
+// This is the default provider when no named provider is registered.
+type passthroughEnvValueProvider struct{}
 
-// GetEnvValueProvider returns a environment value provider.
+func (passthroughEnvValueProvider) Get(key string) (string, error) {
+	return key, nil
+}
+
+// GetEnvValueProvider returns a named provider, or a passthrough provider if none is registered.
 func GetEnvValueProvider(key string) EnvValueProvider {
 	if provider, exists := envValueProviderLibraries[key]; exists {
 		return provider
 	}
-	return defaultEnvValueProvider
+	return passthroughEnvValueProvider{}
 }
 
 func init() {
