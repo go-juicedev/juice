@@ -25,6 +25,18 @@ func TestNewXMLConfiguration_configuration_test(t *testing.T) {
 	}
 }
 
+func TestNewXMLConfiguration_emptyPath_configuration_test(t *testing.T) {
+	if _, err := NewXMLConfiguration(""); err == nil || !strings.Contains(err.Error(), "configuration path is required") {
+		t.Fatalf("expected empty path error, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFS_emptyPath_configuration_test(t *testing.T) {
+	if _, err := NewXMLConfigurationWithFS(cfg, ""); err == nil || !strings.Contains(err.Error(), "configuration path is required") {
+		t.Fatalf("expected empty path error, got %v", err)
+	}
+}
+
 type statementIDStub struct{}
 
 func (statementIDStub) StatementID() string {

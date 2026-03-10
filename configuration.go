@@ -26,7 +26,9 @@ import (
 	"reflect"
 )
 
-// Configuration is the interface of configuration.
+var errConfigurationPathRequired = errors.New("configuration path is required")
+
+// Configuration provides access to environments, settings, and mapped statements.
 type Configuration interface {
 	// Environments returns the environments.
 	Environments() EnvironmentProvider
@@ -34,11 +36,11 @@ type Configuration interface {
 	// Settings returns the settings.
 	Settings() SettingProvider
 
-	// GetStatement returns the xmlSQLStatement of the given value.
+	// GetStatement returns the statement associated with the given value.
 	GetStatement(v any) (Statement, error)
 }
 
-// xmlConfiguration is a configuration of juice.
+// xmlConfiguration is the XML-backed implementation of Configuration.
 type xmlConfiguration struct {
 	// environments is a map of environments.
 	environments *environments
@@ -60,23 +62,23 @@ func (c xmlConfiguration) Settings() SettingProvider {
 	return &c.settings
 }
 
-// GetStatement returns the xmlSQLStatement of the given value.
+// GetStatement returns the statement associated with the given value.
 func (c xmlConfiguration) GetStatement(v any) (Statement, error) {
 	if v == nil {
 		return nil, errors.New("nil statement query")
 	}
 
 	var id string
-	// if the interface is StatementID, use the StatementID() method to get the id
-	// or if the interface is a string type, use the string as the id
-	// otherwise, use the reflection to get the id
+	// If v implements StatementID(), use it directly.
+	// If v is a string, treat it as the statement ID.
+	// Otherwise, derive the statement ID via reflection.
 	switch t := v.(type) {
 	case interface{ StatementID() string }:
 		id = t.StatementID()
 	case string:
 		id = t
 	default:
-		// else try to one the id from the interface
+		// Derive the statement ID from the reflected value.
 		rv := reflect.Indirect(reflect.ValueOf(v))
 		switch rv.Kind() {
 		case reflect.Func:
@@ -99,8 +101,11 @@ func NewXMLConfiguration(filename string) (Configuration, error) {
 	return newLocalXMLConfiguration(filename, false)
 }
 
-// for go linkname
+// Used by go:linkname.
 func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, error) {
+	if filename == "" {
+		return nil, errConfigurationPathRequired
+	}
 	dirname := filepath.Dir(filename)
 	filename = filepath.Base(filename)
 	root, err := os.OpenRoot(dirname)
@@ -114,13 +119,17 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, e
 // The filepath parameter must be a Unix-style path (using forward slashes '/'),
 // as it will be processed by path.Dir and path.Base.
 func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error) {
+	if filepath == "" {
+		return nil, errConfigurationPathRequired
+	}
 	basedir := unixpath.Dir(filepath)
 	filename := unixpath.Base(filepath)
 	return newXMLConfigurationParser(newFsRoot(fs, basedir), filename, false)
 }
 
-// newXMLConfigurationParser creates a new xmlConfiguration from an XML file which ignores environment parsing.
-// for internal use only.
+// newXMLConfigurationParser creates a configuration parser for an XML file.
+// When ignoreEnv is true, the <environments> section is skipped.
+// For internal use only.
 func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
 	file, err := fs.Open(filepath)
 	if err != nil {

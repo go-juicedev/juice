@@ -53,7 +53,7 @@ type ConfigurationParser interface {
 	Parse(reader io.Reader) (Configuration, error)
 }
 
-// XMLParser is the parser for XML configuration.
+// XMLParser parses XML configuration files.
 type XMLParser struct {
 	configuration xmlConfiguration
 	FS            fs.FS
@@ -310,7 +310,7 @@ func (p *XMLMappersElementParser) parseMappers(start xml.StartElement, decoder *
 		mappers.setAttribute(attr.Name.Local, attr.Value)
 	}
 
-	// parse mappers by pattern
+	// Parse mapper files matched by the configured pattern.
 	if pattern := mappers.Attribute("pattern"); pattern != "" {
 		matchedMappers, err := p.parseMapperByPattern(pattern)
 		if err != nil {
@@ -333,7 +333,7 @@ func (p *XMLMappersElementParser) parseMappers(start xml.StartElement, decoder *
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
-			// mappers only support mapper child node
+			// The <mappers> element only supports <mapper> child elements.
 			if token.Name.Local == "mapper" {
 				mapper, err := p.parseMapper(decoder, token)
 				if err != nil {
@@ -362,9 +362,8 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 	_url := mapper.Attribute("url")
 	namespace := mapper.Attribute("namespace")
 
-	// check conflict
-	// resource, url, namespace only one can be set
-	// namespace is required if resource and url are not set
+	// resource, url, and namespace are mutually exclusive.
+	// namespace is required when neither resource nor url is provided.
 	switch {
 	case resource != "" && _url != "":
 		return nil, &nodeAttributeConflictError{nodeName: "mapper", attrName: "resource|url"}
@@ -385,7 +384,7 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 		return nil, &nodeAttributeRequiredError{nodeName: "mapper", attrName: "namespace"}
 	}
 
-	// Set current namespace for error reporting
+	// Track the current namespace for parse error reporting.
 	p.currentNamespace = namespace
 
 	mapper.namespace = namespace
@@ -414,7 +413,7 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 				}
 				mapper.statements[key] = stmt
 			case "sql":
-				// parse sql node
+				// Parse a reusable SQL fragment node.
 				sqlNode, err := p.parseSQLNode(mapper, decoder, token)
 				if err != nil {
 					return nil, err
@@ -479,7 +478,7 @@ func (p *XMLMappersElementParser) parseMapperByHttpResponse(url string) (*Mapper
 }
 
 func (p *XMLMappersElementParser) parseMapperByURL(path string) (*Mapper, error) {
-	// prepare url schema
+	// Parse and validate the URL scheme.
 	u, err := url.Parse(path)
 	if err != nil {
 		return nil, err
@@ -615,9 +614,8 @@ func (p *XMLMappersElementParser) parseInclude(mapper *Mapper, decoder *xml.Deco
 		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "include", attrName: "refid"})
 	}
 
-	// try to find sql xmlSQLStatement by refid
-	// if not found, it means the sql xmlSQLStatement has not been parsed yet,
-	// ignore it and lazy parse it when use
+	// Try to resolve the referenced SQL node eagerly.
+	// If it is not available yet, IncludeNode resolves it lazily when needed.
 	sqlNode, _ := mapper.GetSQLNodeByID(ref)
 
 	includeNode := node.NewIncludeNode(sqlNode, mapper, ref)
@@ -689,7 +687,7 @@ func (p *XMLMappersElementParser) parseIf(mapper *Mapper, decoder *xml.Decoder, 
 		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "if", attrName: "test"})
 	}
 
-	// parse condition expression
+	// Compile the condition expression.
 	if err := ifNode.Parse(test); err != nil {
 		return nil, p.wrapParseError(decoder, token, err)
 	}
@@ -972,7 +970,7 @@ func (p *XMLMappersElementParser) parseWhen(mapper *Mapper, decoder *xml.Decoder
 		return nil, p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "when", attrName: "test"})
 	}
 
-	// parse condition expression
+	// Compile the condition expression.
 	if err := whenNode.Parse(test); err != nil {
 		return nil, p.wrapParseError(decoder, token, err)
 	}
