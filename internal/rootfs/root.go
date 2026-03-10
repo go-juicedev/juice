@@ -14,28 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package juice
+package rootfs
 
 import (
 	"io/fs"
 	unixpath "path"
 )
 
-type fsRoot struct {
-	fs      fs.FS
-	baseDir string
+type rootFS struct {
+	fs   fs.FS
+	root string
 }
 
-// Open opens the named file within the base directory of the fsRoot.
+// Open opens the named file within the base directory of the rootFS.
 // It joins the base directory and the name using Unix-style path separators,
 // ensuring compatibility with io/fs.Open which uses slash-separated paths on all systems.
-func (f fsRoot) Open(name string) (fs.File, error) {
-	path := unixpath.Join(f.baseDir, name)
+func (f rootFS) Open(name string) (fs.File, error) {
+	path := unixpath.Join(f.root, name)
 	return f.fs.Open(path)
 }
 
-var _ fs.FS = (*fsRoot)(nil)
+var _ fs.FS = (*rootFS)(nil)
 
-func newFsRoot(fs fs.FS, basedir string) fs.FS {
-	return &fsRoot{fs: fs, baseDir: basedir}
+func New(fs fs.FS, root string) fs.FS {
+	return &rootFS{fs: fs, root: root}
 }
