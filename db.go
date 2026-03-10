@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -168,7 +169,7 @@ func (m *DBManager) Add(name string, source Source) error {
 func (m *DBManager) Registered() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.names
+	return slices.Clone(m.names)
 }
 
 // Close gracefully shuts down all managed database connections.
