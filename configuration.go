@@ -24,6 +24,8 @@ import (
 	unixpath "path"
 	"path/filepath"
 	"reflect"
+
+	"github.com/go-juicedev/juice/internal/rootfs"
 )
 
 var errConfigurationPathRequired = errors.New("configuration path is required")
@@ -122,9 +124,9 @@ func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error)
 	if filepath == "" {
 		return nil, errConfigurationPathRequired
 	}
-	basedir := unixpath.Dir(filepath)
+	root := unixpath.Dir(filepath)
 	filename := unixpath.Base(filepath)
-	return newXMLConfigurationParser(newFsRoot(fs, basedir), filename, false)
+	return newXMLConfigurationParser(rootfs.New(fs, root), filename, false)
 }
 
 // newXMLConfigurationParser creates a configuration parser for an XML file.
