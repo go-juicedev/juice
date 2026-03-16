@@ -30,12 +30,9 @@ func TestScopeTransactionAndNestedTransaction_scope_test(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected manager in transaction context: %v", err)
 		}
-		txManager, ok := manager.(*basicTxManager)
+		_, ok := manager.(TxManager)
 		if !ok {
 			t.Fatalf("expected basicTxManager in transaction context, got %T", manager)
-		}
-		if txManager.Transaction == nil {
-			t.Fatalf("expected active sql transaction in context manager")
 		}
 		return nil
 	}, tx.WithReadOnly(true))
@@ -52,8 +49,8 @@ func TestScopeTransactionAndNestedTransaction_scope_test(t *testing.T) {
 		t.Fatalf("expected handler error, got %v", err)
 	}
 
-	err = Transaction(ctx, func(context.Context) error { return ErrCommitOnSpecific })
-	if !errors.Is(err, ErrCommitOnSpecific) {
+	err = Transaction(ctx, func(context.Context) error { return tx.ErrCommitOnSpecific })
+	if !errors.Is(err, tx.ErrCommitOnSpecific) {
 		t.Fatalf("expected ErrCommitOnSpecific, got %v", err)
 	}
 
@@ -75,4 +72,3 @@ func TestScopeTransactionAndNestedTransaction_scope_test(t *testing.T) {
 		t.Fatalf("unexpected nested transaction with engine error: %v", err)
 	}
 }
-

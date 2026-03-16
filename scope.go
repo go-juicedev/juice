@@ -58,10 +58,12 @@ func Transaction(ctx context.Context, handler func(ctx context.Context) error, o
 	}
 
 	handlerFunc := tx.HandlerFunc(func(ctx context.Context, tx *sql.Tx) error {
-		txManager := &basicTxManager{
-			engine:      engine,
-			ctx:         ctx,
-			Transaction: tx,
+		txManager := &BasicTxManager{
+			basicTxManager: &basicTxManager{
+				engine:      engine,
+				ctx:         ctx,
+				Transaction: tx,
+			},
 		}
 		ctx = ContextWithManager(ctx, txManager)
 		return handler(ctx)
@@ -70,9 +72,15 @@ func Transaction(ctx context.Context, handler func(ctx context.Context) error, o
 	return tx.AtomicContext(ctx, engine.DB(), handlerFunc, opts...)
 }
 
-// NestedTransaction executes a handler function with transaction support.
-// If the manager is a TxManager, it will execute the handler within the existing transaction.
-// Otherwise, it will create a new transaction and execute the handler within the new transaction.
+// NestedTransaction executes the handler within the current transaction when one
+// is already bound to the context.
+//
+// If the manager in ctx is a TxManager, the handler is executed directly and
+// the existing transaction is reused. In this case, opts are ignored because
+// the current transaction has already been started.
+//
+// If ctx is not in a transaction, NestedTransaction behaves like Transaction
+// and starts a new transaction with opts applied.
 func NestedTransaction(ctx context.Context, handler func(ctx context.Context) error, opts ...tx.TransactionOptionFunc) (err error) {
 	manager, err := ManagerFromContext(ctx)
 	if err != nil {
