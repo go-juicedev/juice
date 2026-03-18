@@ -83,6 +83,9 @@ func (p *XMLParser) Parse(reader io.Reader) (Configuration, error) {
 			}
 		}
 	}
+	if err := p.configuration.validate(p.ignoreEnv); err != nil {
+		return nil, err
+	}
 	return &p.configuration, nil
 }
 
