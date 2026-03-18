@@ -248,10 +248,9 @@ type ColumnDestination interface {
 	Destination(rv reflect.Value, column []string) ([]any, error)
 }
 
-// sink is a shared variable used to discard unmapped columns during scanning.
-// It's safe to use a global variable here because:
-// 1. It's write-only - we never read from it
-// 2. Concurrent writes are acceptable since we don't care about its value
+// sink is a shared discard slot for unmapped columns during scanning.
+// Its value has no semantic meaning; rows.Scan only needs an addressable target
+// for columns that do not map to any field.
 var sink any
 
 // columnTagName is the tag name used to map database columns to struct fields.
