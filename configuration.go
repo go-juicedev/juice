@@ -34,8 +34,6 @@ var (
 	errConfigurationEnvironmentsRequired      = errors.New("environments section is required")
 	errConfigurationDefaultEnvironmentMissing = errors.New("default environment is not specified")
 	errConfigurationDefaultEnvironmentUnknown = errors.New("default environment not found")
-	errConfigurationMappersRequired           = errors.New("mappers section is required")
-	errConfigurationMapperRequired            = errors.New("at least one mapper is required")
 )
 
 // Configuration provides access to environments, settings, and mapped statements.
@@ -76,12 +74,6 @@ func (c *xmlConfiguration) validate(ignoreEnv bool) error {
 		}
 	}
 
-	if c.mappers == nil {
-		return errConfigurationMappersRequired
-	}
-	if c.mappers.mappers == nil || c.mappers.mappers.Size() == 0 {
-		return errConfigurationMapperRequired
-	}
 	return nil
 }
 

@@ -74,9 +74,8 @@ func TestNewXMLConfigurationWithFSMissingMappers_configuration_test(t *testing.T
 		},
 	}
 
-	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
-	if !errors.Is(err, errConfigurationMappersRequired) {
-		t.Fatalf("expected missing mappers error, got %v", err)
+	if _, err := NewXMLConfigurationWithFS(fsys, "juice.xml"); err != nil {
+		t.Fatalf("expected missing mappers to be allowed, got %v", err)
 	}
 }
 
@@ -96,9 +95,8 @@ func TestNewXMLConfigurationWithFSEmptyMappers_configuration_test(t *testing.T) 
 		},
 	}
 
-	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
-	if !errors.Is(err, errConfigurationMapperRequired) {
-		t.Fatalf("expected empty mapper set error, got %v", err)
+	if _, err := NewXMLConfigurationWithFS(fsys, "juice.xml"); err != nil {
+		t.Fatalf("expected empty mappers to be allowed, got %v", err)
 	}
 }
 
