@@ -32,7 +32,7 @@ var ErrInvalidManager = errors.New("juice: invalid manager")
 var ErrCommitOnSpecific = tx.ErrCommitOnSpecific
 
 // Transaction executes a transaction with the given handler.
-// If the manager is not an instance of Engine, it will return ErrInvalidManager.
+// If the context does not carry an Engine, it will return ErrInvalidManager.
 // If the handler returns an error, the transaction will be rolled back.
 // Otherwise, the transaction will be committed.
 // The ctx must should be created by ContextWithManager.
@@ -48,11 +48,7 @@ var ErrCommitOnSpecific = tx.ErrCommitOnSpecific
 //			// handle error
 //		}
 func Transaction(ctx context.Context, handler func(ctx context.Context) error, opts ...tx.TransactionOptionFunc) (err error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	engine, ok := manager.(*Engine)
+	engine, ok := engineFromContext(ctx)
 	if !ok {
 		return ErrInvalidManager
 	}
