@@ -47,6 +47,10 @@ var mapperURLTimeout = func() time.Duration {
 	return 30 * time.Second
 }()
 
+var (
+	errUnexpectedMapperHTTPStatus = errors.New("unexpected mapper http status")
+)
+
 // ConfigurationParser is the interface for parsing configuration.
 type ConfigurationParser interface {
 	// Parse parses the configuration from the reader.
@@ -477,6 +481,9 @@ func (p *XMLMappersElementParser) parseMapperByHttpResponse(url string) (*Mapper
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: %s returned %s", errUnexpectedMapperHTTPStatus, url, resp.Status)
+	}
 	return p.parseMapperByReader(resp.Body)
 }
 

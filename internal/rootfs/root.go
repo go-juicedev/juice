@@ -18,6 +18,7 @@ package rootfs
 
 import (
 	"io/fs"
+	"path"
 	unixpath "path"
 )
 
@@ -30,7 +31,11 @@ type rootFS struct {
 // It joins the base directory and the name using Unix-style path separators,
 // ensuring compatibility with io/fs.Open which uses slash-separated paths on all systems.
 func (f rootFS) Open(name string) (fs.File, error) {
-	path := unixpath.Join(f.root, name)
+	cleaned := path.Clean(name)
+	if unixpath.IsAbs(cleaned) || !fs.ValidPath(cleaned) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrPermission}
+	}
+	path := unixpath.Join(f.root, cleaned)
 	return f.fs.Open(path)
 }
 

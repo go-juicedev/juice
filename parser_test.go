@@ -3,6 +3,8 @@ package juice
 import (
 	"encoding/xml"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -285,5 +287,43 @@ func TestXMLParseErrorIntegration_parser_test(t *testing.T) {
 
 			t.Logf("Error message: %s", errMsg)
 		})
+	}
+}
+
+func TestParseMapperByURLChecksHTTPStatus_parser_test(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "missing", http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	_, err := parser.parseMapperByURL(server.URL)
+	if !errors.Is(err, errUnexpectedMapperHTTPStatus) {
+		t.Fatalf("parseMapperByURL() error = %v, want %v", err, errUnexpectedMapperHTTPStatus)
+	}
+}
+
+func TestParseMapperByURLLoadsRemoteMapper_parser_test(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="pkg.RemoteMapper">
+	<select id="Select">SELECT 1</select>
+</mapper>`))
+	}))
+	defer server.Close()
+
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	mapper, err := parser.parseMapperByURL(server.URL)
+	if err != nil {
+		t.Fatalf("parseMapperByURL() error = %v", err)
+	}
+	if mapper == nil {
+		t.Fatalf("parseMapperByURL() returned nil mapper")
+	}
+	if mapper.Namespace() != "pkg.RemoteMapper" {
+		t.Fatalf("mapper.Namespace() = %q, want %q", mapper.Namespace(), "pkg.RemoteMapper")
 	}
 }
