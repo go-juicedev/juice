@@ -200,11 +200,28 @@ func (m *DBManager) Close() error {
 // configuration. It initializes all configured database sources and validates their
 // parameters before adding them to the manager.
 func NewDBManager(cfg Configuration) (*DBManager, error) {
+	if cfg == nil {
+		return nil, errConfigurationRequired
+	}
+
+	envs := cfg.Environments()
+	if envs == nil {
+		return nil, errConfigurationEnvironmentsRequired
+	}
+
+	defaultEnv := envs.Attribute("default")
+	if defaultEnv == "" {
+		return nil, errConfigurationDefaultEnvironmentMissing
+	}
+	if _, err := envs.Use(defaultEnv); err != nil {
+		return nil, fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultEnv)
+	}
+
 	m := &DBManager{
 		sources: make(map[string]Source),
 	}
 
-	for name, env := range cfg.Environments().Iter() {
+	for name, env := range envs.Iter() {
 		if err := m.Add(name, Source{
 			Driver:          env.Driver,
 			DSN:             env.DataSource,

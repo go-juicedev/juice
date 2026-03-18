@@ -28,7 +28,13 @@ import (
 	"github.com/go-juicedev/juice/internal/rootfs"
 )
 
-var errConfigurationPathRequired = errors.New("configuration path is required")
+var (
+	errConfigurationPathRequired              = errors.New("configuration path is required")
+	errConfigurationRequired                  = errors.New("configuration is required")
+	errConfigurationEnvironmentsRequired      = errors.New("environments section is required")
+	errConfigurationDefaultEnvironmentMissing = errors.New("default environment is not specified")
+	errConfigurationDefaultEnvironmentUnknown = errors.New("default environment not found")
+)
 
 // Configuration provides access to environments, settings, and mapped statements.
 type Configuration interface {
@@ -52,6 +58,23 @@ type xmlConfiguration struct {
 
 	// settings is a map of settings.
 	settings keyValueSettingProvider
+}
+
+func (c *xmlConfiguration) validate(ignoreEnv bool) error {
+	if !ignoreEnv {
+		if c.environments == nil {
+			return errConfigurationEnvironmentsRequired
+		}
+		defaultEnv := c.environments.Attribute("default")
+		if defaultEnv == "" {
+			return errConfigurationDefaultEnvironmentMissing
+		}
+		if _, err := c.environments.Use(defaultEnv); err != nil {
+			return fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultEnv)
+		}
+	}
+
+	return nil
 }
 
 // Environments returns the environments.

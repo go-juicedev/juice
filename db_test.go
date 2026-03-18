@@ -2,6 +2,7 @@ package juice
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -112,5 +113,29 @@ func TestDBManagerGetAfterCloseReturnsClosedError(t *testing.T) {
 	}
 	if db != nil || drv != nil {
 		t.Fatalf("Get(primary) after Close() returned connection: db=%v drv=%v", db, drv)
+	}
+}
+
+type invalidConfiguration struct {
+	envs EnvironmentProvider
+}
+
+func (c invalidConfiguration) Environments() EnvironmentProvider { return c.envs }
+
+func (invalidConfiguration) Settings() SettingProvider { return keyValueSettingProvider{} }
+
+func (invalidConfiguration) GetStatement(any) (Statement, error) { return nil, nil }
+
+func TestNewDBManagerRejectsNilConfiguration(t *testing.T) {
+	_, err := NewDBManager(nil)
+	if !errors.Is(err, errConfigurationRequired) {
+		t.Fatalf("NewDBManager(nil) error = %v, want %v", err, errConfigurationRequired)
+	}
+}
+
+func TestNewRejectsConfigurationWithoutEnvironments(t *testing.T) {
+	_, err := New(invalidConfiguration{})
+	if !errors.Is(err, errConfigurationEnvironmentsRequired) {
+		t.Fatalf("New(invalidConfiguration{}) error = %v, want %v", err, errConfigurationEnvironmentsRequired)
 	}
 }

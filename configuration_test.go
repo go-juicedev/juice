@@ -2,8 +2,10 @@ package juice
 
 import (
 	"embed"
+	"errors"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	jsql "github.com/go-juicedev/juice/sql"
 )
@@ -34,6 +36,93 @@ func TestNewXMLConfiguration_emptyPath_configuration_test(t *testing.T) {
 func TestNewXMLConfigurationWithFS_emptyPath_configuration_test(t *testing.T) {
 	if _, err := NewXMLConfigurationWithFS(cfg, ""); err == nil || !strings.Contains(err.Error(), "configuration path is required") {
 		t.Fatalf("expected empty path error, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFSMissingEnvironments_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<mappers>
+		<mapper namespace="pkg.Mapper">
+			<select id="Select">SELECT 1</select>
+		</mapper>
+	</mappers>
+</configuration>`),
+		},
+	}
+
+	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
+	if !errors.Is(err, errConfigurationEnvironmentsRequired) {
+		t.Fatalf("expected missing environments error, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFSMissingMappers_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="prod">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+</configuration>`),
+		},
+	}
+
+	if _, err := NewXMLConfigurationWithFS(fsys, "juice.xml"); err != nil {
+		t.Fatalf("expected missing mappers to be allowed, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFSEmptyMappers_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="prod">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+	<mappers />
+</configuration>`),
+		},
+	}
+
+	if _, err := NewXMLConfigurationWithFS(fsys, "juice.xml"); err != nil {
+		t.Fatalf("expected empty mappers to be allowed, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFSUnknownDefaultEnvironment_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="dev">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+	<mappers>
+		<mapper namespace="pkg.Mapper">
+			<select id="Select">SELECT 1</select>
+		</mapper>
+	</mappers>
+</configuration>`),
+		},
+	}
+
+	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
+	if !errors.Is(err, errConfigurationDefaultEnvironmentUnknown) {
+		t.Fatalf("expected unknown default environment error, got %v", err)
 	}
 }
 
