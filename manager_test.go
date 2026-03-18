@@ -62,3 +62,50 @@ func TestNewGenericManager_Object_manager_test(t *testing.T) {
 	}
 }
 
+func TestBasicTxManagerCommitResetsTransaction_manager_test(t *testing.T) {
+	state := &shSQLDriverState{}
+	db := openStatementTestDB(t, state)
+	txManager := &BasicTxManager{
+		basicTxManager: &basicTxManager{
+			engine: &Engine{db: db},
+			ctx:    context.Background(),
+		},
+	}
+
+	if err := txManager.Begin(); err != nil {
+		t.Fatalf("Begin() error = %v", err)
+	}
+	if err := txManager.Commit(); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	if txManager.Transaction != nil {
+		t.Fatalf("Commit() did not clear transaction")
+	}
+	if err := txManager.Begin(); err != nil {
+		t.Fatalf("Begin() after Commit() error = %v", err)
+	}
+}
+
+func TestBasicTxManagerRollbackResetsTransaction_manager_test(t *testing.T) {
+	state := &shSQLDriverState{}
+	db := openStatementTestDB(t, state)
+	txManager := &BasicTxManager{
+		basicTxManager: &basicTxManager{
+			engine: &Engine{db: db},
+			ctx:    context.Background(),
+		},
+	}
+
+	if err := txManager.Begin(); err != nil {
+		t.Fatalf("Begin() error = %v", err)
+	}
+	if err := txManager.Rollback(); err != nil {
+		t.Fatalf("Rollback() error = %v", err)
+	}
+	if txManager.Transaction != nil {
+		t.Fatalf("Rollback() did not clear transaction")
+	}
+	if err := txManager.Begin(); err != nil {
+		t.Fatalf("Begin() after Rollback() error = %v", err)
+	}
+}

@@ -121,7 +121,9 @@ func (t *BasicTxManager) Commit() error {
 	if t.Transaction == nil {
 		return tx.ErrTransactionNotBegun
 	}
-	return t.Transaction.Commit()
+	transaction := t.Transaction
+	t.Transaction = nil
+	return transaction.Commit()
 }
 
 // Rollback rollbacks the transaction
@@ -130,7 +132,9 @@ func (t *BasicTxManager) Rollback() error {
 	if t.Transaction == nil {
 		return tx.ErrTransactionNotBegun
 	}
-	return t.Transaction.Rollback()
+	transaction := t.Transaction
+	t.Transaction = nil
+	return transaction.Rollback()
 }
 
 func (t *BasicTxManager) Raw(query string) Runner {
@@ -141,11 +145,17 @@ func (t *BasicTxManager) Raw(query string) Runner {
 }
 
 type managerKey struct{}
+type engineKey struct{}
 
 // managerFromContext returns the Manager from the context.
 func managerFromContext(ctx context.Context) (Manager, bool) {
 	manager, ok := ctx.Value(managerKey{}).(Manager)
 	return manager, ok
+}
+
+func engineFromContext(ctx context.Context) (*Engine, bool) {
+	engine, ok := ctx.Value(engineKey{}).(*Engine)
+	return engine, ok && engine != nil
 }
 
 // ManagerFromContext returns the Manager from the context.
@@ -159,7 +169,11 @@ func ManagerFromContext(ctx context.Context) (Manager, error) {
 
 // ContextWithManager returns a new context with the given Manager.
 func ContextWithManager(ctx context.Context, manager Manager) context.Context {
-	return context.WithValue(ctx, managerKey{}, manager)
+	ctx = context.WithValue(ctx, managerKey{}, manager)
+	if engine, ok := manager.(*Engine); ok {
+		ctx = context.WithValue(ctx, engineKey{}, engine)
+	}
+	return ctx
 }
 
 // IsTxManager returns true if the manager is a TxManager.

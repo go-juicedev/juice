@@ -9,8 +9,8 @@ import (
 )
 
 func TestScopeTransactionAndNestedTransaction_scope_test(t *testing.T) {
-	if err := Transaction(context.Background(), func(context.Context) error { return nil }); !errors.Is(err, ErrNoManagerFoundInContext) {
-		t.Fatalf("expected ErrNoManagerFoundInContext, got %v", err)
+	if err := Transaction(context.Background(), func(context.Context) error { return nil }); !errors.Is(err, ErrInvalidManager) {
+		t.Fatalf("expected ErrInvalidManager, got %v", err)
 	}
 
 	invalidCtx := ContextWithManager(context.Background(), &managerStub{})
@@ -70,5 +70,36 @@ func TestScopeTransactionAndNestedTransaction_scope_test(t *testing.T) {
 	err = NestedTransaction(ctx, func(context.Context) error { return nil })
 	if err != nil {
 		t.Fatalf("unexpected nested transaction with engine error: %v", err)
+	}
+}
+
+func TestTransactionUsesEngineFromContext_scope_test(t *testing.T) {
+	state := &shSQLDriverState{}
+	db := openStatementTestDB(t, state)
+	engine := &Engine{db: db}
+
+	ctx := ContextWithManager(context.Background(), engine)
+
+	err := Transaction(ctx, func(ctx context.Context) error {
+		return Transaction(ctx, func(inner context.Context) error {
+			manager, err := ManagerFromContext(inner)
+			if err != nil {
+				t.Fatalf("expected manager in inner transaction context: %v", err)
+			}
+			if !IsTxManager(manager) {
+				t.Fatalf("expected tx manager in inner transaction context, got %T", manager)
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		t.Fatalf("unexpected nested Transaction error: %v", err)
+	}
+
+	if state.beginCalls != 2 {
+		t.Fatalf("expected begin called twice, got %d", state.beginCalls)
+	}
+	if state.commitCalls != 2 {
+		t.Fatalf("expected commit called twice, got %d", state.commitCalls)
 	}
 }
