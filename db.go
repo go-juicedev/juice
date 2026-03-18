@@ -47,6 +47,7 @@ type Source struct {
 type conn struct {
 	db   *sql.DB
 	drv  driver.Driver
+	err  error
 	once sync.Once
 }
 
@@ -75,24 +76,14 @@ var (
 // It returns the database connection, its driver, and any error that occurred.
 // This method is thread-safe and ensures only one connection is created per source.
 func (m *DBManager) Get(name string) (*sql.DB, driver.Driver, error) {
-	if c, ok := m.conns.Load(name); ok {
-		c := c.(*conn)
-		return c.db, c.drv, nil
-	}
-
-	if m.closed.Load() {
-		return nil, nil, ErrDBManagerClosed
-	}
-
 	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	if m.closed.Load() {
-		m.mu.RUnlock()
 		return nil, nil, ErrDBManagerClosed
 	}
 
 	source, exists := m.sources[name]
-	m.mu.RUnlock()
-
 	if !exists {
 		return nil, nil, fmt.Errorf("%w: %s", ErrSourceNotFound, name)
 	}
@@ -104,19 +95,16 @@ func (m *DBManager) Get(name string) (*sql.DB, driver.Driver, error) {
 // It ensures thread-safe connection initialization using sync.Once and properly
 // configures connection pool parameters.
 func (m *DBManager) connect(name string, source Source) (db *sql.DB, drv driver.Driver, err error) {
-	actual, loaded := m.conns.LoadOrStore(name, &conn{})
+	actual, _ := m.conns.LoadOrStore(name, &conn{})
 	c := actual.(*conn)
 
-	if loaded {
-		return c.db, c.drv, nil
-	}
 	c.once.Do(func() {
-		drv, err = driver.Get(source.Driver)
-		if err != nil {
-			err = fmt.Errorf("failed to get driver: %w", err)
+		c.drv, c.err = driver.Get(source.Driver)
+		if c.err != nil {
+			c.err = fmt.Errorf("failed to get driver: %w", c.err)
 			return
 		}
-		db, err = driver.Connect(
+		c.db, c.err = driver.Connect(
 			source.Driver,
 			source.DSN,
 			driver.ConnectWithMaxOpenConnNum(source.MaxOpenConns),
@@ -124,17 +112,18 @@ func (m *DBManager) connect(name string, source Source) (db *sql.DB, drv driver.
 			driver.ConnectWithMaxConnLifetime(source.ConnMaxLifetime),
 			driver.ConnectWithMaxIdleConnLifetime(source.ConnMaxIdleTime),
 		)
-		if err != nil {
-			err = fmt.Errorf("failed to create connection: %w", err)
+		if c.err != nil {
+			c.err = fmt.Errorf("failed to create connection: %w", c.err)
 			return
 		}
-		c.db = db
-		c.drv = drv
 	})
-	if err != nil {
+
+	if c.err != nil {
 		m.conns.Delete(name)
+		return nil, nil, c.err
 	}
-	return c.db, c.drv, err
+
+	return c.db, c.drv, nil
 }
 
 // Add registers a new database source configuration with the manager.
@@ -176,7 +165,6 @@ func (m *DBManager) Registered() []string {
 // It ensures that all resources are properly released and prevents new connections
 // from being established. This method is idempotent and thread-safe.
 func (m *DBManager) Close() error {
-
 	if m.closed.Load() {
 		return nil
 	}
@@ -188,16 +176,19 @@ func (m *DBManager) Close() error {
 		return nil
 	}
 
+	m.closed.Store(true)
+
 	var errs []error
 	m.conns.Range(func(key, value interface{}) bool {
 		c := value.(*conn)
+		if c.db == nil {
+			return true
+		}
 		if err := c.db.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("failed to close %v: %w", key, err))
 		}
 		return true
 	})
-
-	m.closed.Store(true)
 
 	if len(errs) > 0 {
 		return errors.Join(errs...)
