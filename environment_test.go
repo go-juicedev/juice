@@ -23,8 +23,55 @@ func TestEnvironmentsMethods_environment_test(t *testing.T) {
 		t.Fatalf("expected one env in iterator, got %d", count)
 	}
 
-	if got, err := (OsEnvValueProvider{}).Get("prefix-${JUICE_TEST_ENV}-suffix"); err == nil || got != "prefix--suffix" {
-		t.Fatalf("expected missing env substitution result with error, got %q err=%v", got, err)
+	t.Setenv("JUICE_TEST_ENV", "value")
+	t.Setenv("JUICE.TEST.ENV", "dot")
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "missing braced variable",
+			input: "prefix-${JUICE_TEST_ENV_MISSING}-suffix",
+			want:  "prefix--suffix",
+		},
+		{
+			name:  "braced variable",
+			input: "prefix-${JUICE_TEST_ENV}-suffix",
+			want:  "prefix-value-suffix",
+		},
+		{
+			name:  "dotted variable",
+			input: "prefix-${JUICE.TEST.ENV}-suffix",
+			want:  "prefix-dot-suffix",
+		},
+		{
+			name:  "shell style variable",
+			input: "prefix-$JUICE_TEST_ENV-suffix",
+			want:  "prefix-value-suffix",
+		},
+		{
+			name:  "spaced braced variable",
+			input: "prefix-${ JUICE_TEST_ENV }-suffix",
+			want:  "prefix--suffix",
+		},
+		{
+			name:  "invalid braced variable",
+			input: "prefix-${}-suffix",
+			want:  "prefix--suffix",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := (OsEnvValueProvider{}).Get(tt.input)
+			if err != nil {
+				t.Fatalf("OsEnvValueProvider.Get() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("OsEnvValueProvider.Get() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 
 	if got, err := (EnvValueProviderFunc(func(key string) (string, error) {
@@ -46,4 +93,3 @@ func TestEnvironmentsMethods_environment_test(t *testing.T) {
 	}()
 	RegisterEnvValueProvider("", EnvValueProviderFunc(func(key string) (string, error) { return key, nil }))
 }
-
