@@ -21,10 +21,7 @@ import (
 	"iter"
 	"maps"
 	"os"
-	"regexp"
 )
-
-var formatRegexp = regexp.MustCompile(`\${\s*(\w+(?:\.\w+)*)\s*}`)
 
 // Environment defines a environment.
 // It contains a database connection configuration.
@@ -138,21 +135,13 @@ func (f EnvValueProviderFunc) Get(key string) (string, error) {
 	return f(key)
 }
 
-// OsEnvValueProvider is a environment value provider that uses os.Getenv.
+// OsEnvValueProvider is a environment value provider that uses os.Expand.
 type OsEnvValueProvider struct{}
 
 // Get returns a value of the environment variable.
-// It uses os.Getenv.
+// It uses os.Expand and follows the standard library expansion rules.
 func (p OsEnvValueProvider) Get(key string) (string, error) {
-	var err error
-	key = formatRegexp.ReplaceAllStringFunc(key, func(find string) string {
-		value := os.Getenv(formatRegexp.FindStringSubmatch(find)[1])
-		if len(value) == 0 {
-			err = fmt.Errorf("environment variable %s not found", find)
-		}
-		return value
-	})
-	return key, err
+	return os.Expand(key, os.Getenv), nil
 }
 
 // RegisterEnvValueProvider registers an environment value provider.
