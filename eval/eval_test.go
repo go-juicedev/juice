@@ -61,6 +61,29 @@ func TestEval_eval_test(t *testing.T) {
 	}
 }
 
+func TestMixedNumericTypes_eval_test(t *testing.T) {
+	param := H{
+		"age":  18.5,
+		"age2": uint(2),
+	}
+
+	result, err := testEval(`age + age2 + 1`, param)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Kind() != reflect.Float64 || result.Float() != 21.5 {
+		t.Fatalf("expected float64 21.5, got %v (%v)", result, result.Kind())
+	}
+
+	result, err = testEval(`age + age2 + 1 == 21.5`, param)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Bool() {
+		t.Fatal("expected mixed numeric comparison to be true")
+	}
+}
+
 func BenchmarkEval(b *testing.B) {
 	param := H{
 		"id":   1,

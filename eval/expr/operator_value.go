@@ -108,6 +108,64 @@ type Operator interface {
 	Operate(left, right reflect.Value) (reflect.Value, error)
 }
 
+// promoteNumericValues normalizes mixed numeric operands to a common runtime type
+// before dispatching to a concrete operator implementation.
+//
+// This layer is only responsible for choosing a compatible numeric domain
+// (complex > float > int > uint) and applying the corresponding Go conversions.
+// It intentionally does not introduce any extra overflow checks or saturation
+// rules; conversion and arithmetic overflow semantics are delegated to the
+// standard Go behavior for the selected operation.
+func promoteNumericValues(left, right reflect.Value, expr OperatorExpr) (reflect.Value, reflect.Value, Operator, bool) {
+	if !isNumeric(left) || !isNumeric(right) {
+		return invalidValue, invalidValue, nil, false
+	}
+
+	switch {
+	case anyOf(isComplexType, left, right):
+		return reflect.ValueOf(toComplex(left)), reflect.ValueOf(toComplex(right)), ComplexOperator{OperatorExpr: expr}, true
+	case anyOf(isFloatType, left, right):
+		return reflect.ValueOf(toFloat(left)), reflect.ValueOf(toFloat(right)), FloatOperator{OperatorExpr: expr}, true
+	case anyOf(isIntType, left, right):
+		return reflect.ValueOf(toInt(left)), reflect.ValueOf(toInt(right)), IntOperator{OperatorExpr: expr}, true
+	case allOf(isUintType, left, right):
+		return left, right, UintOperator{OperatorExpr: expr}, true
+	default:
+		return invalidValue, invalidValue, nil, false
+	}
+}
+
+func toInt(value reflect.Value) int64 {
+	if isUintType(value) {
+		return int64(value.Uint())
+	}
+	return value.Int()
+}
+
+func toFloat(value reflect.Value) float64 {
+	switch {
+	case isFloatType(value):
+		return value.Float()
+	case isUintType(value):
+		return float64(value.Uint())
+	default:
+		return float64(value.Int())
+	}
+}
+
+func toComplex(value reflect.Value) complex128 {
+	switch {
+	case isComplexType(value):
+		return value.Complex()
+	case isFloatType(value):
+		return complex(value.Float(), 0)
+	case isUintType(value):
+		return complex(float64(value.Uint()), 0)
+	default:
+		return complex(float64(value.Int()), 0)
+	}
+}
+
 // IntOperator represents an integer operator.
 // It embeds OperatorExpr to inherit its methods.
 type IntOperator struct {
@@ -118,7 +176,7 @@ type IntOperator struct {
 // It performs the operation represented by the operator on the two integer values.
 func (o IntOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	if !isInt(left) || !isInt(right) {
+	if !isIntType(left) || !isIntType(right) {
 		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
@@ -167,7 +225,7 @@ type UintOperator struct {
 // It performs the operation represented by the operator on the two unsigned integer values.
 func (o UintOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	if !isUint(left) || !isUint(right) {
+	if !isUintType(left) || !isUintType(right) {
 		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
@@ -216,7 +274,7 @@ type FloatOperator struct {
 // It performs the operation represented by the operator on the two float values.
 func (o FloatOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	if !isFloat(left) || !isFloat(right) {
+	if !isFloatType(left) || !isFloatType(right) {
 		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
@@ -265,7 +323,7 @@ type StringOperator struct {
 // It performs the operation represented by the operator on the two string values.
 func (o StringOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	if !isString(left) || !isString(right) {
+	if !isStringType(left) || !isStringType(right) {
 		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
@@ -298,7 +356,7 @@ type BoolOperator struct {
 // It performs the operation represented by the operator on the two boolean values.
 func (o BoolOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	if !isBool(left) || !isBool(right) {
+	if !isBoolType(left) || !isBoolType(right) {
 		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
@@ -329,7 +387,7 @@ type ComplexOperator struct {
 // It performs the operation represented by the operator on the two complex values.
 func (o ComplexOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	left, right = reflectlite.Unwrap(left), reflectlite.Unwrap(right)
-	if !isComplex(left) || !isComplex(right) {
+	if !isComplexType(left) || !isComplexType(right) {
 		return reflect.Value{}, NewOperationError(left, right, o.String())
 	}
 	switch o.OperatorExpr {
@@ -399,18 +457,12 @@ func (o GenericOperator) Operate(left, right reflect.Value) (reflect.Value, erro
 	right, left = reflectlite.Unwrap(right), reflectlite.Unwrap(left)
 
 	switch {
-	case isAllInt(left, right):
-		operator = IntOperator(o)
-	case isAllUint(left, right):
-		operator = UintOperator(o)
-	case isAllFloat(left, right):
-		operator = FloatOperator(o)
-	case isAllString(left, right):
+	case allOf(isNumeric, left, right):
+		left, right, operator, _ = promoteNumericValues(left, right, o.OperatorExpr)
+	case allOf(isStringType, left, right):
 		operator = StringOperator(o)
-	case isAllBool(left, right):
+	case allOf(isBoolType, left, right):
 		operator = BoolOperator(o)
-	case isAllComplex(left, right):
-		operator = ComplexOperator(o)
 	default:
 		return invalidValue, NewOperationError(left, right, o.String())
 	}
