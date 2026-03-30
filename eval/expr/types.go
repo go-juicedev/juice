@@ -22,7 +22,7 @@ import (
 	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
-func isInt(r reflect.Value) bool {
+func isIntType(r reflect.Value) bool {
 	switch r.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return true
@@ -31,19 +31,7 @@ func isInt(r reflect.Value) bool {
 	}
 }
 
-func isAllInt(rs ...reflect.Value) bool {
-	if len(rs) == 0 {
-		return false
-	}
-	for _, r := range rs {
-		if !isInt(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isUint(r reflect.Value) bool {
+func isUintType(r reflect.Value) bool {
 	switch r.Kind() {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return true
@@ -52,19 +40,7 @@ func isUint(r reflect.Value) bool {
 	}
 }
 
-func isAllUint(rs ...reflect.Value) bool {
-	if len(rs) == 0 {
-		return false
-	}
-	for _, r := range rs {
-		if !isUint(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isFloat(r reflect.Value) bool {
+func isFloatType(r reflect.Value) bool {
 	switch r.Kind() {
 	case reflect.Float32, reflect.Float64:
 		return true
@@ -73,19 +49,7 @@ func isFloat(r reflect.Value) bool {
 	}
 }
 
-func isAllFloat(rs ...reflect.Value) bool {
-	if len(rs) == 0 {
-		return false
-	}
-	for _, r := range rs {
-		if !isFloat(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isComplex(r reflect.Value) bool {
+func isComplexType(r reflect.Value) bool {
 	switch r.Kind() {
 	case reflect.Complex64, reflect.Complex128:
 		return true
@@ -94,48 +58,40 @@ func isComplex(r reflect.Value) bool {
 	}
 }
 
-func isAllComplex(rs ...reflect.Value) bool {
-	if len(rs) == 0 {
-		return false
-	}
-	for _, r := range rs {
-		if !isComplex(r) {
-			return false
-		}
-	}
-	return true
+func isNumeric(r reflect.Value) bool {
+	return isIntType(r) || isUintType(r) || isFloatType(r) || isComplexType(r)
 }
 
-func isString(r reflect.Value) bool {
+func isStringType(r reflect.Value) bool {
 	return r.Kind() == reflect.String
 }
 
-func isAllString(rs ...reflect.Value) bool {
-	if len(rs) == 0 {
-		return false
-	}
-	for _, r := range rs {
-		if !isString(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isBool(r reflect.Value) bool {
+func isBoolType(r reflect.Value) bool {
 	return r.Kind() == reflect.Bool
 }
 
-func isAllBool(rs ...reflect.Value) bool {
-	if len(rs) == 0 {
+func allOf(predicate func(reflect.Value) bool, values ...reflect.Value) bool {
+	if len(values) == 0 {
 		return false
 	}
-	for _, r := range rs {
-		if !isBool(r) {
+	for _, value := range values {
+		if !predicate(value) {
 			return false
 		}
 	}
 	return true
+}
+
+func anyOf(predicate func(reflect.Value) bool, values ...reflect.Value) bool {
+	if len(values) == 0 {
+		return false
+	}
+	for _, value := range values {
+		if predicate(value) {
+			return true
+		}
+	}
+	return false
 }
 
 func bothNil(left, right reflect.Value) bool {
