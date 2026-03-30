@@ -108,6 +108,14 @@ type Operator interface {
 	Operate(left, right reflect.Value) (reflect.Value, error)
 }
 
+// promoteNumericValues normalizes mixed numeric operands to a common runtime type
+// before dispatching to a concrete operator implementation.
+//
+// This layer is only responsible for choosing a compatible numeric domain
+// (complex > float > int > uint) and applying the corresponding Go conversions.
+// It intentionally does not introduce any extra overflow checks or saturation
+// rules; conversion and arithmetic overflow semantics are delegated to the
+// standard Go behavior for the selected operation.
 func promoteNumericValues(left, right reflect.Value, expr OperatorExpr) (reflect.Value, reflect.Value, Operator, bool) {
 	if !isNumeric(left) || !isNumeric(right) {
 		return invalidValue, invalidValue, nil, false
