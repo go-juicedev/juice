@@ -311,6 +311,11 @@ func TestIndexExprSlice_eval_test(t *testing.T) {
 		t.Error("eval error")
 		return
 	}
+
+	_, err = testEval(`a[-1]`, param)
+	if !errors.Is(err, ErrIndexOutOfRange) {
+		t.Fatalf("expected ErrIndexOutOfRange for negative index, got %v", err)
+	}
 }
 
 func TestIndexExprMap_eval_test(t *testing.T) {
