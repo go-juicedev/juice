@@ -266,6 +266,9 @@ func evalIndexExpr(exp *ast.IndexExpr, params Parameter) (reflect.Value, error) 
 	switch value.Kind() {
 	case reflect.Array, reflect.Slice, reflect.String:
 		i := index.Int()
+		if i < 0 {
+			i += int64(value.Len())
+		}
 		if i < 0 || i >= int64(value.Len()) {
 			return reflect.Value{}, ErrIndexOutOfRange
 		}
