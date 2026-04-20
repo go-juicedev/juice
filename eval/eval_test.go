@@ -1938,7 +1938,7 @@ func TestPrefixPatternParameter_eval_coverage_test(t *testing.T) {
 	}
 
 	// Get prefix only (returns the whole param)
-	val, ok = p.Get("user")
+	_, ok = p.Get("user")
 	if !ok {
 		t.Fatal("expected to find prefix-only")
 	}
@@ -2063,19 +2063,6 @@ func TestOptimizerFloatExpr_eval_coverage_test(t *testing.T) {
 	}
 	if result.Float() != 4.0 {
 		t.Fatalf("expected 4.0, got %v", result.Float())
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Unsupported expression type
-// ---------------------------------------------------------------------------
-
-func TestUnsupportedExprType_eval_coverage_test(t *testing.T) {
-	// Test via a complex expression that leads to unsupported ast type
-	_, err := Eval(`map[string]int{}`, H{})
-	if err == nil {
-		// This may parse or may not, depending on go/parser
-		// Either error is acceptable
 	}
 }
 
