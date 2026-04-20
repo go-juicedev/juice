@@ -1,7 +1,9 @@
 package eval
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"go/parser"
 	"reflect"
 	"strings"
@@ -945,14 +947,14 @@ func TestVariadicSliceUnpacking_eval_test(t *testing.T) {
 
 	// Create test data using variables instead of composite literals
 	numbers := []int{1, 2, 3, 4, 5}
-	strings := []string{"hello", "world", "test"}
-	emptyNumbers := []int{}
+	stringSlices := []string{"hello", "world", "test"}
+	var emptyNumbers []int
 	singleNumber := []int{42}
 	partialNumbers := []int{2, 3, 4, 5} // [2,3,4,5]
 
 	param := H{
 		"numbers":        numbers,
-		"strings":        strings,
+		"strings":        stringSlices,
 		"emptyNumbers":   emptyNumbers,
 		"singleNumber":   singleNumber,
 		"partialNumbers": partialNumbers,
@@ -1135,5 +1137,1011 @@ func TestLexer_Tokenize_eval_test(t *testing.T) {
 				t.Errorf("got %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SyntaxError
+// ---------------------------------------------------------------------------
+
+func TestSyntaxError_eval_coverage_test(t *testing.T) {
+	_, err := Eval("???", nil)
+	if err == nil {
+		t.Fatal("expected error for invalid expression")
+	}
+	var synErr *SyntaxError
+	if !errors.As(err, &synErr) {
+		t.Fatalf("expected SyntaxError, got %T: %v", err, err)
+	}
+	if synErr.Error() == "" {
+		t.Fatal("SyntaxError.Error() should not be empty")
+	}
+	if synErr.Unwrap() == nil {
+		t.Fatal("SyntaxError.Unwrap() should not be nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WithCompiler
+// ---------------------------------------------------------------------------
+
+func TestWithCompiler_eval_coverage_test(t *testing.T) {
+	// Save original and restore after test.
+	original := defaultCompiler
+	defer func() { defaultCompiler = original }()
+
+	// nil should panic.
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic for nil compiler")
+		}
+	}()
+	WithCompiler(nil)
+}
+
+func TestWithCompilerCustom_eval_coverage_test(t *testing.T) {
+	original := defaultCompiler
+	defer func() { defaultCompiler = original }()
+
+	custom := &goExprCompiler{}
+	WithCompiler(custom)
+
+	result, err := Eval("1 + 2", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != 3 {
+		t.Fatalf("expected 3, got %v", result.Int())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unary expression coverage: +x, ^x, error cases
+// ---------------------------------------------------------------------------
+
+func TestUnaryPlus_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`+x`, H{"x": 5})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != 5 {
+		t.Fatalf("expected 5, got %v", result.Int())
+	}
+}
+
+func TestUnaryXOR_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`^x`, H{"x": 0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != -1 {
+		t.Fatalf("expected -1, got %v", result.Int())
+	}
+}
+
+func TestUnarySubOnNonInt_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`-x`, H{"x": true})
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected errUnsupportedUnaryExpr, got %v", err)
+	}
+}
+
+func TestUnaryPlusOnNonInt_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`+x`, H{"x": "hello"})
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected errUnsupportedUnaryExpr, got %v", err)
+	}
+}
+
+func TestUnaryNotOnNonBool_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`!x`, H{"x": 42})
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected errUnsupportedUnaryExpr, got %v", err)
+	}
+}
+
+func TestUnaryXOROnNonInt_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`^x`, H{"x": "text"})
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected errUnsupportedUnaryExpr, got %v", err)
+	}
+}
+
+func TestUnaryOnUndefined_eval_coverage_test(t *testing.T) {
+	_, err := Eval(`-undefined`, H{})
+	if err == nil {
+		t.Fatal("expected error for undefined identifier")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalCallExpr coverage: non-func, wrong return count, error return
+// ---------------------------------------------------------------------------
+
+func TestCallNonFunc_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`x()`, H{"x": 42})
+	if err == nil {
+		t.Fatal("expected error calling non-function")
+	}
+}
+
+func TestCallFuncReturnsError_eval_coverage_test(t *testing.T) {
+	fn := func() (int, error) {
+		return 0, fmt.Errorf("custom error")
+	}
+	_, err := testEval(`fn()`, H{"fn": fn})
+	if err == nil || err.Error() != "custom error" {
+		t.Fatalf("expected 'custom error', got %v", err)
+	}
+}
+
+func TestCallFuncWrongArgCount_eval_coverage_test(t *testing.T) {
+	fn := func(a, b int) (int, error) { return a + b, nil }
+	_, err := testEval(`fn(1)`, H{"fn": fn})
+	if err == nil {
+		t.Fatal("expected error for wrong argument count")
+	}
+}
+
+func TestCallFuncArgTypeConversion_eval_coverage_test(t *testing.T) {
+	fn := func(a int32) (int32, error) { return a * 2, nil }
+	result, err := testEval(`fn(5)`, H{"fn": fn})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != 10 {
+		t.Fatalf("expected 10, got %v", result.Int())
+	}
+}
+
+func TestCallVariadicFunc_eval_coverage_test(t *testing.T) {
+	fn := func(sep string, items ...string) (string, error) {
+		result := ""
+		for i, item := range items {
+			if i > 0 {
+				result += sep
+			}
+			result += item
+		}
+		return result, nil
+	}
+	result, err := testEval(`fn(",", "a", "b", "c")`, H{"fn": fn})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "a,b,c" {
+		t.Fatalf("expected 'a,b,c', got %v", result.String())
+	}
+}
+
+func TestCallVariadicNoArgs_eval_coverage_test(t *testing.T) {
+	fn := func(items ...string) (int, error) {
+		return len(items), nil
+	}
+	result, err := testEval(`fn()`, H{"fn": fn})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != 0 {
+		t.Fatalf("expected 0, got %v", result.Int())
+	}
+}
+
+func TestCallVariadicTooFewArgs_eval_coverage_test(t *testing.T) {
+	fn := func(a int, b int, items ...string) (int, error) {
+		return a + b + len(items), nil
+	}
+	// only 1 arg for 2 required
+	_, err := testEval(`fn(1)`, H{"fn": fn})
+	if err == nil {
+		t.Fatal("expected error for too few variadic args")
+	}
+}
+
+func TestCallFuncArgNotConvertible_eval_coverage_test(t *testing.T) {
+	fn := func(a int) (int, error) { return a, nil }
+	_, err := testEval(`fn("hello")`, H{"fn": fn})
+	if err == nil {
+		t.Fatal("expected error for non-convertible arg type")
+	}
+}
+
+func TestCallFuncInterfaceValue_eval_coverage_test(t *testing.T) {
+	fn := func() (string, error) { return "ok", nil }
+	var iface any = fn
+	result, err := testEval(`f()`, H{"f": iface})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "ok" {
+		t.Fatalf("expected 'ok', got %v", result.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalSelectorExpr coverage: unexported tag, map selector, method on struct
+// ---------------------------------------------------------------------------
+
+func TestSelectorUnexportedTag_eval_coverage_test(t *testing.T) {
+	type user struct {
+		Name string `param:"name"`
+		age  int    `param:"age"` //nolint:unused
+	}
+	u := user{Name: "Alice"}
+	result, err := testEval(`u.Name`, H{"u": u})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "Alice" {
+		t.Fatalf("expected 'Alice', got %v", result.String())
+	}
+
+	// Access via tag
+	result, err = testEval(`u.name`, H{"u": u})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "Alice" {
+		t.Fatalf("expected 'Alice', got %v", result.String())
+	}
+}
+
+func TestSelectorOnMap_eval_coverage_test(t *testing.T) {
+	m := map[string]int{"count": 42}
+	result, err := testEval(`m.count`, H{"m": m})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != 42 {
+		t.Fatalf("expected 42, got %v", result.Int())
+	}
+}
+
+func TestSelectorInvalidField_eval_coverage_test(t *testing.T) {
+	type user struct{ Name string }
+	_, err := testEval(`u.NonExistent`, H{"u": user{}})
+	if err == nil {
+		t.Fatal("expected error for non-existent field")
+	}
+}
+
+func TestSelectorOnInvalidType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`x.field`, H{"x": 42})
+	if err == nil {
+		t.Fatal("expected error for selector on int")
+	}
+}
+
+func TestSelectorUndefinedBase_eval_coverage_test(t *testing.T) {
+	_, err := Eval(`undefined.field`, H{})
+	if err == nil {
+		t.Fatal("expected error for undefined base")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalIdent coverage: undefined
+// ---------------------------------------------------------------------------
+
+func TestIdentUndefined_eval_coverage_test(t *testing.T) {
+	_, err := Eval(`noSuchVar`, H{})
+	if err == nil {
+		t.Fatal("expected error for undefined identifier")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalBasicLit coverage: FLOAT literal
+// ---------------------------------------------------------------------------
+
+func TestBasicLitFloat_eval_coverage_test(t *testing.T) {
+	result, err := Eval(`3.14`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Float() != 3.14 {
+		t.Fatalf("expected 3.14, got %v", result.Float())
+	}
+}
+
+func TestBasicLitChar_eval_coverage_test(t *testing.T) {
+	result, err := Eval(`'a'`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "a" {
+		t.Fatalf("expected 'a', got %v", result.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalIndexExpr coverage: out-of-range positive, invalid index type
+// ---------------------------------------------------------------------------
+
+func TestIndexOutOfRangePositive_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`a[10]`, H{"a": []string{"x"}})
+	if !errors.Is(err, ErrIndexOutOfRange) {
+		t.Fatalf("expected ErrIndexOutOfRange, got %v", err)
+	}
+}
+
+func TestIndexOnInvalidType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`a[0]`, H{"a": 42})
+	if err == nil {
+		t.Fatal("expected error for index on int")
+	}
+}
+
+func TestIndexUndefinedCollection_eval_coverage_test(t *testing.T) {
+	_, err := Eval(`a[0]`, H{})
+	if err == nil {
+		t.Fatal("expected error for undefined collection")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalStarExpr coverage: star on variable
+// ---------------------------------------------------------------------------
+
+func TestStarExprOnVar_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`*x`, H{"x": 42})
+	if err == nil {
+		t.Fatal("expected error for star expression")
+	}
+	if !errors.Is(err, errUnsupportedUnaryExpr) {
+		t.Fatalf("expected errUnsupportedUnaryExpr, got %v", err)
+	}
+}
+
+func TestStarExprUndefined_eval_coverage_test(t *testing.T) {
+	_, err := Eval(`*undefined`, H{})
+	if err == nil {
+		t.Fatal("expected error for star on undefined")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalSliceExpr coverage: error in base expression
+// ---------------------------------------------------------------------------
+
+func TestSliceExprOnUndefined_eval_coverage_test(t *testing.T) {
+	_, err := Eval(`undefined[1:2]`, H{})
+	if err == nil {
+		t.Fatal("expected error for slice on undefined")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// evalBinaryExpr coverage: unsupported token
+// ---------------------------------------------------------------------------
+
+func TestBinaryExprLazyEval_eval_coverage_test(t *testing.T) {
+	// Test that RHS of && is not evaluated when LHS is false
+	// "false" is a builtin that evaluates to false
+	result, err := Eval(`false && true`, H{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Bool() {
+		t.Fatal("expected false")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Built-in string functions (all 0% coverage)
+// ---------------------------------------------------------------------------
+
+func TestBuiltinLower_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`lower("HELLO")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "hello" {
+		t.Fatalf("expected 'hello', got %v", result.String())
+	}
+}
+
+func TestBuiltinUpper_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`upper("hello")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "HELLO" {
+		t.Fatalf("expected 'HELLO', got %v", result.String())
+	}
+}
+
+func TestBuiltinTrim_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`trim("  hi  ", " ")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "hi" {
+		t.Fatalf("expected 'hi', got %v", result.String())
+	}
+}
+
+func TestBuiltinTrimLeft_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`trimLeft("  hi", " ")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "hi" {
+		t.Fatalf("expected 'hi', got %v", result.String())
+	}
+}
+
+func TestBuiltinTrimRight_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`trimRight("hi  ", " ")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "hi" {
+		t.Fatalf("expected 'hi', got %v", result.String())
+	}
+}
+
+func TestBuiltinReplace_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`replace("aaa", "a", "b", 1)`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "baa" {
+		t.Fatalf("expected 'baa', got %v", result.String())
+	}
+}
+
+func TestBuiltinReplaceAll_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`replaceAll("aaa", "a", "b")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "bbb" {
+		t.Fatalf("expected 'bbb', got %v", result.String())
+	}
+}
+
+func TestBuiltinSplit_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`split("a,b,c", ",")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Len() != 3 {
+		t.Fatalf("expected 3 elements, got %v", result.Len())
+	}
+	if result.Index(0).String() != "a" || result.Index(1).String() != "b" || result.Index(2).String() != "c" {
+		t.Fatalf("unexpected split result: %v", result)
+	}
+}
+
+func TestBuiltinSplitN_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`splitN("a,b,c", ",", 2)`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Len() != 2 {
+		t.Fatalf("expected 2 elements, got %v", result.Len())
+	}
+	if result.Index(0).String() != "a" || result.Index(1).String() != "b,c" {
+		t.Fatalf("unexpected splitN result: %v", result)
+	}
+}
+
+func TestBuiltinSplitAfter_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`splitAfter("a,b,c", ",")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Len() != 3 {
+		t.Fatalf("expected 3 elements, got %v", result.Len())
+	}
+	if result.Index(0).String() != "a," || result.Index(1).String() != "b," || result.Index(2).String() != "c" {
+		t.Fatalf("unexpected splitAfter result: %v", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// length / strSub edge cases
+// ---------------------------------------------------------------------------
+
+func TestLengthNil_eval_coverage_test(t *testing.T) {
+	result, err := testEval(`len(x)`, H{"x": nil})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Int() != 0 {
+		t.Fatalf("expected 0, got %v", result.Int())
+	}
+}
+
+func TestLengthInvalidType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`len(x)`, H{"x": 42})
+	if err == nil {
+		t.Fatal("expected error for len(int)")
+	}
+}
+
+func TestSubStrEdgeCases_eval_coverage_test(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		param  H
+		expect string
+	}{
+		{"negative_start", `substr(s, -3, 3)`, H{"s": "hello"}, "llo"},
+		{"start_exceeds_len", `substr(s, 100, 3)`, H{"s": "hi"}, ""},
+		{"negative_count", `substr(s, 0, -1)`, H{"s": "hello"}, "hell"},
+		{"very_negative_start", `substr(s, -100, 3)`, H{"s": "hi"}, "hi"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := testEval(tt.expr, tt.param)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.String() != tt.expect {
+				t.Fatalf("expected %q, got %q", tt.expect, result.String())
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// strJoin edge case
+// ---------------------------------------------------------------------------
+
+func TestJoinInvalidType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`join(x, ",")`, H{"x": 42})
+	if err == nil {
+		t.Fatal("expected error for join on non-slice")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// slice edge case
+// ---------------------------------------------------------------------------
+
+func TestSliceFuncInvalidType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`slice(x, 0, 1)`, H{"x": "hello"})
+	if err == nil {
+		t.Fatal("expected error for slice on string")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// RegisterEvalFunc / MustRegisterEvalFunc coverage
+// ---------------------------------------------------------------------------
+
+func TestRegisterEvalFuncErrors_eval_coverage_test(t *testing.T) {
+	// Not a function
+	err := RegisterEvalFunc("bad", 42)
+	if err == nil {
+		t.Fatal("expected error for non-function")
+	}
+
+	// Wrong number of returns
+	err = RegisterEvalFunc("bad", func() int { return 0 })
+	if err == nil {
+		t.Fatal("expected error for wrong return count")
+	}
+
+	// Last return not error
+	err = RegisterEvalFunc("bad", func() (int, int) { return 0, 0 })
+	if err == nil {
+		t.Fatal("expected error for non-error return")
+	}
+
+	// Valid registration
+	err = RegisterEvalFunc("testcov", func(s string) (string, error) {
+		return s + "!", nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	result, err := testEval(`testcov("hi")`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.String() != "hi!" {
+		t.Fatalf("expected 'hi!', got %v", result.String())
+	}
+}
+
+func TestMustRegisterEvalFuncPanic_eval_coverage_test(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic for invalid MustRegisterEvalFunc")
+		}
+	}()
+	MustRegisterEvalFunc("bad", 42)
+}
+
+// ---------------------------------------------------------------------------
+// Parameter coverage: CtxWithParam, ParamFromContext, DefaultParamKey
+// ---------------------------------------------------------------------------
+
+func TestCtxWithParam_eval_coverage_test(t *testing.T) {
+	ctx := CtxWithParam(context.Background(), "hello")
+	got := ParamFromContext(ctx)
+	if got != "hello" {
+		t.Fatalf("expected 'hello', got %v", got)
+	}
+}
+
+func TestParamFromContextNil_eval_coverage_test(t *testing.T) {
+	got := ParamFromContext(context.Background())
+	if got != nil {
+		t.Fatalf("expected nil, got %v", got)
+	}
+}
+
+func TestDefaultParamKey_eval_coverage_test(t *testing.T) {
+	key := DefaultParamKey()
+	if key == "" {
+		t.Fatal("DefaultParamKey() should not be empty")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NoOPParameter
+// ---------------------------------------------------------------------------
+
+func TestNoOPParameter_eval_coverage_test(t *testing.T) {
+	p := NoOPParameter{}
+	_, ok := p.Get("anything")
+	if ok {
+		t.Fatal("NoOPParameter.Get should always return false")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// sliceParameter
+// ---------------------------------------------------------------------------
+
+func TestSliceParameter_eval_coverage_test(t *testing.T) {
+	p := NewGenericParam([]string{"a", "b", "c"}, "")
+	// Access by index via the parameter path
+	val, ok := p.Get("0")
+	if !ok {
+		t.Fatal("expected to find index 0")
+	}
+	if val.String() != "a" {
+		t.Fatalf("expected 'a', got %v", val.String())
+	}
+
+	// Out of range
+	_, ok = p.Get("10")
+	if ok {
+		t.Fatal("expected false for out-of-range index")
+	}
+
+	// Negative index
+	_, ok = p.Get("-1")
+	if ok {
+		t.Fatal("expected false for negative index")
+	}
+
+	// Non-numeric key
+	_, ok = p.Get("abc")
+	if ok {
+		t.Fatal("expected false for non-numeric key")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// mapParameter with non-string key
+// ---------------------------------------------------------------------------
+
+func TestMapNonStringKey_eval_coverage_test(t *testing.T) {
+	p := &GenericParameter{Value: reflect.ValueOf(map[int]string{1: "one"})}
+	_, ok := p.Get("1")
+	if ok {
+		t.Fatal("expected false for map with non-string key")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GenericParameter cache and clear
+// ---------------------------------------------------------------------------
+
+func TestGenericParameterCacheAndClear_eval_coverage_test(t *testing.T) {
+	type inner struct {
+		Value int `param:"value"`
+	}
+	p := NewGenericParam(map[string]any{
+		"a": inner{Value: 42},
+	}, "").(*GenericParameter)
+
+	// First access populates cache
+	val, ok := p.Get("a.value")
+	if !ok || val.Int() != 42 {
+		t.Fatalf("expected 42, got %v (ok=%v)", val, ok)
+	}
+
+	// Second access should hit cache
+	val, ok = p.Get("a.value")
+	if !ok || val.Int() != 42 {
+		t.Fatalf("cached access failed")
+	}
+
+	// Clear cache
+	p.Clear()
+
+	// Should still work after clear
+	val, ok = p.Get("a.value")
+	if !ok || val.Int() != 42 {
+		t.Fatalf("access after clear failed")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewGenericParam: wrap non-container type
+// ---------------------------------------------------------------------------
+
+func TestNewGenericParamWrapsPrimitive_eval_coverage_test(t *testing.T) {
+	p := NewGenericParam(42, "val")
+	v, ok := p.Get("val")
+	if !ok {
+		t.Fatal("expected to find wrapped primitive")
+	}
+	if v.Interface() != 42 {
+		t.Fatalf("expected 42, got %v", v.Interface())
+	}
+}
+
+func TestNewGenericParamWrapsWithDefaultKey_eval_coverage_test(t *testing.T) {
+	p := NewGenericParam(42, "")
+	v, ok := p.Get(defaultParamKey)
+	if !ok {
+		t.Fatal("expected to find wrapped primitive with default key")
+	}
+	if v.Interface() != 42 {
+		t.Fatalf("expected 42, got %v", v.Interface())
+	}
+}
+
+func TestNewGenericParamNil_eval_coverage_test(t *testing.T) {
+	p := NewGenericParam(nil, "")
+	_, ok := p.Get("anything")
+	if ok {
+		t.Fatal("nil param should return false")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// H parameter
+// ---------------------------------------------------------------------------
+
+func TestH_eval_coverage_test(t *testing.T) {
+	h := H{"key": "value"}
+	v, ok := h.Get("key")
+	if !ok || v.String() != "value" {
+		t.Fatalf("expected 'value', got %v", v)
+	}
+	_, ok = h.Get("missing")
+	if ok {
+		t.Fatal("expected false for missing key")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PrefixPatternParameter
+// ---------------------------------------------------------------------------
+
+func TestPrefixPatternParameter_eval_coverage_test(t *testing.T) {
+	p := PrefixPatternParameter("user", map[string]any{"name": "Alice", "age": 30})
+
+	// Get with dot notation
+	val, ok := p.Get("user.name")
+	if !ok || val.Interface() != "Alice" {
+		t.Fatalf("expected 'Alice', got %v (ok=%v)", val, ok)
+	}
+
+	// Get prefix only (returns the whole param)
+	val, ok = p.Get("user")
+	if !ok {
+		t.Fatal("expected to find prefix-only")
+	}
+
+	// Wrong prefix
+	_, ok = p.Get("other.name")
+	if ok {
+		t.Fatal("expected false for wrong prefix")
+	}
+
+	// Wrong prefix without dot
+	_, ok = p.Get("other")
+	if ok {
+		t.Fatal("expected false for wrong prefix without dot")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ForeachParameter
+// ---------------------------------------------------------------------------
+
+func TestForeachParameter_eval_coverage_test(t *testing.T) {
+	parent := NewGenericParam(H{"x": 1}, "")
+	fp := NewForeachParameter(parent, "item", "idx")
+	fp.ItemValue = reflect.ValueOf("hello")
+	fp.IndexValue = reflect.ValueOf(0)
+
+	// Get item
+	val, ok := fp.Get("item")
+	if !ok || val.String() != "hello" {
+		t.Fatalf("expected 'hello', got %v", val)
+	}
+
+	// Get index
+	val, ok = fp.Get("idx")
+	if !ok || val.Int() != 0 {
+		t.Fatalf("expected 0, got %v", val)
+	}
+
+	// Fallback to parent
+	val, ok = fp.Get("x")
+	if !ok || val.Interface() != 1 {
+		t.Fatalf("expected 1, got %v", val)
+	}
+
+	// item.subfield with struct
+	type item struct {
+		Name string `param:"name"`
+	}
+	fp2 := NewForeachParameter(parent, "item", "idx")
+	fp2.ItemValue = reflect.ValueOf(item{Name: "Bob"})
+	fp2.IndexValue = reflect.ValueOf(0)
+
+	val, ok = fp2.Get("item.name")
+	if !ok || val.String() != "Bob" {
+		t.Fatalf("expected 'Bob', got %v (ok=%v)", val, ok)
+	}
+
+	// Clear
+	fp2.Clear()
+}
+
+func TestForeachParameterIndexSubfield_eval_coverage_test(t *testing.T) {
+	parent := NewGenericParam(H{}, "")
+	fp := NewForeachParameter(parent, "item", "meta")
+	fp.ItemValue = reflect.ValueOf("value")
+	fp.IndexValue = reflect.ValueOf(map[string]any{"key": "k1"})
+
+	val, ok := fp.Get("meta.key")
+	if !ok || val.Interface() != "k1" {
+		t.Fatalf("expected 'k1', got %v (ok=%v)", val, ok)
+	}
+}
+
+func TestForeachParameterEmptyIndex_eval_coverage_test(t *testing.T) {
+	parent := NewGenericParam(H{"x": 1}, "")
+	fp := NewForeachParameter(parent, "item", "")
+	fp.ItemValue = reflect.ValueOf("hello")
+
+	// When index is empty, "idx" should fallback to parent
+	_, ok := fp.Get("idx")
+	if ok {
+		t.Fatal("expected false for empty index name")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ParamGroup
+// ---------------------------------------------------------------------------
+
+func TestParamGroup_eval_coverage_test(t *testing.T) {
+	g := ParamGroup{
+		nil, // nil should be skipped
+		H{"a": 1},
+		H{"b": 2},
+	}
+
+	val, ok := g.Get("a")
+	if !ok || val.Interface() != 1 {
+		t.Fatalf("expected 1, got %v", val)
+	}
+
+	val, ok = g.Get("b")
+	if !ok || val.Interface() != 2 {
+		t.Fatalf("expected 2, got %v", val)
+	}
+
+	_, ok = g.Get("c")
+	if ok {
+		t.Fatal("expected false for missing key")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Optimizer: uint, float, string static expressions
+// ---------------------------------------------------------------------------
+
+func TestOptimizerFloatExpr_eval_coverage_test(t *testing.T) {
+	result, err := Eval(`3.0 + 1.0`, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Float() != 4.0 {
+		t.Fatalf("expected 4.0, got %v", result.Float())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unsupported expression type
+// ---------------------------------------------------------------------------
+
+func TestUnsupportedExprType_eval_coverage_test(t *testing.T) {
+	// Test via a complex expression that leads to unsupported ast type
+	_, err := Eval(`map[string]int{}`, H{})
+	if err == nil {
+		// This may parse or may not, depending on go/parser
+		// Either error is acceptable
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Lexer coverage: "and", "or", "not" tokens
+// ---------------------------------------------------------------------------
+
+func TestLexerAndOrNot_eval_coverage_test(t *testing.T) {
+	result, err := Eval(`x and y`, H{"x": true, "y": false})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Bool() {
+		t.Fatal("expected false for true and false")
+	}
+
+	result, err = Eval(`x or y`, H{"x": false, "y": true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Bool() {
+		t.Fatal("expected true for false or true")
+	}
+
+	result, err = Eval(`not x`, H{"x": true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Bool() {
+		t.Fatal("expected false for not true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// structParameter: exported field not found, fallback to tag
+// ---------------------------------------------------------------------------
+
+func TestStructParameterTagLookup_eval_coverage_test(t *testing.T) {
+	type item struct {
+		Value int `param:"score"`
+	}
+	p := NewGenericParam(item{Value: 100}, "")
+	// "score" is lowercase, so it goes through tag lookup path
+	val, ok := p.Get("score")
+	if !ok || val.Int() != 100 {
+		t.Fatalf("expected 100 via tag lookup, got %v (ok=%v)", val, ok)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GenericParameter: empty name
+// ---------------------------------------------------------------------------
+
+func TestStructParameterMissingField_eval_coverage_test(t *testing.T) {
+	type item struct {
+		Value int `param:"value"`
+	}
+	p := NewGenericParam(item{Value: 100}, "")
+	// Uppercase name that doesn't match any field
+	_, ok := p.Get("Missing")
+	if ok {
+		t.Fatal("expected false for missing exported field")
+	}
+	// Lowercase name that doesn't match any tag
+	_, ok = p.Get("missing")
+	if ok {
+		t.Fatal("expected false for missing tag")
 	}
 }

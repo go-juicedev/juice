@@ -248,3 +248,205 @@ func TestFromToken_executor_additional_test(t *testing.T) {
 		t.Fatalf("expected ErrUnsupportedBinaryExpr, got %v", err)
 	}
 }
+// ---------------------------------------------------------------------------
+// Individual Executor Exec methods (lines 68-234, many at 0%)
+// ---------------------------------------------------------------------------
+
+func TestEQLExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.EQLExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(1), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(1), nil },
+	)
+	if err != nil || !rv.Bool() {
+		t.Fatalf("expected true, got err=%v rv=%v", err, rv)
+	}
+	rv, err = (expr.EQLExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(1), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+	)
+	if err != nil || rv.Bool() {
+		t.Fatalf("expected false, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestNEQExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.NEQExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(1), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+	)
+	if err != nil || !rv.Bool() {
+		t.Fatalf("expected true, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestLSSExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.LSSExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(1), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+	)
+	if err != nil || !rv.Bool() {
+		t.Fatalf("expected true, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestLEQExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.LEQExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+	)
+	if err != nil || !rv.Bool() {
+		t.Fatalf("expected true, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestGTRExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.GTRExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(3), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+	)
+	if err != nil || !rv.Bool() {
+		t.Fatalf("expected true, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestGEQExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.GEQExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(2), nil },
+	)
+	if err != nil || !rv.Bool() {
+		t.Fatalf("expected true, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestADDExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.ADDExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(3), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(4), nil },
+	)
+	if err != nil || rv.Int() != 7 {
+		t.Fatalf("expected 7, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestSUBExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.SUBExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(10), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(3), nil },
+	)
+	if err != nil || rv.Int() != 7 {
+		t.Fatalf("expected 7, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestMULExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.MULExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(3), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(4), nil },
+	)
+	if err != nil || rv.Int() != 12 {
+		t.Fatalf("expected 12, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestQUOExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.QUOExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(12), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(4), nil },
+	)
+	if err != nil || rv.Int() != 3 {
+		t.Fatalf("expected 3, got err=%v rv=%v", err, rv)
+	}
+}
+
+func TestREMExprExecutor_exec_coverage_test(t *testing.T) {
+	rv, err := (expr.REMExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(10), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(3), nil },
+	)
+	if err != nil || rv.Int() != 1 {
+		t.Fatalf("expected 1, got err=%v rv=%v", err, rv)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// LAND/LOR error paths (right side errors, non-bool right)
+// ---------------------------------------------------------------------------
+
+func TestLANDExprExecutor_RightError_exec_coverage_test(t *testing.T) {
+	want := errForTest("right failed")
+	_, err := (expr.LANDExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(true), nil },
+		func() (reflect.Value, error) { return reflect.Value{}, want },
+	)
+	if err != want {
+		t.Fatalf("expected right error, got %v", err)
+	}
+}
+
+func TestLANDExprExecutor_RightNonBool_exec_coverage_test(t *testing.T) {
+	_, err := (expr.LANDExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(true), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(42), nil },
+	)
+	if err == nil {
+		t.Fatal("expected error for non-bool right in LAND")
+	}
+}
+
+func TestLORExprExecutor_LeftError_exec_coverage_test(t *testing.T) {
+	want := errForTest("left failed")
+	_, err := (expr.LORExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.Value{}, want },
+		func() (reflect.Value, error) { return reflect.ValueOf(true), nil },
+	)
+	if err != want {
+		t.Fatalf("expected left error, got %v", err)
+	}
+}
+
+func TestLORExprExecutor_LeftNonBool_exec_coverage_test(t *testing.T) {
+	_, err := (expr.LORExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(42), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf(true), nil },
+	)
+	if err == nil {
+		t.Fatal("expected error for non-bool left in LOR")
+	}
+}
+
+func TestLORExprExecutor_RightError_exec_coverage_test(t *testing.T) {
+	want := errForTest("right failed")
+	_, err := (expr.LORExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(false), nil },
+		func() (reflect.Value, error) { return reflect.Value{}, want },
+	)
+	if err != want {
+		t.Fatalf("expected right error, got %v", err)
+	}
+}
+
+func TestLORExprExecutor_RightNonBool_exec_coverage_test(t *testing.T) {
+	_, err := (expr.LORExprExecutor{}).Exec(
+		func() (reflect.Value, error) { return reflect.ValueOf(false), nil },
+		func() (reflect.Value, error) { return reflect.ValueOf("not bool"), nil },
+	)
+	if err == nil {
+		t.Fatal("expected error for non-bool right in LOR")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NOT error path
+// ---------------------------------------------------------------------------
+
+func TestNOTExprExecutor_Error_exec_coverage_test(t *testing.T) {
+	want := errForTest("y failed")
+	_, err := (expr.NOTExprExecutor{}).Exec(
+		nil,
+		func() (reflect.Value, error) { return reflect.Value{}, want },
+	)
+	if err != want {
+		t.Fatalf("expected y error, got %v", err)
+	}
+}
