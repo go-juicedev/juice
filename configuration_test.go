@@ -126,6 +126,57 @@ func TestNewXMLConfigurationWithFSUnknownDefaultEnvironment_configuration_test(t
 	}
 }
 
+func TestNewXMLConfigurationWithFSUnknownEnvValueProvider_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="prod" provider="missing">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+	<mappers>
+		<mapper namespace="pkg.Mapper">
+			<select id="Select">SELECT 1</select>
+		</mapper>
+	</mappers>
+</configuration>`),
+		},
+	}
+
+	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
+	if err == nil || !strings.Contains(err.Error(), "environment value provider not found") {
+		t.Fatalf("expected unknown env value provider error, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFSEmptyEnvValueProvider_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="prod" provider="">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+	<mappers>
+		<mapper namespace="pkg.Mapper">
+			<select id="Select">SELECT 1</select>
+		</mapper>
+	</mappers>
+</configuration>`),
+		},
+	}
+
+	if _, err := NewXMLConfigurationWithFS(fsys, "juice.xml"); err != nil {
+		t.Fatalf("expected empty env value provider to use passthrough provider, got %v", err)
+	}
+}
+
 type statementIDStub struct{}
 
 func (statementIDStub) StatementID() string {

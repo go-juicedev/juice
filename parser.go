@@ -139,15 +139,19 @@ func (p *XMLEnvironmentsElementParser) parseEnvironment(decoder *xml.Decoder, to
 	for _, attr := range token.Attr {
 		env.setAttr(attr.Name.Local, attr.Value)
 	}
+
 	id := env.ID()
-	if id != "" {
-		if !gotoken.IsIdentifier(id) {
-			return nil, fmt.Errorf("environment id is invalid: %s", id)
-		}
-	} else {
+	if id == "" {
 		return nil, errors.New("environment id is required")
 	}
-	provider := env.provider()
+	if !gotoken.IsIdentifier(id) {
+		return nil, fmt.Errorf("environment id is invalid: %s", id)
+	}
+
+	provider, err := env.provider()
+	if err != nil {
+		return nil, err
+	}
 	for {
 		token, err := decoder.Token()
 		if err != nil {

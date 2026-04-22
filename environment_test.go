@@ -86,8 +86,20 @@ func TestEnvironmentsMethods_environment_test(t *testing.T) {
 	if err := RegisterEnvValueProvider(customName, EnvValueProviderFunc(func(key string) (string, error) { return "ok:" + key, nil })); err != nil {
 		t.Fatalf("RegisterEnvValueProvider() error = %v", err)
 	}
-	if got, err := LookupEnvValueProvider(customName).Get("x"); err != nil || got != "ok:x" {
+	provider, ok := LookupEnvValueProvider(customName)
+	if !ok {
+		t.Fatalf("expected registered provider %q to be found", customName)
+	}
+	if got, err := provider.Get("x"); err != nil || got != "ok:x" {
 		t.Fatalf("unexpected custom provider result got=%q err=%v", got, err)
+	}
+
+	provider, ok = LookupEnvValueProvider("")
+	if !ok {
+		t.Fatalf("expected empty provider name to use passthrough provider")
+	}
+	if got, err := provider.Get("plain"); err != nil || got != "plain" {
+		t.Fatalf("unexpected passthrough provider result got=%q err=%v", got, err)
 	}
 
 	if err := RegisterEnvValueProvider("", EnvValueProviderFunc(func(key string) (string, error) { return key, nil })); err == nil {
@@ -112,6 +124,9 @@ func TestEnvValueProviderRegistryConcurrentAccess_environment_test(t *testing.T)
 	for i := 0; i < workers; i++ {
 		name := "concurrent_test_provider_" + strconv.Itoa(i)
 		provider := EnvValueProviderFunc(func(key string) (string, error) { return name + ":" + key, nil })
+		if err := RegisterEnvValueProvider(name, provider); err != nil {
+			t.Fatalf("failed to seed provider %q: %v", name, err)
+		}
 
 		wg.Add(2)
 
@@ -128,9 +143,14 @@ func TestEnvValueProviderRegistryConcurrentAccess_environment_test(t *testing.T)
 
 		go func() {
 			defer wg.Done()
-			<-start
-			for j := 0; j < iterations; j++ {
-				got, err := LookupEnvValueProvider(name).Get("x")
+				<-start
+				for j := 0; j < iterations; j++ {
+					provider, ok := LookupEnvValueProvider(name)
+					if !ok {
+						t.Errorf("expected seeded provider %q to be found", name)
+						return
+					}
+				got, err := provider.Get("x")
 				if err != nil {
 					t.Errorf("LookupEnvValueProvider(%q).Get() error = %v", name, err)
 					return
