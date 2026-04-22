@@ -70,8 +70,13 @@ func (e *Environment) ID() string {
 
 // provider is a environment value provider.
 // It provides a value of the environment variable.
-func (e *Environment) provider() EnvValueProvider {
-	return LookupEnvValueProvider(e.Attr("provider"))
+func (e *Environment) provider() (EnvValueProvider, error) {
+	name := e.Attr("provider")
+	provider, ok := LookupEnvValueProvider(name)
+	if ok {
+		return provider, nil
+	}
+	return nil, fmt.Errorf("%w: %s", errEnvValueProviderNotFound, name)
 }
 
 type EnvironmentProvider interface {
@@ -154,6 +159,7 @@ func (p OsEnvValueProvider) Get(key string) (string, error) {
 var (
 	errEnvValueProviderNameEmpty = errors.New("name is empty")
 	errEnvValueProviderNil       = errors.New("juice: environment value provider is nil")
+	errEnvValueProviderNotFound  = errors.New("juice: environment value provider not found")
 )
 
 // RegisterEnvValueProvider registers an environment value provider.
@@ -188,16 +194,19 @@ func (passthroughEnvValueProvider) Get(key string) (string, error) {
 	return key, nil
 }
 
-// LookupEnvValueProvider returns a named provider, or a passthrough provider if none is registered.
-func LookupEnvValueProvider(key string) EnvValueProvider {
-	if len(key) != 0 {
-		envValueProviderMu.RLock()
-		defer envValueProviderMu.RUnlock()
-		if provider, exists := envValueProviderLibraries[key]; exists {
-			return provider
-		}
+// LookupEnvValueProvider returns a provider and whether it was found.
+// An empty key uses the passthrough provider and reports success.
+func LookupEnvValueProvider(key string) (EnvValueProvider, bool) {
+	if len(key) == 0 {
+		return passthroughEnvValueProvider{}, true
 	}
-	return passthroughEnvValueProvider{}
+
+	envValueProviderMu.RLock()
+	defer envValueProviderMu.RUnlock()
+	if provider, exists := envValueProviderLibraries[key]; exists {
+		return provider, true
+	}
+	return nil, false
 }
 
 func init() {
