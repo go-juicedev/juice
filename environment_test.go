@@ -2,7 +2,9 @@ package juice
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -81,9 +83,15 @@ func TestEnvironmentsMethods_environment_test(t *testing.T) {
 	}
 
 	customName := "custom_test_provider"
-	RegisterEnvValueProvider(customName, EnvValueProviderFunc(func(key string) (string, error) { return "ok:" + key, nil }))
-	if got, err := GetEnvValueProvider(customName).Get("x"); err != nil || got != "ok:x" {
+	if err := RegisterEnvValueProvider(customName, EnvValueProviderFunc(func(key string) (string, error) { return "ok:" + key, nil })); err != nil {
+		t.Fatalf("RegisterEnvValueProvider() error = %v", err)
+	}
+	if got, err := LookupEnvValueProvider(customName).Get("x"); err != nil || got != "ok:x" {
 		t.Fatalf("unexpected custom provider result got=%q err=%v", got, err)
+	}
+
+	if err := RegisterEnvValueProvider("", EnvValueProviderFunc(func(key string) (string, error) { return key, nil })); err == nil {
+		t.Fatalf("expected error when provider name is empty")
 	}
 
 	defer func() {
@@ -91,5 +99,50 @@ func TestEnvironmentsMethods_environment_test(t *testing.T) {
 			t.Fatalf("expected panic when provider name is empty")
 		}
 	}()
-	RegisterEnvValueProvider("", EnvValueProviderFunc(func(key string) (string, error) { return key, nil }))
+	MustRegisterEnvValueProvider("", EnvValueProviderFunc(func(key string) (string, error) { return key, nil }))
+}
+
+func TestEnvValueProviderRegistryConcurrentAccess_environment_test(t *testing.T) {
+	const workers = 8
+	const iterations = 1000
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+
+	for i := 0; i < workers; i++ {
+		name := "concurrent_test_provider_" + strconv.Itoa(i)
+		provider := EnvValueProviderFunc(func(key string) (string, error) { return name + ":" + key, nil })
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < iterations; j++ {
+				if err := RegisterEnvValueProvider(name, provider); err != nil {
+					t.Errorf("RegisterEnvValueProvider(%q) error = %v", name, err)
+					return
+				}
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < iterations; j++ {
+				got, err := LookupEnvValueProvider(name).Get("x")
+				if err != nil {
+					t.Errorf("LookupEnvValueProvider(%q).Get() error = %v", name, err)
+					return
+				}
+				if got != name+":x" && got != "x" {
+					t.Errorf("LookupEnvValueProvider(%q).Get() = %q", name, got)
+					return
+				}
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
 }

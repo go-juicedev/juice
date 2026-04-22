@@ -17,10 +17,12 @@ limitations under the License.
 package juice
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"maps"
 	"os"
+	"sync"
 )
 
 // Environment defines a environment.
@@ -69,7 +71,7 @@ func (e *Environment) ID() string {
 // provider is a environment value provider.
 // It provides a value of the environment variable.
 func (e *Environment) provider() EnvValueProvider {
-	return GetEnvValueProvider(e.Attr("provider"))
+	return LookupEnvValueProvider(e.Attr("provider"))
 }
 
 type EnvironmentProvider interface {
@@ -124,8 +126,13 @@ type EnvValueProvider interface {
 	Get(key string) (string, error)
 }
 
-// envValueProviderLibraries is a map of environment value providers.
-var envValueProviderLibraries = map[string]EnvValueProvider{}
+var (
+	// envValueProviderLibraries is a map of environment value providers.
+	envValueProviderLibraries = map[string]EnvValueProvider{}
+
+	// envValueProviderMu protects envValueProviderLibraries.
+	envValueProviderMu sync.RWMutex
+)
 
 // EnvValueProviderFunc is a function type of environment value provider.
 type EnvValueProviderFunc func(key string) (string, error)
@@ -144,18 +151,33 @@ func (p OsEnvValueProvider) Get(key string) (string, error) {
 	return os.Expand(key, os.Getenv), nil
 }
 
+var (
+	errEnvValueProviderNameEmpty = errors.New("name is empty")
+	errEnvValueProviderNil       = errors.New("juice: environment value provider is nil")
+)
+
 // RegisterEnvValueProvider registers an environment value provider.
 // The key is a name of the provider.
 // The value is a provider.
 // It allows to override the default provider.
-func RegisterEnvValueProvider(name string, provider EnvValueProvider) {
+func RegisterEnvValueProvider(name string, provider EnvValueProvider) error {
 	if len(name) == 0 {
-		panic("name is empty")
+		return errEnvValueProviderNameEmpty
 	}
 	if provider == nil {
-		panic("juice: environment value provider is nil")
+		return errEnvValueProviderNil
 	}
+	envValueProviderMu.Lock()
+	defer envValueProviderMu.Unlock()
 	envValueProviderLibraries[name] = provider
+	return nil
+}
+
+// MustRegisterEnvValueProvider registers an environment value provider and panics on error.
+func MustRegisterEnvValueProvider(name string, provider EnvValueProvider) {
+	if err := RegisterEnvValueProvider(name, provider); err != nil {
+		panic(err)
+	}
 }
 
 // passthroughEnvValueProvider returns the key unchanged and never errors.
@@ -166,15 +188,19 @@ func (passthroughEnvValueProvider) Get(key string) (string, error) {
 	return key, nil
 }
 
-// GetEnvValueProvider returns a named provider, or a passthrough provider if none is registered.
-func GetEnvValueProvider(key string) EnvValueProvider {
-	if provider, exists := envValueProviderLibraries[key]; exists {
-		return provider
+// LookupEnvValueProvider returns a named provider, or a passthrough provider if none is registered.
+func LookupEnvValueProvider(key string) EnvValueProvider {
+	if len(key) != 0 {
+		envValueProviderMu.RLock()
+		defer envValueProviderMu.RUnlock()
+		if provider, exists := envValueProviderLibraries[key]; exists {
+			return provider
+		}
 	}
 	return passthroughEnvValueProvider{}
 }
 
 func init() {
 	// Register the default environment value provider.
-	RegisterEnvValueProvider("env", &OsEnvValueProvider{})
+	MustRegisterEnvValueProvider("env", &OsEnvValueProvider{})
 }
