@@ -165,7 +165,8 @@ func List[T any](rows Rows) (result []T, err error) {
 
 // List2 converts database query results into a slice of pointers.
 // Unlike List function, List2 returns a slice of pointers []*T instead of a slice of values []T.
-// This is particularly useful when you need to modify slice elements or handle large structs.
+// This is useful when callers need pointer elements after binding, for example to mutate
+// items in place or distinguish pointer slices from value slices in downstream APIs.
 func List2[T any](rows Rows) ([]*T, error) {
 	items, err := List[T](rows)
 	if err != nil {
