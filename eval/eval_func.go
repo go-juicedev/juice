@@ -20,6 +20,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 // return the length of the string or array
@@ -158,7 +159,7 @@ func splitAfter(text, sep string) ([]string, error) {
 
 // RegisterEvalFunc registers a function for eval.
 // The function must be a function with one return value.
-// And Allowed to overwrite the built-in function.
+// It is allowed to overwrite an already registered function, including built-in functions.
 func RegisterEvalFunc(name string, v any) error {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	if rv.Kind() != reflect.Func {
@@ -171,7 +172,7 @@ func RegisterEvalFunc(name string, v any) error {
 	if !rv.Type().Out(rv.Type().NumOut() - 1).Implements(errType) {
 		return errors.New("RegisterEvalFunc: v must be a function with an error return value")
 	}
-	builtins[name] = rv
+	setBuiltin(name, rv)
 	return nil
 }
 
@@ -187,8 +188,24 @@ func MustRegisterEvalFunc(name string, v any) {
 // errType is the reflect.Type of error.
 var errType = reflect.TypeFor[error]()
 
-// builtins is a map of built-in functions.
-var builtins = map[string]reflect.Value{}
+var (
+	// builtins is a map of built-in functions.
+	builtins   = map[string]reflect.Value{}
+	builtinsMu sync.RWMutex
+)
+
+func setBuiltin(name string, value reflect.Value) {
+	builtinsMu.Lock()
+	defer builtinsMu.Unlock()
+	builtins[name] = value
+}
+
+func getBuiltin(name string) (reflect.Value, bool) {
+	builtinsMu.RLock()
+	defer builtinsMu.RUnlock()
+	value, ok := builtins[name]
+	return value, ok
+}
 
 var (
 	// trueValue is the reflect.Value of true.
@@ -202,9 +219,9 @@ var (
 )
 
 func init() {
-	builtins["true"] = trueValue
-	builtins["false"] = falseValue
-	builtins["nil"] = nilValue
+	setBuiltin("true", trueValue)
+	setBuiltin("false", falseValue)
+	setBuiltin("nil", nilValue)
 	MustRegisterEvalFunc("len", length)
 	MustRegisterEvalFunc("substr", strSub)
 	MustRegisterEvalFunc("join", strJoin)

@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -1744,6 +1745,38 @@ func TestRegisterEvalFuncErrors_eval_coverage_test(t *testing.T) {
 	}
 	if result.String() != "hi!" {
 		t.Fatalf("expected 'hi!', got %v", result.String())
+	}
+}
+
+func TestRegisterEvalFuncConcurrentRead_eval_test(t *testing.T) {
+	const goroutines = 16
+	const iterations = 100
+
+	errCh := make(chan error, goroutines*iterations)
+	var wg sync.WaitGroup
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				name := fmt.Sprintf("concurrent_eval_func_%d_%d", id, j)
+				if err := RegisterEvalFunc(name, func() (int, error) { return id + j, nil }); err != nil {
+					errCh <- err
+				}
+				if _, ok := getBuiltin("len"); !ok {
+					errCh <- errors.New("len builtin not found")
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
