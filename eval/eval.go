@@ -544,7 +544,7 @@ func evalSelectorExpr(exp *ast.SelectorExpr, params Parameter) (reflect.Value, e
 }
 
 func evalIdent(exp *ast.Ident, params Parameter) (reflect.Value, error) {
-	if fn, ok := builtins[exp.Name]; ok {
+	if fn, ok := getBuiltin(exp.Name); ok {
 		return fn, nil
 	}
 	value, ok := params.Get(exp.Name)
