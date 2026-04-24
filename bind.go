@@ -95,8 +95,8 @@ func List[T any](rows sql.Rows) (result []T, err error) {
 //
 // Unlike List which returns []T, List2 returns []*T. This is useful when:
 //   - You need to modify slice elements after binding
-//   - You're working with large structs and want to avoid copying
-//   - You need to distinguish between zero values and missing data
+//   - You need pointer elements for downstream APIs
+//   - You need to distinguish pointer slices from value slices
 //
 // Example:
 //
