@@ -161,40 +161,70 @@ func evalSliceExpr(exp *ast.SliceExpr, params Parameter) (reflect.Value, error) 
 	}
 
 	value = reflectlite.Unwrap(value)
-
-	var low, high int
-
-	// like [1:] expr
-	// if exp.Low is nil, it means the slice starts from 0
-	if exp.Low != nil {
-		low, err = strconv.Atoi(exp.Low.(*ast.BasicLit).Value)
-		if err != nil {
-			return reflect.Value{}, err
-		}
+	switch value.Kind() {
+	case reflect.Array, reflect.Slice, reflect.String:
+	default:
+		return reflect.Value{}, fmt.Errorf("invalid slice expression: %v", value.Kind())
 	}
-	// like [:1] expr
-	if exp.High != nil {
-		high, err = strconv.Atoi(exp.High.(*ast.BasicLit).Value)
-		if err != nil {
-			return reflect.Value{}, err
-		}
-	} else {
-		// otherwise, it means the slice ends at the end of the slice
-		high = value.Len()
+
+	low, err := evalSliceBound(exp.Low, params, 0)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	high, err := evalSliceBound(exp.High, params, value.Len())
+	if err != nil {
+		return reflect.Value{}, err
 	}
 	if !exp.Slice3 {
+		if low < 0 || high < low || high > value.Len() {
+			return reflect.Value{}, ErrIndexOutOfRange
+		}
 		return value.Slice(low, high), nil
 	}
-	// like [1:2:3] expr
-	// if exp.Max is nil, it means the capacity of the slice
-	var sliceMax int
-	if exp.Max != nil {
-		sliceMax, err = strconv.Atoi(exp.Max.(*ast.BasicLit).Value)
-		if err != nil {
-			return reflect.Value{}, err
-		}
+	if value.Kind() == reflect.String {
+		return reflect.Value{}, fmt.Errorf("invalid 3-index slice expression: %v", value.Kind())
+	}
+	sliceMax, err := evalSliceBound(exp.Max, params, value.Cap())
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	if low < 0 || high < low || sliceMax < high || sliceMax > value.Cap() {
+		return reflect.Value{}, ErrIndexOutOfRange
 	}
 	return value.Slice3(low, high, sliceMax), nil
+}
+
+func evalSliceBound(exp ast.Expr, params Parameter, fallback int) (int, error) {
+	if exp == nil {
+		return fallback, nil
+	}
+	value, err := eval(exp, params)
+	if err != nil {
+		return 0, err
+	}
+	return reflectValueToInt(value)
+}
+
+func reflectValueToInt(value reflect.Value) (int, error) {
+	value = reflectlite.Unwrap(value)
+	maxInt := int64(^uint(0) >> 1)
+	minInt := -maxInt - 1
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		integer := value.Int()
+		if integer < minInt || integer > maxInt {
+			return 0, ErrIndexOutOfRange
+		}
+		return int(integer), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		integer := value.Uint()
+		if integer > uint64(maxInt) {
+			return 0, ErrIndexOutOfRange
+		}
+		return int(integer), nil
+	default:
+		return 0, fmt.Errorf("slice index must be integer, got %s", value.Kind())
+	}
 }
 
 var errUnsupportedUnaryExpr = errors.New("unsupported unary expression")

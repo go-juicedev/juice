@@ -448,6 +448,19 @@ func TestSliceExpr_eval_test(t *testing.T) {
 		t.Error("eval error")
 		return
 	}
+	result, err = testEval(`a[i:j]`, H{
+		"a": []string{"eat", "more", "apple"},
+		"i": 0,
+		"j": 2,
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if result.Len() != 2 || result.Index(0).Interface() != "eat" || result.Index(1).Interface() != "more" {
+		t.Error("eval error")
+		return
+	}
 }
 
 func TestAnd_eval_test(t *testing.T) {
@@ -563,6 +576,20 @@ func TestSlice3_eval_test(t *testing.T) {
 		return
 	}
 	if result.Index(0).Interface() != "more" {
+		t.Error("eval error")
+		return
+	}
+	result, err = testEval(`a[i:j:k]`, H{
+		"a": []string{"eat", "more", "apple"},
+		"i": 1,
+		"j": 2,
+		"k": 3,
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if result.Len() != 1 || result.Index(0).Interface() != "more" {
 		t.Error("eval error")
 		return
 	}
@@ -1524,6 +1551,27 @@ func TestSliceExprOnUndefined_eval_coverage_test(t *testing.T) {
 	_, err := Eval(`undefined[1:2]`, H{})
 	if err == nil {
 		t.Fatal("expected error for slice on undefined")
+	}
+}
+
+func TestSliceExprInvalidBoundType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`a[i:]`, H{"a": []string{"x"}, "i": "0"})
+	if err == nil {
+		t.Fatal("expected error for non-integer slice bound")
+	}
+}
+
+func TestSliceExprOutOfRangeBound_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`a[0:2]`, H{"a": []string{"x"}})
+	if !errors.Is(err, ErrIndexOutOfRange) {
+		t.Fatalf("expected ErrIndexOutOfRange, got %v", err)
+	}
+}
+
+func TestSlice3ExprInvalidString_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`a[0:1:1]`, H{"a": "xy"})
+	if err == nil {
+		t.Fatal("expected error for 3-index slice on string")
 	}
 }
 
