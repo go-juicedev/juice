@@ -297,7 +297,10 @@ func evalIndexExpr(exp *ast.IndexExpr, params Parameter) (reflect.Value, error) 
 	}
 	switch value.Kind() {
 	case reflect.Array, reflect.Slice, reflect.String:
-		i := index.Int()
+		i, err := reflectValueToInt64(index)
+		if err != nil {
+			return reflect.Value{}, err
+		}
 		if i < 0 {
 			i += int64(value.Len())
 		}
@@ -333,6 +336,22 @@ func evalIndexExpr(exp *ast.IndexExpr, params Parameter) (reflect.Value, error) 
 		return v, nil
 	default:
 		return reflect.Value{}, fmt.Errorf("invalid index expression: %v", value.Kind())
+	}
+}
+
+func reflectValueToInt64(value reflect.Value) (int64, error) {
+	value = reflectlite.Unwrap(value)
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return value.Int(), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		unsigned := value.Uint()
+		if unsigned > uint64(^uint64(0)>>1) {
+			return 0, ErrIndexOutOfRange
+		}
+		return int64(unsigned), nil
+	default:
+		return 0, fmt.Errorf("index must be integer, got %s", value.Kind())
 	}
 }
 
