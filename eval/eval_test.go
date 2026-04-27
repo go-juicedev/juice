@@ -1907,6 +1907,34 @@ func TestGenericParameterCacheAndClear_eval_coverage_test(t *testing.T) {
 	}
 }
 
+func TestGenericParameterCacheDifferentStructTypesAtSamePathDepth_eval_coverage_test(t *testing.T) {
+	type left struct {
+		Name string
+	}
+	type right struct {
+		Name string
+	}
+	type root struct {
+		Left  left
+		Right right
+	}
+
+	p := NewGenericParam(root{
+		Left:  left{Name: "left"},
+		Right: right{Name: "right"},
+	}, "")
+
+	value, ok := p.Get("Left.Name")
+	if !ok || value.String() != "left" {
+		t.Fatalf("expected left, got %v (ok=%v)", value, ok)
+	}
+
+	value, ok = p.Get("Right.Name")
+	if !ok || value.String() != "right" {
+		t.Fatalf("expected right, got %v (ok=%v)", value, ok)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // NewGenericParam: wrap non-container type
 // ---------------------------------------------------------------------------
