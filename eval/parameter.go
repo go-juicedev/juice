@@ -247,11 +247,16 @@ func (g *GenericParameter) get(name string) (reflect.Value, bool) {
 				}
 				g.structFieldIndex[i] = structFieldIndex
 			}
+			fieldIndexes := structFieldIndex[valueType]
+			if fieldIndexes == nil {
+				fieldIndexes = make(map[string][]int)
+				structFieldIndex[valueType] = fieldIndexes
+			}
 
 			// Create a new structParameter with its field cache pointing to
 			// the cached indexes for its specific type, ensuring different
 			// struct types don't share the same field index cache
-			param = &structParameter{Value: value, fieldIndexes: structFieldIndex[valueType]}
+			param = &structParameter{Value: value, fieldIndexes: fieldIndexes}
 		case reflect.Slice, reflect.Array:
 			param = sliceParameter{Value: value}
 		default:
