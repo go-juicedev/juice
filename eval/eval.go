@@ -310,6 +310,9 @@ func canConvertMapIndex(source, target reflect.Type) bool {
 	if !source.ConvertibleTo(target) {
 		return false
 	}
+	// Do not allow every ConvertibleTo pair here. Go permits conversions such as
+	// int to string, which would make map[string] lookups with numeric indexes
+	// silently use Unicode code points instead of reporting a likely type error.
 	if source.Kind() == target.Kind() {
 		return true
 	}
