@@ -325,6 +325,16 @@ func TestIndexExprSlice_eval_test(t *testing.T) {
 		return
 	}
 
+	result, err = testEval(`a[i]`, H{"a": []string{"eat", "more"}, "i": 1})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if result.String() != "more" {
+		t.Error("eval error")
+		return
+	}
+
 	_, err = testEval(`a[-4]`, param)
 	if !errors.Is(err, ErrIndexOutOfRange) {
 		t.Fatalf("expected ErrIndexOutOfRange for out-of-range negative index, got %v", err)
@@ -1512,6 +1522,18 @@ func TestIndexOnInvalidType_eval_coverage_test(t *testing.T) {
 	_, err := testEval(`a[0]`, H{"a": 42})
 	if err == nil {
 		t.Fatal("expected error for index on int")
+	}
+}
+
+func TestIndexWithInvalidIndexType_eval_coverage_test(t *testing.T) {
+	_, err := testEval(`a["0"]`, H{"a": []string{"x"}})
+	if err == nil {
+		t.Fatal("expected error for non-integer index")
+	}
+
+	_, err = testEval(`a[i]`, H{"a": []string{"x"}, "i": "0"})
+	if err == nil {
+		t.Fatal("expected error for non-integer index variable")
 	}
 }
 
