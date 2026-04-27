@@ -346,6 +346,21 @@ func TestIndexExprMap_eval_test(t *testing.T) {
 		t.Error("eval error")
 		return
 	}
+
+	result, err = testEval(`b[1]`, H{"b": map[int]string{1: "one"}})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if result.String() != "one" {
+		t.Error("eval error")
+		return
+	}
+
+	_, err = testEval(`a[1]`, param)
+	if !errors.Is(err, ErrMapIndexTypeMismatch) {
+		t.Fatalf("expected ErrMapIndexTypeMismatch, got %v", err)
+	}
 }
 
 func TestStarExpr_eval_test(t *testing.T) {

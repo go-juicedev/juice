@@ -252,6 +252,8 @@ func isSignedIntValue(value reflect.Value) bool {
 
 var ErrIndexOutOfRange = errors.New("index out of range")
 
+var ErrMapIndexTypeMismatch = errors.New("map index type mismatch")
+
 func evalIndexExpr(exp *ast.IndexExpr, params Parameter) (reflect.Value, error) {
 	value, err := eval(exp.X, params)
 	if err != nil {
@@ -276,6 +278,17 @@ func evalIndexExpr(exp *ast.IndexExpr, params Parameter) (reflect.Value, error) 
 	case reflect.Map:
 		// in this case, index must be assignable to the map's key type
 		// if value not exist, return the map's default value
+		keyType := value.Type().Key()
+		if !index.IsValid() {
+			return reflect.Value{}, fmt.Errorf("%w: invalid index for key type %s", ErrMapIndexTypeMismatch, keyType)
+		}
+		if index.Type().AssignableTo(keyType) {
+			// use index as-is
+		} else if canConvertMapIndex(index.Type(), keyType) {
+			index = index.Convert(keyType)
+		} else {
+			return reflect.Value{}, fmt.Errorf("%w: cannot use %s as %s", ErrMapIndexTypeMismatch, index.Type(), keyType)
+		}
 		v := value.MapIndex(index)
 		if v.IsValid() {
 			return v, nil
@@ -290,6 +303,31 @@ func evalIndexExpr(exp *ast.IndexExpr, params Parameter) (reflect.Value, error) 
 		return v, nil
 	default:
 		return reflect.Value{}, fmt.Errorf("invalid index expression: %v", value.Kind())
+	}
+}
+
+func canConvertMapIndex(source, target reflect.Type) bool {
+	if !source.ConvertibleTo(target) {
+		return false
+	}
+	// Do not allow every ConvertibleTo pair here. Go permits conversions such as
+	// int to string, which would make map[string] lookups with numeric indexes
+	// silently use Unicode code points instead of reporting a likely type error.
+	if source.Kind() == target.Kind() {
+		return true
+	}
+	return isNumericKind(source.Kind()) && isNumericKind(target.Kind())
+}
+
+func isNumericKind(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.Complex64, reflect.Complex128:
+		return true
+	default:
+		return false
 	}
 }
 
