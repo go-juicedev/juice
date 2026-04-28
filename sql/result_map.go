@@ -248,11 +248,6 @@ type ColumnDestination interface {
 	Destination(rv reflect.Value, column []string) ([]any, error)
 }
 
-// sink is a shared discard slot for unmapped columns during scanning.
-// Its value has no semantic meaning; rows.Scan only needs an addressable target
-// for columns that do not map to any field.
-var sink any
-
 // columnTagName is the tag name used to map database columns to struct fields.
 var columnTagName = cmp.Or(os.Getenv("JUICE_COLUMN_TAG_NAME"), "column")
 
@@ -271,11 +266,16 @@ type rowDestination struct {
 	// - Multiple integers represent nested struct field access
 	indexes [][]int
 
+	// sink is a discard slot for unmapped columns during scanning.
+	// Its value has no semantic meaning; rows.Scan only needs an addressable target
+	// for columns that do not map to any field.
+	sink any
+
 	// dest is a slice of interface{} values used to store pointers to the target struct fields.
 	// Each element in dest is a pointer to a field in the target struct, which is used
 	// by the database/sql package to scan query results directly into the struct fields.
 	//
-	// - If a column has no corresponding struct field, the element is set to &sink (a discard variable).
+	// - If a column has no corresponding struct field, the element is set to &s.sink (a discard variable).
 	// - If a column maps to a struct field, the element is set to the address of that field.
 	//
 	// Example:
@@ -333,7 +333,7 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	}
 	for i, indexes := range s.indexes {
 		if len(indexes) == 0 {
-			s.dest[i] = &sink
+			s.dest[i] = &s.sink
 		} else {
 			s.dest[i] = rv.FieldByIndex(indexes).Addr().Interface()
 		}

@@ -368,8 +368,8 @@ func TestRowDestination_Destination_Basic_result_map_test(t *testing.T) {
 	if _, ok := scanDest[2].(*sql.NullInt64); !ok {
 		t.Errorf("Expected dest[2] to be *sql.NullInt64, got %T", scanDest[2])
 	}
-	if scanDest[3] != &sink {
-		t.Errorf("Expected dest[3] to be &sink, got %T", scanDest[3])
+	if scanDest[3] != &dest.sink {
+		t.Errorf("Expected dest[3] to be &dest.sink, got %T", scanDest[3])
 	}
 
 	// Test caching of indexes
