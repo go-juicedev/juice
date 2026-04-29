@@ -45,6 +45,10 @@ const (
 // Middleware defines the interface for intercepting and processing SQL statement executions.
 // It implements the interceptor pattern, allowing cross-cutting concerns like logging,
 // timeout management, and connection switching to be handled transparently.
+//
+// A middleware receives the next handler in the chain and returns a new handler. The
+// returned handler may run logic before calling next, after next returns, or instead
+// of calling next.
 type Middleware interface {
 	// QueryContext intercepts and processes SELECT query executions.
 	// It receives the statement, configuration, and the next handler in the chain.
@@ -61,14 +65,28 @@ type Middleware interface {
 var _ Middleware = MiddlewareGroup(nil) // compile time check
 
 // MiddlewareGroup is a chain of middleware that implements the Middleware interface.
-// It executes middlewares in sequence, allowing multiple cross-cutting concerns to be
-// applied to SQL statement execution. Each middleware can modify the behavior or add
-// functionality before passing control to the next middleware in the chain.
+// It composes middlewares in registration order and returns one executable handler.
+//
+// Important: the last registered middleware becomes the outermost wrapper. If
+// middlewares are registered as A, B, and C, composition is built as:
+//
+//	base handler
+//	A(base handler)
+//	B(A(base handler))
+//	C(B(A(base handler)))
+//
+// Therefore the runtime flow is:
+//
+//	C before -> B before -> A before -> base handler -> A after -> B after -> C after
+//
+// Engine.Use appends to this group, so calling Use later means the middleware sees
+// the request earlier and sees the response later.
 type MiddlewareGroup []Middleware
 
 // QueryContext implements Middleware.
-// It processes the middleware chain for SELECT queries, executing each middleware in sequence.
-// The last middleware in the chain will call the actual query handler (next parameter).
+// It composes the middleware chain for SELECT queries. The loop applies wrappers
+// in slice order, so the last middleware in the slice is the first one executed
+// at runtime.
 // Returns a QueryHandler that when called will execute the entire middleware chain.
 func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
 	if len(m) == 0 {
@@ -81,8 +99,9 @@ func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuratio
 }
 
 // ExecContext implements Middleware.
-// It processes the middleware chain for INSERT/UPDATE/DELETE executions, executing each middleware in sequence.
-// The last middleware in the chain will call the actual execution handler (next parameter).
+// It composes the middleware chain for INSERT/UPDATE/DELETE executions. The loop
+// applies wrappers in slice order, so the last middleware in the slice is the
+// first one executed at runtime.
 // Returns an ExecHandler that when called will execute the entire middleware chain.
 func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
 	if len(m) == 0 {
