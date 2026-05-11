@@ -146,8 +146,7 @@ func (m *Mappers) Configuration() Configuration {
 	return m.cfg
 }
 
-// setAttribute sets an attribute.
-// same as setAttribute, but it is used for Mappers.
+// setAttribute stores an attribute on the mapper collection.
 func (m *Mappers) setAttribute(key, value string) {
 	if m.attrs == nil {
 		m.attrs = make(map[string]string)

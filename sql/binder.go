@@ -31,25 +31,7 @@ var (
 	timeType = reflect.TypeFor[time.Time]()
 )
 
-// bindWithResultMap maps Rows to a destination value using the specified ResultMap.
-// It serves as the core binding function for all mapping operations in the package.
-//
-// Parameters:
-//   - rows: The source Rows to map from. Must not be nil.
-//   - v: The destination value to map to. Must be a pointer and not nil.
-//   - resultMap: The mapping strategy to use. If nil, a default mapper will be selected
-//     based on the destination type (SingleRowResultMap for struct, MultiRowsResultMap for slice).
-//
-// The function follows this process:
-// 1. Validates input parameters
-// 2. Checks if the destination implements RowScanner for custom mapping
-// 3. Falls back to reflection-based mapping using the provided or default ResultMap
-//
-// Returns an error if:
-//   - The destination is nil (ErrNilDestination)
-//   - The rows parameter is nil (ErrNilRows)
-//   - The destination is not a pointer (ErrPointerRequired)
-//   - Any error occurs during the mapping process
+// bindWithResultMap maps Rows into v using resultMap or a default mapper.
 func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 	if v == nil {
 		return ErrNilDestination
@@ -57,7 +39,7 @@ func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 	if rows == nil {
 		return ErrNilRows
 	}
-	// Try custom row scanning if the destination implements RowScanner
+	// Use custom row scanning when the destination provides it.
 	if rowScanner, ok := v.(RowScanner); ok {
 		return rowScanner.ScanRows(rows)
 	}
@@ -67,7 +49,7 @@ func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 		return ErrPointerRequired
 	}
 
-	// Select default mapper if none provided
+	// Select a default mapper when none is provided.
 	if resultMap == nil {
 		if kd := reflect.Indirect(rv).Kind(); kd == reflect.Slice {
 			resultMap = MultiRowsResultMap{}
@@ -75,21 +57,17 @@ func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 			resultMap = SingleRowResultMap{}
 		}
 	}
-	// Perform the actual mapping
 	return resultMap.MapTo(rv, rows)
 }
 
-// BindWithResultMap bind Rows to given entity with given ResultMap
-// bind cover Rows to given entity
-// dest can be a pointer to a struct, a pointer to a slice of struct, or a pointer to a slice of any type.
-// rows won't be closed when the function returns.
+// BindWithResultMap binds Rows to T using resultMap.
+// Rows is not closed by this function.
 func BindWithResultMap[T any](rows Rows, resultMap ResultMap) (result T, err error) {
-	// ptr is the pointer of the result, it is the destination of the binding.
+	// ptr is the destination used by the binding step.
 	var ptr any = &result
 
-	// if the result is a pointer, we need to create a new instance of the element.
+	// For pointer result types, allocate the pointed-to value before scanning.
 	if valueType := reflect.TypeFor[T](); valueType.Kind() == reflect.Pointer {
-		// create a new instance of the element type.
 		result, _ = reflect.TypeAssert[T](reflect.New(valueType.Elem()))
 		ptr = result
 	}
@@ -97,8 +75,7 @@ func BindWithResultMap[T any](rows Rows, resultMap ResultMap) (result T, err err
 	return
 }
 
-// Bind Rows to given entity with default mapper
-// Example usage of the binder package
+// Bind maps Rows to T using the default mapper.
 //
 // Example_bind shows how to use the Bind function:
 //
@@ -122,14 +99,13 @@ func Bind[T any](rows Rows) (result T, err error) {
 }
 
 // List converts Rows to a slice of the given entity type.
-// If there are no rows, it will return an empty slice.
+// If there are no rows, it returns an empty slice.
 //
 // Differences between List and Bind:
 // - List always returns a slice, even if there is only one row.
 // - Bind always returns the entity of the given type.
 //
-// Bind is more flexible; you can use it to bind a single row to a struct, a slice of structs, or a slice of any type.
-// However, if you are sure that the result will be a slice, you can use List. It could be faster than Bind.
+// Bind is more flexible; use List when the expected result is always a slice.
 //
 // Example_list shows how to use the List function:
 //
@@ -153,8 +129,7 @@ func List[T any](rows Rows) (result []T, err error) {
 
 	element := reflect.TypeFor[T]()
 
-	// using reflect.New to create a new instance of the element is a very time-consuming operation.
-	// if the element is not a pointer, we can create a new instance of it directly.
+	// Avoid reflect.New for non-pointer elements on the hot path.
 	if element.Kind() != reflect.Pointer {
 		multiRowsResultMap.New = func() reflect.Value { return reflect.ValueOf(new(T)) }
 	}
@@ -163,10 +138,7 @@ func List[T any](rows Rows) (result []T, err error) {
 	return
 }
 
-// List2 converts database query results into a slice of pointers.
-// Unlike List function, List2 returns a slice of pointers []*T instead of a slice of values []T.
-// This is useful when callers need pointer elements after binding, for example to mutate
-// items in place or distinguish pointer slices from value slices in downstream APIs.
+// List2 converts Rows into []*T instead of []T.
 func List2[T any](rows Rows) ([]*T, error) {
 	items, err := List[T](rows)
 	if err != nil {

@@ -87,7 +87,7 @@ type MiddlewareGroup []Middleware
 // It composes the middleware chain for SELECT queries. The loop applies wrappers
 // in slice order, so the last middleware in the slice is the first one executed
 // at runtime.
-// Returns a QueryHandler that when called will execute the entire middleware chain.
+// Returns a QueryHandler that executes the full middleware chain.
 func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
 	if len(m) == 0 {
 		return next
@@ -102,7 +102,7 @@ func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuratio
 // It composes the middleware chain for INSERT/UPDATE/DELETE executions. The loop
 // applies wrappers in slice order, so the last middleware in the slice is the
 // first one executed at runtime.
-// Returns an ExecHandler that when called will execute the entire middleware chain.
+// Returns an ExecHandler that executes the full middleware chain.
 func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
 	if len(m) == 0 {
 		return next
@@ -114,7 +114,7 @@ func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration
 }
 
 // NoopMiddleware is a middleware that performs no operations.
-// It simply returns the original next handler.
+// It returns the original next handler.
 type NoopMiddleware struct{}
 
 // QueryContext implements Middleware.
@@ -152,7 +152,7 @@ func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Dur
 // QueryContext implements Middleware.
 // QueryContext logs SQL SELECT statements with their execution time and parameters.
 // The logging includes statement ID, SQL query, arguments, and execution duration.
-// Logging is controlled by the debug mode setting from statement attributes or global configuration.
+// Logging is controlled by statement attributes or global debug settings.
 func (m *DebugMiddleware) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
 	if !m.isDeBugMode(stmt, configuration) {
 		return next
@@ -170,7 +170,7 @@ func (m *DebugMiddleware) QueryContext(stmt Statement, configuration Configurati
 // ExecContext implements Middleware.
 // ExecContext logs SQL INSERT/UPDATE/DELETE statements with their execution time and parameters.
 // The logging includes statement ID, SQL query, arguments, and execution duration.
-// Logging is controlled by the debug mode setting from statement attributes or global configuration.
+// Logging is controlled by statement attributes or global debug settings.
 func (m *DebugMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
 	if !m.isDeBugMode(stmt, configuration) {
 		return next
@@ -185,17 +185,16 @@ func (m *DebugMiddleware) ExecContext(stmt Statement, configuration Configuratio
 	}
 }
 
-// isDeBugMode determines whether debug logging should be enabled for the given statement.
+// isDeBugMode determines whether debug logging should be enabled for the statement.
 // It checks debug settings in the following priority order:
 // 1. Statement-level "debug" attribute (if set to "false", disables debug)
 // 2. Global configuration "debug" setting (if set to "false", disables debug)
 // 3. Default is true (debug mode enabled) if neither is explicitly set to false
 //
-// Returns true if debug mode should be enabled, false otherwise.
+// Returns true when debug logging is enabled.
 func (m *DebugMiddleware) isDeBugMode(stmt Statement, configuration Configuration) bool {
-	// try to one the bug mode from the xmlSQLStatement
+	// Statement-level debug="false" disables logging.
 	debug := stmt.Attribute("debug")
-	// if the bug mode is not set, try to one the bug mode from the Context
 	if debug == "false" {
 		return false
 	}
@@ -315,25 +314,20 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration C
 			return nil, errors.New("useGeneratedKeys is true, but the param is nil")
 		}
 
-		// Handle special case where the input parameter might be wrapped in a map.
-		// This allows for flexible parameter passing patterns, supporting both direct and wrapped formats.
+		// Support parameters wrapped in a single-entry map.
 		rv := reflect.ValueOf(param)
 
-		// If the parameter is a map, we expect it to contain exactly one key-value pair
-		// This restriction ensures unambiguous parameter extraction
+		// A map wrapper must be unambiguous.
 		if rv.Kind() == reflect.Map {
-			// Validate that the map contains exactly one entry
-			// Multiple entries would create ambiguity about which value to use
 			if rv.Len() != 1 {
 				return nil, fmt.Errorf("useGeneratedKeys is true, map must contain exactly one key-value pair, got %d", rv.Len())
 			}
-			// Extract the single key and get its corresponding value
-			// This value will be used for further processing
+			// Extract the wrapped value.
 			key := rv.MapKeys()[0]
 			rv = rv.MapIndex(key)
 		}
 
-		// unpack interface value
+		// Unpack interface values before selecting a key generator.
 		rv = reflectlite.Unpack(rv)
 
 		keyProperty := stmt.Attribute("keyProperty")
@@ -347,8 +341,7 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration C
 				id:          id,
 			}
 		case reflect.Array, reflect.Slice:
-			// try to get the keyIncrement from the xmlSQLStatement
-			// if the keyIncrement is not set or invalid, use the default value 1
+			// Use the configured key increment, or 1 when it is absent or invalid.
 			keyIncrementValue := stmt.Attribute("keyIncrement")
 			keyIncrement, _ := strconv.ParseInt(keyIncrementValue, 10, 64)
 			keyIncrement = cmp.Or(keyIncrement, 1)
@@ -443,20 +436,19 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) chooseDataSourceName(dataSourceN
 // switchDataSource handles the datasource switching logic.
 // It returns the original context if:
 // - The manager is not an Engine
-// - The chosen datasource is the same as the requested one
+// - The chosen datasource is already active.
 func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Context, dataSourceName string) (context.Context, error) {
 	manager, _ := ManagerFromContext(ctx)
 	engine, ok := manager.(*Engine)
 	if !ok {
-		// In current implementation, this case should never happen.
-		// But we keep this check as a safeguard for potential future changes.
+		// Keep this guard in case future managers support datasource switching differently.
 		logger.Printf("[juice]: failed to switch datasource: %s, the manager is not an Engine", dataSourceName)
 		return ctx, nil
 	}
 
 	chosenDataSourceName := t.chooseDataSourceName(dataSourceName, engine)
 
-	// no need to switch if the chosen datasource is the same as the current one
+	// No switch is needed when the chosen datasource is already active.
 	if chosenDataSourceName == engine.EnvID() {
 		return ctx, nil
 	}
@@ -466,7 +458,7 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 		return nil, err
 	}
 
-	// inject the new session into the context
+	// Inject the selected datasource session into the context.
 	return session.WithContext(ctx, newEngine.DB()), nil
 }
 

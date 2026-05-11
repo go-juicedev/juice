@@ -21,7 +21,7 @@ import (
 	_ "unsafe" // for go:linkname
 )
 
-// Rows is the result of a query. Its cursor starts before the first row
+// Rows represents a query result. Its cursor starts before the first row
 // of the result set. Use Next to advance from row to row.
 type Rows interface {
 	// Next prepares the next result row for reading with the Scan method. It
@@ -57,9 +57,9 @@ type Rows interface {
 	// If an error occurs during conversion, Scan returns the error.
 	Scan(dest ...any) error
 
-	// Close closes the Rows, preventing further enumeration. If Next is called
-	// and returns false and there are no further result sets, the Rows are closed
-	// automatically and it will suffice to check the result of Err. Close is
+	// Close closes the Rows, preventing further enumeration. If Next returns
+	// false and there are no further result sets, Rows closes automatically;
+	// callers only need to check Err. Close is
 	// idempotent and does not affect the result of Err.
 	Close() error
 
@@ -67,11 +67,9 @@ type Rows interface {
 	// Err may be called after an explicit or implicit Close.
 	Err() error
 
-	// Columns returns the column names.
-	// Columns returns an error if the rows are closed.
+	// Columns returns the column names, or an error if the rows are closed.
 	Columns() ([]string, error)
 }
 
-// var _ Rows = (*sql.Rows)(nil) ensures that *sql.Rows implements the Rows interface.
-// This is a compile-time check and has no runtime overhead.
+// Ensure *sql.Rows implements Rows.
 var _ Rows = (*sql.Rows)(nil)

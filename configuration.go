@@ -142,7 +142,7 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, e
 
 // NewXMLConfigurationWithFS creates a new XML configuration parser with a given fs.FS and filename.
 // The filepath parameter must be a Unix-style path (using forward slashes '/'),
-// as it will be processed by path.Dir and path.Base.
+// because it is processed with path.Dir and path.Base.
 func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error) {
 	if filepath == "" {
 		return nil, errConfigurationPathRequired

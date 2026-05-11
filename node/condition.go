@@ -25,8 +25,7 @@ import (
 
 var ErrNilExpression = errors.New("juice: nil expression")
 
-// ConditionNode represents a conditional SQL fragment with its evaluation expression and child Nodes.
-// It is used to conditionally include or exclude SQL fragments based on runtime parameters.
+// ConditionNode conditionally includes child SQL fragments based on runtime parameters.
 type ConditionNode struct {
 	expr      eval.Expression
 	Nodes     Group

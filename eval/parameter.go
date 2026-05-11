@@ -28,8 +28,7 @@ import (
 	"github.com/go-juicedev/juice/internal/stringutil"
 )
 
-// Param is an alias of any type.
-// It is used to represent the parameter of the xmlSQLStatement and without type limitation.
+// Param is the input value used to render a mapped statement.
 type Param = any
 
 type paramCtxKey struct{}
@@ -64,16 +63,14 @@ func DefaultParamKey() string {
 // Parameter is the interface that wraps the Get method.
 // Get returns the value of the named parameter.
 type Parameter interface {
-	// Get returns the value of the named parameter with the type of reflect.Value.
+	// Get returns the named parameter as a reflect.Value.
 	Get(name string) (reflect.Value, bool)
 }
 
 // NoOPParameter is a no-op parameter.
-// Its does nothing when calling the Get method.
 type NoOPParameter struct{}
 
-// Get implements Parameter.
-// always return false.
+// Get implements Parameter and always returns false.
 func (NoOPParameter) Get(_ string) (reflect.Value, bool) {
 	return reflect.Value{}, false
 }
@@ -186,22 +183,21 @@ func (p sliceParameter) Get(name string) (reflect.Value, bool) {
 	return value, true
 }
 
-// GenericParameter is a parameter that wraps a generic value.
+// GenericParameter adapts maps, structs, slices, and arrays to Parameter.
 type GenericParameter struct {
 	// Value is the wrapped value
 	Value reflect.Value
 
-	// cache is used to cache the final value of the parameter path.
+	// cache stores resolved parameter paths.
 	// For example, if the path is "user.address.street",
-	// it will cache the final street value to avoid parsing the path again.
+	// it caches the final street value to avoid parsing the path again.
 	cache map[string]reflect.Value
 
 	// structFieldIndex caches the field indexes for struct types at each path level.
 	// The first key is the position in the path (e.g., for "user.address.street": 0 for user, 1 for address).
-	// The second key is the concrete type of the struct, which ensures correct field lookup for different struct types.
+	// The second key is the concrete struct type.
 	// The third key is the field name, and the value is the field index slice.
-	// This three-level cache design ensures that field indexes are not mixed between different struct types,
-	// which is particularly important when dealing with slices of different struct types.
+	// This prevents field indexes from being mixed across different struct types.
 	structFieldIndex map[int]map[reflect.Type]map[string][]int
 }
 
@@ -280,10 +276,9 @@ func (g *GenericParameter) get(name string) (reflect.Value, bool) {
 	return value, true
 }
 
-// Get implements Parameter.
-// It will scopeCache the value of the parameter for better performance.
+// Get implements Parameter and caches resolved parameter paths.
 func (g *GenericParameter) Get(name string) (value reflect.Value, exists bool) {
-	// try to get the value from scopeCache first
+	// Try the path cache first.
 	value, exists = g.cache[name]
 	if exists {
 		return value, exists
@@ -294,7 +289,7 @@ func (g *GenericParameter) Get(name string) (value reflect.Value, exists bool) {
 		if g.cache == nil {
 			g.cache = make(map[string]reflect.Value)
 		}
-		// scopeCache the value
+		// Cache the resolved path.
 		g.cache[name] = value
 	}
 	return value, exists
@@ -305,8 +300,8 @@ func (g *GenericParameter) Clear() {
 	clear(g.cache)
 }
 
-// NewGenericParam creates a generic parameter.
-// if the value is not a map, struct, slice or array, then wrap it as a map.
+// NewGenericParam creates a Parameter for v.
+// Primitive values are wrapped in a map using wrapKey or the default parameter key.
 func NewGenericParam(v any, wrapKey string) Parameter {
 	if v == nil {
 		return noOPParameter
@@ -329,7 +324,7 @@ func NewGenericParam(v any, wrapKey string) Parameter {
 }
 
 // H is a shortcut for map[string]any
-// H do not support nested parameter access.
+// H does not support nested parameter access.
 // For example, h := H{"user": H{"name": "Alice"}}; h.Get("user.name") will not work.
 type H map[string]any
 

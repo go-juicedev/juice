@@ -76,14 +76,12 @@ func (r *ErrorRunner) Delete(_ context.Context, _ eval.Param) (sql.Result, error
 	return nil, r.error
 }
 
-// NewErrorRunner creates a new ErrorRunner that always returns the specified error.
-// This is useful for creating a Runner that represents a failed state, such as
-// when initialization fails or when operations should be prevented.
+// NewErrorRunner creates a Runner that always returns err.
 func NewErrorRunner(err error) Runner {
 	return &ErrorRunner{error: err}
 }
 
-// Ensure ErrorRunner implements the Runner interface interface.
+// Ensure ErrorRunner implements Runner and error.
 var (
 	_ Runner = (*ErrorRunner)(nil)
 	_ error  = (*ErrorRunner)(nil)
@@ -162,7 +160,7 @@ type GenericRunner[T any] struct {
 }
 
 // Bind binds the result of a SELECT query to a single value of type T.
-// It executes the query with the given context and parameters, then binds the result.
+// It executes the query and binds the result.
 func (r *GenericRunner[T]) Bind(ctx context.Context, param eval.Param) (result T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
@@ -173,7 +171,7 @@ func (r *GenericRunner[T]) Bind(ctx context.Context, param eval.Param) (result T
 }
 
 // List binds the result of a SELECT query to a list of values of type T.
-// It executes the query with the given context and parameters, then binds the result.
+// It executes the query and binds the result.
 func (r *GenericRunner[T]) List(ctx context.Context, param eval.Param) (result []T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
@@ -184,7 +182,7 @@ func (r *GenericRunner[T]) List(ctx context.Context, param eval.Param) (result [
 }
 
 // List2 binds the result of a SELECT query to a list of pointers to values of type T.
-// It executes the query with the given context and parameters, then binds the result.
+// It executes the query and binds the result.
 func (r *GenericRunner[T]) List2(ctx context.Context, param eval.Param) (result []*T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {

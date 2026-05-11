@@ -19,7 +19,7 @@ package tx
 import "database/sql"
 
 // TransactionOptionFunc is a function to set the transaction options.
-// It is used to set the transaction options for the transaction.
+// It mutates sql.TxOptions before a transaction is opened.
 type TransactionOptionFunc func(options *sql.TxOptions)
 
 // WithIsolationLevel sets the isolation level for the transaction.

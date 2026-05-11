@@ -19,15 +19,15 @@ package sql
 import "errors"
 
 var (
-	// ErrNilDestination is an error that is returned when the destination is nil.
+	// ErrNilDestination is returned when the destination is nil.
 	ErrNilDestination = errors.New("destination can not be nil")
 
-	// ErrNilRows is an error that is returned when the rows is nil.
+	// ErrNilRows is returned when rows is nil.
 	ErrNilRows = errors.New("rows can not be nil")
 
-	// ErrResultMapNotSet is an error that is returned when the result map is not set.
+	// ErrResultMapNotSet is returned when no result map is configured.
 	ErrResultMapNotSet = errors.New("resultMap not set")
 
-	// ErrPointerRequired is an error that is returned when the destination is not a pointer.
+	// ErrPointerRequired is returned when the destination is not a pointer.
 	ErrPointerRequired = errors.New("destination must be a pointer")
 )

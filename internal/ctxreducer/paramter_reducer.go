@@ -27,12 +27,12 @@ type paramWithContextReducer struct {
 	Param eval.Param
 }
 
-// The Reduce method uses an external function CtxWithParam to add the Param to the context.
+// Reduce adds the Param to the context.
 func (r paramWithContextReducer) Reduce(ctx context.Context) context.Context {
 	return eval.CtxWithParam(ctx, r.Param)
 }
 
-// NewParamContextReducer returns a new instance of the paramWithContextReducer.
+// NewParamContextReducer returns a ContextReducer that adds param to the context.
 func NewParamContextReducer(param eval.Param) ContextReducer {
 	return paramWithContextReducer{Param: param}
 }

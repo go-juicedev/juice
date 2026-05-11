@@ -25,27 +25,25 @@ import (
 	"github.com/go-juicedev/juice/sql"
 )
 
-// ErrInvalidExecutor is a custom error type that is used when an invalid executor is found.
+// ErrInvalidExecutor marks an executor that could not be initialized.
 var ErrInvalidExecutor = errors.New("juice: invalid executor")
 
-// Executor is a generic sqlRowsExecutor.
+// Executor executes SQL statements and returns typed query results.
 type Executor[T any] interface {
-	// QueryContext executes the query and returns the direct result.
-	// The args are for any placeholder parameters in the query.
+	// QueryContext executes the query and returns the typed result.
 	QueryContext(ctx context.Context, param eval.Param) (T, error)
 
-	// ExecContext executes a query without returning any rows.
-	// The args are for any placeholder parameters in the query.
+	// ExecContext executes a statement that does not return rows.
 	ExecContext(ctx context.Context, param eval.Param) (sql.Result, error)
 
-	// Statement returns the Statement of the current Executor.
+	// Statement returns the mapped statement for this executor.
 	Statement() Statement
 
 	// Driver returns the driver of the current Executor.
 	Driver() driver.Driver
 }
 
-// invalidExecutor wraps the error who implements the SQLRowsExecutor interface.
+// invalidExecutor stores an initialization error while satisfying SQLRowsExecutor.
 type invalidExecutor struct {
 	_   struct{}
 	err error
@@ -66,21 +64,21 @@ func (b invalidExecutor) Statement() Statement { return nil }
 
 func (b invalidExecutor) Driver() driver.Driver { return nil }
 
-// SQLRowsExecutor defines the interface of the sqlRowsExecutor.
+// SQLRowsExecutor is an Executor specialized for SQL rows.
 type SQLRowsExecutor Executor[sql.Rows]
 
-// inValidExecutor is an invalid sqlRowsExecutor.
+// inValidExecutor creates an executor that always returns err.
 func inValidExecutor(err error) SQLRowsExecutor {
 	err = errors.Join(ErrInvalidExecutor, err)
 	return &invalidExecutor{err: err}
 }
 
-// InValidExecutor returns an invalid sqlRowsExecutor.
+// InValidExecutor returns an executor that always fails.
 func InValidExecutor() SQLRowsExecutor {
 	return inValidExecutor(nil)
 }
 
-// isInvalidExecutor checks if the sqlRowsExecutor is a invalidExecutor.
+// isInvalidExecutor checks whether e is an invalidExecutor.
 func isInvalidExecutor(e SQLRowsExecutor) (*invalidExecutor, bool) {
 	exe, ok := e.(*invalidExecutor)
 	return exe, ok
@@ -89,7 +87,7 @@ func isInvalidExecutor(e SQLRowsExecutor) (*invalidExecutor, bool) {
 // ensure that the defaultExecutor implements the SQLRowsExecutor interface.
 var _ SQLRowsExecutor = (*invalidExecutor)(nil)
 
-// sqlRowsExecutor implements the SQLRowsExecutor interface.
+// sqlRowsExecutor is the default SQLRowsExecutor implementation.
 type sqlRowsExecutor struct {
 	statement        Statement
 	statementHandler StatementHandler
@@ -106,10 +104,10 @@ func (e *sqlRowsExecutor) ExecContext(ctx context.Context, param eval.Param) (sq
 	return e.statementHandler.ExecContext(ctx, e.Statement(), param)
 }
 
-// Statement returns the xmlSQLStatement.
+// Statement returns the mapped statement.
 func (e *sqlRowsExecutor) Statement() Statement { return e.statement }
 
-// Driver returns the driver of the sqlRowsExecutor.
+// Driver returns the executor's driver.
 func (e *sqlRowsExecutor) Driver() driver.Driver { return e.driver }
 
 func NewSQLRowsExecutor(statement Statement, statementHandler StatementHandler, driver driver.Driver) SQLRowsExecutor {
@@ -120,17 +118,17 @@ func NewSQLRowsExecutor(statement Statement, statementHandler StatementHandler, 
 	}
 }
 
-// ensure that the sqlRowsExecutor implements the SQLRowsExecutor interface.
+// Ensure sqlRowsExecutor implements SQLRowsExecutor.
 var _ SQLRowsExecutor = (*sqlRowsExecutor)(nil)
 
-// GenericExecutor is a generic sqlRowsExecutor.
+// GenericExecutor binds SQL rows to a typed result.
 type GenericExecutor[T any] struct {
 	SQLRowsExecutor
 }
 
 // QueryContext executes the query and returns the scanner.
 func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p eval.Param) (result T, err error) {
-	// check the error of the sqlRowsExecutor
+	// Return deferred initialization errors before querying.
 	if exe, ok := isInvalidExecutor(e.SQLRowsExecutor); ok {
 		return result, exe.err
 	}
@@ -157,7 +155,7 @@ func (e *GenericExecutor[T]) QueryContext(ctx context.Context, p eval.Param) (re
 
 // ExecContext executes the query and returns the result.
 func (e *GenericExecutor[_]) ExecContext(ctx context.Context, p eval.Param) (result sql.Result, err error) {
-	// check the error of the sqlRowsExecutor
+	// Return deferred initialization errors before executing.
 	if exe, ok := isInvalidExecutor(e.SQLRowsExecutor); ok {
 		return nil, exe.err
 	}

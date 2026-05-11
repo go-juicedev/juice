@@ -9,20 +9,18 @@ type H = eval.H
 
 // buildStatementParameters builds the statement parameters.
 func buildStatementParameters(param any, statement Statement, driverName string, _ Configuration) eval.Parameter {
-	// Configuration is not used currently, but kept for future extension for more complex parameter building logic
+	// Configuration is reserved for future parameter-building options.
 	parameter := eval.ParamGroup{
 		eval.NewGenericParam(param, statement.Attribute("paramName")),
 
-		// internal parameters for transporting extra information
-		// those parameters may be overwritten by user-defined parameters
+		// Internal parameters for transporting extra statement metadata.
+		// User-defined parameters may override them.
 		eval.H{
 			"_databaseId": driverName,
 		},
-		// this may cause something unexpected,
-		// but I can not figure out.
-
-		// map[string]User{"foo": {Name: "bar"}} => _parameter.foo.name // bar
-		// User{Name: "bar"} => _parameter.name // bar
+		// Compatibility alias for the original parameter.
+		// map[string]User{"foo": {Name: "bar"}} => _parameter.foo.name
+		// User{Name: "bar"} => _parameter.name
 		eval.PrefixPatternParameter("_parameter", param),
 	}
 

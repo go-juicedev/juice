@@ -22,7 +22,7 @@ import (
 )
 
 // stringBuilderPool is a pool of strings.Builder.
-// It is used to reduce the memory allocation.
+// It reduces transient allocations while rendering SQL nodes.
 var stringBuilderPool = sync.Pool{
 	New: func() any {
 		return &strings.Builder{}

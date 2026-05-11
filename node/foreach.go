@@ -91,7 +91,7 @@ func (f ForeachNode) Accept(translator driver.Translator, p eval.Parameter) (que
 		return "", nil, fmt.Errorf("collection %s not found", f.Collection)
 	}
 
-	// if valueItem can not be iterated
+	// Unwrap interfaces before checking whether the value is iterable.
 	if !value.CanInterface() {
 		return "", nil, fmt.Errorf("collection %s can not be iterated", f.Collection)
 	}

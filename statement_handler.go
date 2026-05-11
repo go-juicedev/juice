@@ -100,30 +100,22 @@ func (s *compiledStatementHandler) ExecContext(ctx context.Context, statement St
 	return s.middlewares.ExecContext(statement, s.configuration, s.execHandler)(ctx, s.query, s.args...)
 }
 
-// WithQueryHandler sets the QueryHandler for the compiledStatementHandler.
-// This method is used to configure the handler that will be used to execute
-// the compiled SQL query and return the resulting rows.
-// It returns the same instance to allow for method chaining.
+// WithQueryHandler sets the handler used to execute compiled SELECT queries.
+// It returns the same instance for method chaining.
 func (s *compiledStatementHandler) WithQueryHandler(queryHandler QueryHandler) *compiledStatementHandler {
 	s.queryHandler = queryHandler
 	return s
 }
 
-// WithExecHandler sets the ExecHandler for the compiledStatementHandler.
-// This method is used to configure the handler that will be used to execute
-// the compiled SQL statement that does not return rows (e.g., INSERT, UPDATE, DELETE).
-// It returns the same instance to allow for method chaining.
+// WithExecHandler sets the handler used to execute compiled non-query statements.
+// It returns the same instance for method chaining.
 func (s *compiledStatementHandler) WithExecHandler(execHandler ExecHandler) *compiledStatementHandler {
 	s.execHandler = execHandler
 	return s
 }
 
-// newCompiledStatementHandler creates a new instance of compiledStatementHandler with the provided
-// query, arguments, middlewares, driver, session, and configuration.
-// This is a private constructor function, intended for internal use within the package to
-// create a pre-configured statement handler for executing compiled SQL statements.
-// Optional handlers (QueryHandler, ExecHandler) can be set using the WithQueryHandler and
-// WithExecHandler methods respectively.
+// newCompiledStatementHandler creates a handler for an already rendered SQL statement.
+// Custom query or exec handlers can be attached with WithQueryHandler and WithExecHandler.
 func newCompiledStatementHandler(
 	query string,
 	args []any,
@@ -141,7 +133,7 @@ func newCompiledStatementHandler(
 	return handler
 }
 
-// buildStatementQuery builds the SQL query and its arguments from the given statement and parameters.
+// buildStatementQuery renders the SQL query and arguments for a statement.
 func buildStatementQuery(statement Statement, cfg Configuration, driver driver.Driver, param eval.Param) (string, []any, error) {
 	parameter := buildStatementParameters(param, statement, driver.Name(), cfg)
 	return statement.Build(driver.Translator(), parameter)
@@ -330,18 +322,14 @@ func newQueryBuildStatementHandler(
 
 var errInvalidParamType = errors.New("invalid param type")
 
-// ErrBatchSkip is a sentinel error that indicates batch processing should skip
-// the current error and continue executing subsequent batches. When this error
-// is returned (or wrapped) from middleware or statement execution, the batch
-// handler will collect the error but continue processing remaining batches
-// instead of immediately returning.
+// ErrBatchSkip lets batch execution collect the current error and continue with later batches.
 //
 // Usage:
 //   - Return directly: return ErrBatchSkip
 //   - Wrap with context: return fmt.Errorf("%w: connection timeout", ErrBatchSkip)
 //   - Check with errors.Is(): if errors.Is(err, ErrBatchSkip) { /* handle gracefully */ }
 //
-// The batch handler uses errors.Is() to detect this error and will:
+// Batch handlers detect it with errors.Is() and will:
 //  1. Collect the error using errors.Join()
 //  2. Continue to the next batch instead of stopping
 //  3. Return all collected errors at the end of batch processing

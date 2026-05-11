@@ -147,7 +147,7 @@ func (t *Type) GetFieldIndexesFromTag(tagName, tagValue string) ([]int, bool) {
 }
 
 // TypeFrom returns a new Type wrapper for the given reflect.Type.
-// The indirect type is not yet cached at this point; it will be on the first call to Indirect().
+// The indirect type is cached on the first call to Indirect().
 func TypeFrom(t reflect.Type) *Type {
 	return &Type{Type: t}
 }

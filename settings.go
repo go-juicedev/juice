@@ -21,7 +21,7 @@ import (
 	"strconv"
 )
 
-// StringValue is a string value which can be converted to other types.
+// StringValue is a string that can be converted to common scalar types.
 type StringValue string
 
 // Bool returns true if the value is "true".
@@ -53,7 +53,7 @@ func (s StringValue) Float64() float64 {
 	return value
 }
 
-// Unmarshaler unmarshals the value to given marshaller.
+// Unmarshaler unmarshals the value into marshaller.
 func (s StringValue) Unmarshaler(marshaller encoding.TextUnmarshaler) error {
 	return marshaller.UnmarshalText([]byte(s))
 }

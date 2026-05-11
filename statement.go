@@ -45,7 +45,7 @@ type Statement interface {
 	StatementBuilder
 }
 
-// xmlSQLStatement defines a sql xmlSQLStatement.
+// xmlSQLStatement represents a SQL statement parsed from XML.
 type xmlSQLStatement struct {
 	mapper    *Mapper
 	action    sql.Action
@@ -73,7 +73,7 @@ func (s *xmlSQLStatement) setAttribute(key, value string) {
 	s.attrs[key] = value
 }
 
-// ID returns the unique key of the namespace.
+// ID returns the statement id within its namespace.
 func (s *xmlSQLStatement) ID() string {
 	return s.id
 }
@@ -90,7 +90,7 @@ func (s *xmlSQLStatement) lazyName() string {
 	return builder.String()
 }
 
-// Name is a unique key of the whole xmlSQLStatement.
+// Name returns the fully qualified statement name.
 func (s *xmlSQLStatement) Name() string {
 	if s.name == "" {
 		s.name = s.lazyName()
@@ -98,12 +98,12 @@ func (s *xmlSQLStatement) Name() string {
 	return s.name
 }
 
-// Action returns the action of the xmlSQLStatement.
+// Action returns the SQL action for the statement.
 func (s *xmlSQLStatement) Action() sql.Action {
 	return s.action
 }
 
-// ResultMap returns the ResultMap of the xmlSQLStatement.
+// ResultMap returns the result mapping strategy for the statement.
 func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
 	// Design Decision: ResultMap is intentionally not implemented for XML statements.
 	// Rationale:
@@ -118,7 +118,7 @@ func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
 	return nil, sql.ErrResultMapNotSet
 }
 
-// Build builds the xmlSQLStatement with the given parameter.
+// Build renders the XML statement with the provided parameters.
 func (s *xmlSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
 	parameter = s.bindNodes.ConvertParameter(parameter)
 	query, args, err = s.Nodes.Accept(translator, parameter)
@@ -159,7 +159,7 @@ func (s RawSQLStatement) Name() string {
 	return strconv.FormatUint(s.hash(), 16)
 }
 
-// Attribute returns
+// Attribute returns the statement attribute value for key.
 func (s RawSQLStatement) Attribute(key string) string {
 	if s.attrs == nil {
 		return ""
@@ -179,7 +179,7 @@ func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
 	return nil, sql.ErrResultMapNotSet
 }
 
-// Build builds the RawSQLStatement with the given parameter.
+// Build renders the raw SQL statement with the provided parameters.
 func (s RawSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
 	query, args, err = node.NewTextNode(s.query).Accept(translator, parameter)
 	if err != nil {

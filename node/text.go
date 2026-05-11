@@ -24,8 +24,7 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-// pureTextNode is a node of pure text.
-// It is used to avoid unnecessary parameter replacement.
+// pureTextNode stores static SQL text without parameter replacement.
 type pureTextNode string
 
 func (p pureTextNode) Accept(_ driver.Translator, _ eval.Parameter) (query string, args []any, err error) {
@@ -34,10 +33,7 @@ func (p pureTextNode) Accept(_ driver.Translator, _ eval.Parameter) (query strin
 
 var _ Node = (*pureTextNode)(nil)
 
-// TextNode is a node of text.
-// What is the difference between TextNode and pureTextNode?
-// TextNode is used to replace parameters with placeholders.
-// pureTextNode is used to avoid unnecessary parameter replacement.
+// TextNode stores SQL text that may contain placeholders or text substitutions.
 type TextNode struct {
 	value  string
 	tokens []textToken

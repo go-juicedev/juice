@@ -25,23 +25,23 @@ import (
 )
 
 var (
-	// ErrEmptyQuery is an error that is returned when the query is empty.
+	// ErrEmptyQuery is returned when the rendered query is empty.
 	ErrEmptyQuery = errors.New("empty query")
 
-	// ErrPointerRequired is an error that is returned when the destination is not a pointer.
+	// ErrPointerRequired is returned when the destination is not a pointer.
 	ErrPointerRequired = sql.ErrPointerRequired
 
-	// errSliceOrArrayRequired is an error that is returned when the destination is not a slice or array.
+	// errSliceOrArrayRequired is returned when the destination is not a slice or array.
 	errSliceOrArrayRequired = errors.New("type must be a slice or array")
 
-	// ErrNoStatementFound is an error that is returned when the statement is not found.
+	// ErrNoStatementFound is returned when no mapped statement exists.
 	ErrNoStatementFound = errors.New("no statement found")
 
-	// ErrNoManagerFoundInContext is an error that is returned when the manager is not found in context.
+	// ErrNoManagerFoundInContext is returned when the context has no manager.
 	ErrNoManagerFoundInContext = errors.New("no manager found in context")
 )
 
-// nodeUnclosedError is an error that is returned when the node is not closed.
+// nodeUnclosedError reports an unclosed XML node.
 type nodeUnclosedError struct {
 	nodeName string
 	_        struct{}
@@ -52,7 +52,7 @@ func (e *nodeUnclosedError) Error() string {
 	return fmt.Sprintf("node %s is not closed", e.nodeName)
 }
 
-// nodeAttributeRequiredError is an error that is returned when the node requires an attribute.
+// nodeAttributeRequiredError reports a missing required XML attribute.
 type nodeAttributeRequiredError struct {
 	nodeName string
 	attrName string
@@ -63,7 +63,7 @@ func (e *nodeAttributeRequiredError) Error() string {
 	return fmt.Sprintf("node %s requires attribute %s", e.nodeName, e.attrName)
 }
 
-// nodeAttributeConflictError is an error that is returned when the node has conflicting attributes.
+// nodeAttributeConflictError reports conflicting XML attributes.
 type nodeAttributeConflictError struct {
 	nodeName string
 	attrName string
@@ -74,7 +74,7 @@ func (e *nodeAttributeConflictError) Error() string {
 	return fmt.Sprintf("node %s has conflicting attribute %s", e.nodeName, e.attrName)
 }
 
-// XMLParseError represents an error occurred during XML parsing with detailed context.
+// XMLParseError adds mapper and element context to an XML parsing error.
 type XMLParseError struct {
 	// Namespace is the namespace of the mapper being parsed
 	Namespace string
@@ -109,7 +109,7 @@ func (e *XMLParseError) Unwrap() error {
 	return e.Err
 }
 
-// unreachable is a function that is used to mark unreachable code.
+// unreachable marks code paths that should never execute.
 // nolint:deadcode,unused
 func unreachable() error {
 	panic("unreachable")

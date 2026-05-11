@@ -59,15 +59,11 @@ func (r *BatchResult) AccumulateResult(result sql.Result) {
 }
 
 // LastInsertId returns the insert ID from the last successful batch operation.
-// For batch insert operations, this represents the ID of the last inserted record,
-// which is consistent with the behavior expected by middleware components.
 func (r *BatchResult) LastInsertId() (int64, error) {
 	return r.lastInsertId, nil
 }
 
-// RowsAffected returns the total number of rows affected across all batch operations.
-// This provides an accurate count of the cumulative impact of the entire batch
-// processing, rather than just the count from the final batch.
+// RowsAffected returns the total number of rows affected across all batches.
 func (r *BatchResult) RowsAffected() (int64, error) {
 	return r.totalRowsAffected, nil
 }

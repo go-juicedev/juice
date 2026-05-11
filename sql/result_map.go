@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	// ErrTooManyRows is returned when the result set has too many rows but excepted only one row.
+	// ErrTooManyRows is returned when a single-row mapping receives more than one row.
 	ErrTooManyRows = errors.New("juice: too many rows in result set")
 )
 
@@ -38,11 +38,11 @@ type ResultMap interface {
 	MapTo(rv reflect.Value, row Rows) error
 }
 
-// SingleRowResultMap is a ResultMap that maps a rowDestination to a non-slice type.
+// SingleRowResultMap maps one SQL row to a non-slice destination.
 type SingleRowResultMap struct{}
 
 // MapTo implements ResultMapper interface.
-// It maps the data from the SQL row to the provided reflect.Value.
+// It maps data from a SQL row to the provided reflect.Value.
 // If more than one row is returned from the query, it returns an ErrTooManyRows error.
 func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	// Validate input is a pointer
@@ -94,15 +94,15 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 // resultMapPreserveNilSlice is a flag that indicates whether to preserve nil slices in the result map.
 var resultMapPreserveNilSlice = os.Getenv("JUICE_RESULT_MAP_PRESERVE_NIL_SLICE") == "true"
 
-// MultiRowsResultMap is a ResultMap that maps a rowDestination to a slice type.
+// MultiRowsResultMap maps SQL rows to a slice destination.
 type MultiRowsResultMap struct {
 	New func() reflect.Value
 }
 
 // MapTo implements ResultMapper interface.
-// It maps the data from the SQL rows to the provided reflect.Value.
+// It maps data from SQL rows to the provided reflect.Value.
 // The reflect.Value must be a pointer to a slice.
-// Each row will be mapped to a new element in the slice.
+// Each row is mapped to a new slice element.
 func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	if err := m.validateInput(rv); err != nil {
 		return err
@@ -242,9 +242,9 @@ func (m MultiRowsResultMap) mapWithColumnDestination(rows Rows, isPointer bool) 
 	return values, nil
 }
 
-// ColumnDestination is a column destination which can be used to scan a row.
+// ColumnDestination builds scan destinations for a row.
 type ColumnDestination interface {
-	// Destination returns the destination for the given reflect value and column.
+	// Destination returns scan destinations for the given reflect.Value and columns.
 	Destination(rv reflect.Value, column []string) ([]any, error)
 }
 
@@ -267,13 +267,12 @@ type rowDestination struct {
 	indexes [][]int
 
 	// sink is a discard slot for unmapped columns during scanning.
-	// Its value has no semantic meaning; rows.Scan only needs an addressable target
+	// The value has no semantic meaning; rows.Scan only needs an addressable target
 	// for columns that do not map to any field.
 	sink any
 
 	// dest is a slice of interface{} values used to store pointers to the target struct fields.
-	// Each element in dest is a pointer to a field in the target struct, which is used
-	// by the database/sql package to scan query results directly into the struct fields.
+	// Each element in dest is a pointer used by database/sql to scan directly into a target field.
 	//
 	// - If a column has no corresponding struct field, the element is set to &s.sink (a discard variable).
 	// - If a column maps to a struct field, the element is set to the address of that field.
@@ -288,7 +287,7 @@ type rowDestination struct {
 	dest []any
 }
 
-// Destination returns the destination for the given reflect value and column.
+// Destination returns scan destinations for the given reflect.Value and columns.
 func (s *rowDestination) Destination(rv reflect.Value, columns []string) ([]any, error) {
 	dest, err := s.destination(rv, columns)
 	if err != nil {
@@ -341,7 +340,7 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	return s.dest, nil
 }
 
-// setIndexes sets the indexes for the given reflect value and columns.
+// setIndexes maps result columns to struct field indexes.
 func (s *rowDestination) setIndexes(rv reflect.Value, columns []string) {
 	tp := rv.Type()
 	s.indexes = make([][]int, len(columns))
@@ -356,7 +355,7 @@ func (s *rowDestination) setIndexes(rv reflect.Value, columns []string) {
 	s.findFromStruct(tp, columnIndex, nil)
 }
 
-// findFromStruct finds the index from the given struct type.
+// findFromStruct finds matching field indexes in the struct type.
 func (s *rowDestination) findFromStruct(tp reflect.Type, columnIndex map[string]int, walk []int) {
 
 	// finished is a helper function to check if the indexes completed or not.

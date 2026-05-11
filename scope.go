@@ -33,8 +33,8 @@ var ErrCommitOnSpecific = tx.ErrCommitOnSpecific
 
 // Transaction executes a transaction with the given handler.
 // If the context does not carry an Engine, it will return ErrInvalidManager.
-// If the handler returns an error, the transaction will be rolled back.
-// Otherwise, the transaction will be committed.
+// If the handler returns an error, the transaction is rolled back.
+// Otherwise, the transaction is committed.
 // The ctx must should be created by ContextWithManager.
 // For example:
 //

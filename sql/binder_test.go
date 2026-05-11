@@ -262,7 +262,6 @@ func TestList2_binder_test(t *testing.T) {
 }
 
 func TestIter_binder_test(t *testing.T) {
-	// Test cases will be added here
 	t.Run("IterateOverRows", func(t *testing.T) {
 		rows := &RowsBuffer{
 			ColumnsLine: []string{"id", "name"},

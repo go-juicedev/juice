@@ -26,29 +26,26 @@ import (
 
 // Engine is the implementation of Manager interface and the core of juice.
 type Engine struct {
-	// configuration is the configuration of the engine
-	// It is used to initialize the engine and to one the mapper statements
+	// configuration stores engine configuration and mapped statements.
+	// It initializes the engine and resolves mapper statements.
 	configuration Configuration
 
-	// driver is the driver used by the engine
-	// It is used to initialize the database connection and translate the mapper statements
+	// driver translates statements and opens database connections.
 	driver driver.Driver
 
 	// db is the database connection
 	db *sql.DB
 
-	// current using of environment id
+	// using is the active environment id.
 	using string
 
 	manager *DBManager
 
-	// middlewares is the middlewares of the engine
-	// It is used to intercept the execution of the statements
-	// like logging, tracing, etc.
+	// middlewares intercept statement execution for logging, tracing, routing, and similar concerns.
 	middlewares MiddlewareGroup
 }
 
-// sqlRowsExecutor represents a mapper sqlRowsExecutor with the given parameters
+// executor creates an SQLRowsExecutor for the mapped statement.
 func (e *Engine) executor(v any) (SQLRowsExecutor, error) {
 	statement, err := e.GetConfiguration().GetStatement(v)
 	if err != nil {

@@ -22,15 +22,12 @@ import (
 	_ "unsafe" // for go:linkname
 )
 
-// convertAssign is a linkname to the private convertAssign function in database/sql.
-// It is used to perform high-performance, type-safe assignment of database-driver
-// values to user-defined Go variables, following the same rules as sql.Rows.Scan.
+// convertAssign links to database/sql.convertAssign so RowsBuffer follows sql.Rows.Scan assignment rules.
 //
 //go:linkname convertAssign database/sql.convertAssign
 func convertAssign(dest, src any) error
 
-// RowsBuffer is a memory-based implementation of the Rows interface.
-// It can be used to store query results in memory or for testing purposes.
+// RowsBuffer is an in-memory Rows implementation.
 type RowsBuffer struct {
 	ColumnsLine []string
 	Data        [][]any

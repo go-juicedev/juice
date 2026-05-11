@@ -55,24 +55,23 @@ type ExprCompiler interface {
 // for semantic.
 type Value = reflect.Value
 
-// Expression is an expression which can be evaluated to a value.
+// Expression evaluates to a reflect.Value.
 type Expression interface {
 	// Execute evaluates the expression and returns the value.
 	Execute(params Parameter) (Value, error)
 }
 
-// goExprCompiler is an evaluator of the expression who uses the go/ast package.
+// goExprCompiler compiles expressions using Go's AST parser.
 type goExprCompiler struct{}
 
-// Compile compiles the expression and returns the expression.
+// Compile parses and optimizes an expression.
 func (e *goExprCompiler) Compile(expr string) (Expression, error) {
-	// Create a new lexer and convert logical operators (and, or, not) to Go operators (&&, ||, !)
+	// Convert logical aliases (and, or, not) to Go operators (&&, ||, !).
 	lexer := NewLexer(expr)
-	// Tokenize the expression, replacing operators while preserving other tokens
+	// Tokenize the expression while preserving non-operator tokens.
 	expr = lexer.Tokenize()
 
-	// Parse the processed expression into an AST (Abstract Syntax Tree)
-	// This converts the string expression into a structured format that can be evaluated
+	// Parse the processed expression into an AST that can be evaluated.
 	exp, err := parser.ParseExpr(expr)
 	if err != nil {
 		return nil, &SyntaxError{err}
@@ -92,7 +91,7 @@ func (e *goExprCompiler) Compile(expr string) (Expression, error) {
 	return &goExpression{Expr: optimizedExp}, nil
 }
 
-// goExpression is an expression who uses the go/ast package.
+// goExpression evaluates a parsed Go AST expression.
 type goExpression struct {
 	ast.Expr
 }
@@ -403,27 +402,16 @@ func evalCallExpr(exp *ast.CallExpr, params Parameter) (reflect.Value, error) {
 		return reflect.Value{}, fmt.Errorf("invalid number of return values: expected 2, got %d", fn.Type().NumOut())
 	}
 
-	// call the function
+	// Call the function and unwrap the conventional (value, error) result.
 	rets := fn.Call(args)
-	// unreachable code.
-	// just for nil check
 	if len(rets) != 2 {
 		return reflect.Value{}, errors.New("invalid number of return values")
 	}
-	// check if the function returns an error
 	errRet := rets[1]
 	if !errRet.IsNil() {
-		// the second return value must be an error
-
-		// we need to check if the second return value implements the error interface
-
-		// try to convert the second return value to error
 		if ok := errRet.Type().Implements(errType); ok {
-			// I believe this is always true
 			return reflect.Value{}, errRet.Interface().(error)
 		}
-		// this should never happen, but just in case
-		// should I mark it unreachable?
 		return reflect.Value{}, errors.New("cannot convert return value to error")
 	}
 	return rets[0], nil
@@ -679,13 +667,10 @@ func evalFunc(fn reflect.Value, exp *ast.BinaryExpr, params Parameter) (reflect.
 		return reflect.Value{}, fmt.Errorf("evalFunc: invalid number of return values: expected 2, got %d", len(out))
 	}
 	if !out[1].IsNil() {
-		// the second return value must be an error
-		// we need to check if the second return value implements the error interface
+		// The second return value must implement error.
 		if ok := out[1].Type().Implements(errType); !ok {
-			// this should never happen, but just in case
 			return reflect.Value{}, errors.New("evalFunc: cannot convert return value to error")
 		}
-		// I believe this is always true
 		return reflect.Value{}, out[1].Interface().(error)
 	}
 	return out[0], nil

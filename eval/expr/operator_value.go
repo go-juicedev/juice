@@ -22,8 +22,7 @@ import (
 	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
-// OperatorExpr represents an operator expression.
-// It is an integer type that represents different types of operators.
+// OperatorExpr identifies an operator.
 type OperatorExpr int
 
 const (
@@ -100,8 +99,7 @@ func NewOperationError(left, right reflect.Value, operator string) error {
 	return &OperationError{left: left, right: right, operator: operator}
 }
 
-// Operator defines an interface for operators.
-// It has a single method, Operate, which performs an operation between two values.
+// Operator applies an operation to two values.
 type Operator interface {
 
 	// Operate performs an operation between two values.
@@ -414,8 +412,7 @@ type InvalidTypeOperator struct {
 	OperatorExpr
 }
 
-// Operate method implements the Operator interface for InvalidTypeOperator.
-// It performs the operation represented by the operator on the two values, which are of invalid type.
+// Operate implements Operator for invalid or unsupported values.
 func (o InvalidTypeOperator) Operate(left, right reflect.Value) (result reflect.Value, err error) {
 	if !right.IsValid() || !left.IsValid() {
 		// fixme: find a better way to handle nil values
@@ -446,8 +443,7 @@ type GenericOperator struct {
 	OperatorExpr
 }
 
-// Operate method implements the Operator interface for GenericOperator.
-// It performs the operation represented by the operator on the two values, which can be of any type.
+// Operate selects the concrete operator implementation for the two values.
 func (o GenericOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	var operator Operator
 	if !right.IsValid() || !left.IsValid() {
