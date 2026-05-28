@@ -8,6 +8,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/eval"
 )
 
 func TestXMLParseError_parser_test(t *testing.T) {
@@ -325,5 +328,44 @@ func TestParseMapperByURLLoadsRemoteMapper_parser_test(t *testing.T) {
 	}
 	if mapper.Namespace() != "pkg.RemoteMapper" {
 		t.Fatalf("mapper.Namespace() = %q, want %q", mapper.Namespace(), "pkg.RemoteMapper")
+	}
+}
+
+func TestParseTrimKeepsCharData_parser_test(t *testing.T) {
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	mapper, err := parser.parseMapperByReader(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="pkg.UserMapper">
+	<select id="FindByID">
+		SELECT * FROM users
+		<trim prefix=" WHERE " prefixOverrides="AND ">
+			AND id = #{id}
+		</trim>
+	</select>
+</mapper>`))
+	if err != nil {
+		t.Fatalf("parseMapperByReader() error = %v", err)
+	}
+
+	statement, ok := mapper.GetStatementByID("FindByID")
+	if !ok {
+		t.Fatalf("statement FindByID not found")
+	}
+
+	query, args, err := statement.Build(
+		driver.MySQLDriver{}.Translator(),
+		eval.NewGenericParam(eval.H{"id": 42}, ""),
+	)
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	normalizedQuery := strings.Join(strings.Fields(query), " ")
+	wantQuery := "SELECT * FROM users WHERE id = ?"
+	if normalizedQuery != wantQuery {
+		t.Fatalf("Build() query = %q, want %q", normalizedQuery, wantQuery)
+	}
+	if len(args) != 1 || args[0] != 42 {
+		t.Fatalf("Build() args = %#v, want []any{42}", args)
 	}
 }
