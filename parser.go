@@ -817,6 +817,11 @@ func (p *XMLMappersElementParser) parseTrim(mapper *Mapper, decoder *xml.Decoder
 				return nil, p.wrapParseError(decoder, token, err)
 			}
 			trimNode.Nodes = append(trimNode.Nodes, n)
+		case xml.CharData:
+			text := string(token)
+			if char := strings.TrimSpace(text); char != "" {
+				trimNode.Nodes = append(trimNode.Nodes, node.NewTextNode(char))
+			}
 		case xml.EndElement:
 			if token.Name.Local == "trim" {
 				return trimNode, nil
