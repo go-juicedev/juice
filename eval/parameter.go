@@ -344,7 +344,7 @@ type prefixPatternParameter struct {
 	parameter Parameter
 }
 
-func (p prefixPatternParameter) Get(name string) (value reflect.Value, exists bool) {
+func (p *prefixPatternParameter) Get(name string) (value reflect.Value, exists bool) {
 	// Find the first dot to extract the prefix
 	dotIdx := strings.IndexByte(name, '.')
 
