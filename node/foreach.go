@@ -128,7 +128,9 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 	// Create and reuse foreachParameter outside the loop to avoid allocations per iteration
 	fp := eval.NewForeachParameter(p, f.Item, f.Index)
 
-	var args []any
+	// Pre-size args assuming roughly one placeholder per item (e.g. IN clauses)
+	// to avoid the early reallocations as the slice grows.
+	args := make([]any, 0, sliceLength)
 
 	for i := range sliceLength {
 
@@ -182,7 +184,9 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 
 	iter := value.MapRange()
 
-	var args []any
+	// Pre-size args assuming roughly one placeholder per entry to avoid
+	// the early reallocations as the slice grows.
+	args := make([]any, 0, mapLength)
 
 	for iter.Next() {
 
