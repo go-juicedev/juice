@@ -226,11 +226,6 @@ func (s shStatement) Build(translator jdriver.Translator, parameter eval.Paramet
 	return "SELECT 1", nil, nil
 }
 
-type shNextStatementHandler struct {
-	queryFn func(ctx context.Context, statement Statement, param eval.Param) (jsql.Rows, error)
-	execFn  func(ctx context.Context, statement Statement, param eval.Param) (jsql.Result, error)
-}
-
 type shExecErrorMiddleware struct {
 	err error
 }
@@ -243,14 +238,6 @@ func (m shExecErrorMiddleware) ExecContext(_ *StatementContext, _ ExecHandler) E
 	return func(_ context.Context, _ string, _ ...any) (jsql.Result, error) {
 		return nil, m.err
 	}
-}
-
-func (h shNextStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (jsql.Rows, error) {
-	return h.queryFn(ctx, statement, param)
-}
-
-func (h shNextStatementHandler) ExecContext(ctx context.Context, statement Statement, param eval.Param) (jsql.Result, error) {
-	return h.execFn(ctx, statement, param)
 }
 
 type shObserveMiddleware struct {
