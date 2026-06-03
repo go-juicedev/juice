@@ -259,6 +259,24 @@ func (m shObserveMiddleware) ExecContext(ctx *StatementContext, next ExecHandler
 	return next
 }
 
+type shSwitchSessionMiddleware struct {
+	session func() session.Session
+}
+
+func (m shSwitchSessionMiddleware) QueryContext(statementContext *StatementContext, next QueryHandler) QueryHandler {
+	return func(ctx context.Context, query string, args ...any) (jsql.Rows, error) {
+		statementContext.WithSession(m.session())
+		return next(ctx, query, args...)
+	}
+}
+
+func (m shSwitchSessionMiddleware) ExecContext(statementContext *StatementContext, next ExecHandler) ExecHandler {
+	return func(ctx context.Context, query string, args ...any) (jsql.Result, error) {
+		statementContext.WithSession(m.session())
+		return next(ctx, query, args...)
+	}
+}
+
 func newStatementTestEngine(sess session.Session, middlewares ...Middleware) *Engine {
 	return &Engine{
 		configuration: &xmlConfiguration{settings: keyValueSettingProvider{}},
@@ -434,6 +452,43 @@ func TestCompiledStatementHandler_statement_handler_test(t *testing.T) {
 
 	if state.connQueryCalls == 0 || state.connExecCalls == 0 {
 		t.Fatalf("expected default session handlers to hit db, query=%d exec=%d", state.connQueryCalls, state.connExecCalls)
+	}
+}
+
+func TestExecuteStatementHandlerDefaultHandlerUsesCurrentStatementContext_statement_handler_test(t *testing.T) {
+	firstState := &shSQLDriverState{}
+	firstDB := openStatementTestDB(t, firstState)
+	secondState := &shSQLDriverState{}
+	secondDB := openStatementTestDB(t, secondState)
+
+	activeSession := session.Session(firstDB)
+	engine := newStatementTestEngine(firstDB, shSwitchSessionMiddleware{
+		session: func() session.Session {
+			return activeSession
+		},
+	})
+	handler := newExecuteStatementHandler("SELECT 1", nil, engine, firstDB)
+	stmt := shStatement{}
+
+	rows, err := handler.QueryContext(context.Background(), stmt, nil)
+	if err != nil {
+		t.Fatalf("unexpected first query error: %v", err)
+	}
+	_ = rows.Close()
+
+	activeSession = secondDB
+
+	rows, err = handler.QueryContext(context.Background(), stmt, nil)
+	if err != nil {
+		t.Fatalf("unexpected second query error: %v", err)
+	}
+	_ = rows.Close()
+
+	if firstState.connQueryCalls != 1 {
+		t.Fatalf("expected first session to receive one query, got %d", firstState.connQueryCalls)
+	}
+	if secondState.connQueryCalls != 1 {
+		t.Fatalf("expected second session to receive one query, got %d", secondState.connQueryCalls)
 	}
 }
 

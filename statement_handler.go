@@ -75,13 +75,16 @@ func (s *executeStatementHandler) QueryContext(ctx context.Context, statement St
 		s.session,
 	)
 
-	if s.queryHandler == nil {
-		s.queryHandler = func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
+	queryHandler := s.queryHandler
+	if queryHandler == nil {
+		// Resolve the session lazily at execution time so middleware can switch
+		// StatementContext.Session before the SQL reaches the underlying driver.
+		queryHandler = func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
 			return statementContext.Session().QueryContext(ctx, query, args...)
 		}
 	}
 
-	queryHandler := s.engine.middlewares.QueryContext(statementContext, s.queryHandler)
+	queryHandler = s.engine.middlewares.QueryContext(statementContext, queryHandler)
 
 	return queryHandler(ctx, s.query, s.args...)
 }
@@ -96,13 +99,16 @@ func (s *executeStatementHandler) ExecContext(ctx context.Context, statement Sta
 		s.session,
 	)
 
-	if s.execHandler == nil {
-		s.execHandler = func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	execHandler := s.execHandler
+	if execHandler == nil {
+		// Resolve the session lazily at execution time so middleware can switch
+		// StatementContext.Session before the SQL reaches the underlying driver.
+		execHandler = func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 			return statementContext.Session().ExecContext(ctx, query, args...)
 		}
 	}
 
-	execHandler := s.engine.middlewares.ExecContext(statementContext, s.execHandler)
+	execHandler = s.engine.middlewares.ExecContext(statementContext, execHandler)
 
 	return execHandler(ctx, s.query, s.args...)
 }
