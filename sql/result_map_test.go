@@ -593,3 +593,118 @@ func TestIsImplementsRowScanner_result_map_test(t *testing.T) {
 		t.Errorf("Expected *int to not implement RowScanner")
 	}
 }
+
+// benchEmbedded is embedded to exercise the recursive findFromStruct path.
+type benchEmbedded struct {
+	CreatedAt string `column:"created_at"`
+	UpdatedAt string `column:"updated_at"`
+}
+
+// benchUser is a realistic ~10-column row target with an embedded struct.
+type benchUser struct {
+	ID    int64         `column:"id"`
+	Name  string        `column:"name"`
+	Email string        `column:"email"`
+	Age   sql.NullInt64 `column:"age"`
+	benchEmbedded
+	Status  string  `column:"status"`
+	Score   float64 `column:"score"`
+	Country string  `column:"country"`
+	City    string  `column:"city"`
+}
+
+var benchColumns = []string{
+	"id", "name", "email", "age", "created_at",
+	"updated_at", "status", "score", "country", "city",
+}
+
+// BenchmarkRowDestination isolates the per-query cost of building scan
+// destinations (including setIndexes). A fresh rowDestination per iteration
+// simulates a new query execution.
+func BenchmarkRowDestination(b *testing.B) {
+	rv := reflect.ValueOf(&benchUser{})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		d := &rowDestination{}
+		if _, err := d.Destination(rv, benchColumns); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// benchRow builds one row of data matching benchColumns.
+func benchRow() []any {
+	return []any{
+		int64(1), "alice", "a@example.com", int64(30), "2024-01-01",
+		"2024-02-02", "active", 9.5, "US", "NYC",
+	}
+}
+
+// benchMapTo runs the full MapTo path for the given number of rows, creating a
+// fresh RowsBuffer each iteration to simulate repeated query executions.
+func benchMapTo(b *testing.B, rowCount int) {
+	data := make([][]any, rowCount)
+	for i := range data {
+		data[i] = benchRow()
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rows := &RowsBuffer{ColumnsLine: benchColumns, Data: data}
+		var out []benchUser
+		m := MultiRowsResultMap{}
+		if err := m.MapTo(reflect.ValueOf(&out), rows); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkMapTo_1Row(b *testing.B)    { benchMapTo(b, 1) }
+func BenchmarkMapTo_100Rows(b *testing.B) { benchMapTo(b, 100) }
+
+// TestDestIndexCacheReuse verifies that repeated queries of the same type and
+// columns reuse the cached mapping and still map correctly, and that a
+// different column order produces a correctly different mapping.
+func TestDestIndexCacheReuse(t *testing.T) {
+	cols := []string{"id", "name", "age"}
+
+	// Two independent "queries" of the same shape: second one is a cache hit.
+	for i := 0; i < 2; i++ {
+		rows := &RowsBuffer{ColumnsLine: cols, Data: [][]any{{i + 1, "n", i}}}
+		var u SimpleStruct
+		if err := (SingleRowResultMap{}).MapTo(reflect.ValueOf(&u), rows); err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
+		if u.ID != i+1 || u.Name != "n" || !u.Age.Valid || int(u.Age.Int64) != i {
+			t.Fatalf("iteration %d: wrong mapping: %+v", i, u)
+		}
+	}
+
+	// Different column order must not collide with the cached entry above.
+	reordered := []string{"name", "age", "id"}
+	rows := &RowsBuffer{ColumnsLine: reordered, Data: [][]any{{"alice", 42, 7}}}
+	var u SimpleStruct
+	if err := (SingleRowResultMap{}).MapTo(reflect.ValueOf(&u), rows); err != nil {
+		t.Fatal(err)
+	}
+	if u.ID != 7 || u.Name != "alice" || u.Age.Int64 != 42 {
+		t.Fatalf("reordered columns mapped wrong: %+v", u)
+	}
+}
+
+func TestBuildColumnsKeyUnambiguous(t *testing.T) {
+	// Column sets that would collide under a naive join must produce distinct keys.
+	a := buildColumnsKey([]string{"a", "b\x00c"})
+	b := buildColumnsKey([]string{"a\x00b", "c"})
+	if a == b {
+		t.Fatalf("ambiguous keys collided: %q == %q", a, b)
+	}
+}
+
+func BenchmarkBuildColumnsKey(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = buildColumnsKey(benchColumns)
+	}
+}
