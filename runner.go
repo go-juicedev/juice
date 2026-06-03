@@ -100,12 +100,7 @@ type SQLRunner struct {
 func (r *SQLRunner) BuildExecutor(action sql.Action) Executor[sql.Rows] {
 	driver := r.engine.Driver()
 	statement := NewRawSQLStatement(r.query, action)
-	statementHandler := newQueryBuildStatementHandler(
-		driver,
-		r.session,
-		r.engine.GetConfiguration(),
-		r.engine.middlewares...,
-	)
+	statementHandler := newQueryBuildStatementHandler(r.session, r.engine)
 	return NewSQLRowsExecutor(statement, statementHandler, driver)
 }
 

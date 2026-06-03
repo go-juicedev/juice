@@ -51,7 +51,7 @@ func (e *Engine) executor(v any) (SQLRowsExecutor, error) {
 	if err != nil {
 		return nil, err
 	}
-	statementHandler := newBatchStatementHandler(e.Driver(), e.DB(), e.GetConfiguration(), e.middlewares...)
+	statementHandler := newBatchStatementHandler(e.DB(), e)
 	return NewSQLRowsExecutor(statement, statementHandler, e.Driver()), nil
 }
 
