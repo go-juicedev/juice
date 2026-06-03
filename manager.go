@@ -83,7 +83,7 @@ func (b *basicTxManager) Object(v any) SQLRowsExecutor {
 		return inValidExecutor(err)
 	}
 	drv := b.engine.Driver()
-	statementHandler := newBatchStatementHandler(b.Transaction, b.engine)
+	statementHandler := newBatchStatementHandler(b.engine, b.Transaction)
 	return NewSQLRowsExecutor(statement, statementHandler, drv)
 }
 

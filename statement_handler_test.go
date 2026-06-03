@@ -529,7 +529,7 @@ func TestPreparedStatementHandler_statement_handler_test(t *testing.T) {
 func TestQueryBuildStatementHandler_statement_handler_test(t *testing.T) {
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
-	h := newQueryBuildStatementHandler(db, newStatementTestEngine(db))
+	h := newQueryBuildStatementHandler(newStatementTestEngine(db), db)
 	ctx := context.Background()
 
 	stmt := shStatement{buildFn: func(_ jdriver.Translator, _ eval.Parameter) (string, []any, error) {
@@ -659,7 +659,7 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 		},
 	}
 
-	batchHandler := newBatchStatementHandler(db, engine)
+	batchHandler := newBatchStatementHandler(engine, db)
 
 	rows, err = batchHandler.QueryContext(ctx, stmt, nil)
 	if err != nil {
