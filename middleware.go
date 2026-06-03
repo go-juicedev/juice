@@ -394,10 +394,10 @@ func (m *useGeneratedKeysMiddleware) ExecContext(ctx *StatementContext, next Exe
 	}
 }
 
-// isInTransaction checks if the current context is within a transaction
-func isInTransaction(ctx context.Context) bool {
-	manager, _ := ManagerFromContext(ctx)
-	return IsTxManager(manager)
+// isInTransaction checks whether the active execution session is transactional.
+func isInTransaction(sess session.Session) bool {
+	_, ok := sess.(session.Transaction)
+	return ok
 }
 
 const (
@@ -500,19 +500,19 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx *StatementC
 //
 // During transactions, datasource switching is disabled to maintain connection stability.
 // Outside transactions, it can switch to alternative datasources based on configuration.
-func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(mctx *StatementContext, next QueryHandler) QueryHandler {
-	dataSource := mctx.Statement().Attribute("dataSource")
+func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(statementContext *StatementContext, next QueryHandler) QueryHandler {
+	dataSource := statementContext.Statement().Attribute("dataSource")
 	if dataSource == "" {
-		dataSource = mctx.Engine().GetConfiguration().Settings().Get("selectDataSource").String()
+		dataSource = statementContext.Engine().GetConfiguration().Settings().Get("selectDataSource").String()
 	}
 	if dataSource == "" {
 		return next
 	}
 	return func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
-		if isInTransaction(ctx) {
+		if isInTransaction(statementContext.Session()) {
 			return next(ctx, query, args...)
 		}
-		if err := t.switchDataSource(mctx, dataSource); err != nil {
+		if err := t.switchDataSource(statementContext, dataSource); err != nil {
 			return nil, err
 		}
 		return next(ctx, query, args...)
