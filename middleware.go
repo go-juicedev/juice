@@ -35,30 +35,61 @@ import (
 	"github.com/go-juicedev/juice/sql"
 )
 
-const (
-	// RandomDataSource selects a random datasource from all available sources
-	RandomDataSource = "?"
-	// RandomSecondaryDataSource selects a random datasource excluding the primary source
-	RandomSecondaryDataSource = "?!"
-)
+// StatementContext carries the execution metadata shared by a middleware chain.
+// It keeps statement, parameter, engine, and session access explicit instead of
+// requiring middleware to recover those values from context.Context.
+// It is created by the engine for each statement execution.
+type StatementContext struct {
+	engine  *Engine
+	stmt    Statement
+	ctx     context.Context
+	param   eval.Param
+	session session.Session
+}
 
-// Middleware defines the interface for intercepting and processing SQL statement executions.
-// It implements the interceptor pattern, allowing cross-cutting concerns like logging,
-// timeout management, and connection switching to be handled transparently.
-//
-// A middleware receives the next handler in the chain and returns a new handler. The
-// returned handler may run logic before calling next, after next returns, or instead
-// of calling next.
+// Engine returns the engine that owns the current statement execution.
+func (m *StatementContext) Engine() *Engine { return m.engine }
+
+// Statement returns the mapped statement being executed.
+func (m *StatementContext) Statement() Statement { return m.stmt }
+
+// Context returns the request context passed to the executor.
+func (m *StatementContext) Context() context.Context { return m.ctx }
+
+// Param returns the parameter used to build the mapped statement.
+func (m *StatementContext) Param() eval.Param { return m.param }
+
+// Session returns the session currently used by the execution chain.
+func (m *StatementContext) Session() session.Session { return m.session }
+
+// WithSession replaces the session used by the execution chain.
+func (m *StatementContext) WithSession(session session.Session) { m.session = session }
+
+func newStatementContext(
+	ctx context.Context,
+	engine *Engine,
+	stmt Statement,
+	param eval.Param,
+	session session.Session,
+) *StatementContext {
+	return &StatementContext{
+		engine:  engine,
+		stmt:    stmt,
+		ctx:     ctx,
+		param:   param,
+		session: session,
+	}
+}
+
+// Middleware defines the interface for intercepting and processing SQL executions.
+// A middleware receives the current execution metadata and the next handler in the
+// chain, then returns a handler that may run logic before, after, or instead of next.
 type Middleware interface {
 	// QueryContext intercepts and processes SELECT query executions.
-	// It receives the statement, configuration, and the next handler in the chain.
-	// Must return a QueryHandler that processes the actual query execution.
-	QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler
+	QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler
 
 	// ExecContext intercepts and processes INSERT/UPDATE/DELETE executions.
-	// It receives the statement, configuration, and the next handler in the chain.
-	// Must return an ExecHandler that processes the actual execution.
-	ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler
+	ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler
 }
 
 // ensure MiddlewareGroup implements Middleware.
@@ -88,12 +119,12 @@ type MiddlewareGroup []Middleware
 // in slice order, so the last middleware in the slice is the first one executed
 // at runtime.
 // Returns a QueryHandler that executes the full middleware chain.
-func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
+func (m MiddlewareGroup) QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler {
 	if len(m) == 0 {
 		return next
 	}
 	for _, middleware := range m {
-		next = middleware.QueryContext(stmt, configuration, next)
+		next = middleware.QueryContext(ctx, next)
 	}
 	return next
 }
@@ -103,12 +134,12 @@ func (m MiddlewareGroup) QueryContext(stmt Statement, configuration Configuratio
 // applies wrappers in slice order, so the last middleware in the slice is the
 // first one executed at runtime.
 // Returns an ExecHandler that executes the full middleware chain.
-func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
+func (m MiddlewareGroup) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
 	if len(m) == 0 {
 		return next
 	}
 	for _, middleware := range m {
-		next = middleware.ExecContext(stmt, configuration, next)
+		next = middleware.ExecContext(ctx, next)
 	}
 	return next
 }
@@ -118,12 +149,12 @@ func (m MiddlewareGroup) ExecContext(stmt Statement, configuration Configuration
 type NoopMiddleware struct{}
 
 // QueryContext implements Middleware.
-func (n NoopMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
+func (n NoopMiddleware) QueryContext(_ *StatementContext, next QueryHandler) QueryHandler {
 	return next
 }
 
 // ExecContext implements Middleware.
-func (n NoopMiddleware) ExecContext(_ Statement, _ Configuration, next ExecHandler) ExecHandler {
+func (n NoopMiddleware) ExecContext(_ *StatementContext, next ExecHandler) ExecHandler {
 	return next
 }
 
@@ -153,8 +184,9 @@ func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Dur
 // QueryContext logs SQL SELECT statements with their execution time and parameters.
 // The logging includes statement ID, SQL query, arguments, and execution duration.
 // Logging is controlled by statement attributes or global debug settings.
-func (m *DebugMiddleware) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
-	if !m.isDeBugMode(stmt, configuration) {
+func (m *DebugMiddleware) QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler {
+	stmt := ctx.Statement()
+	if !m.isDeBugMode(stmt, ctx.Engine().GetConfiguration()) {
 		return next
 	}
 	// wrapper QueryHandler
@@ -171,8 +203,9 @@ func (m *DebugMiddleware) QueryContext(stmt Statement, configuration Configurati
 // ExecContext logs SQL INSERT/UPDATE/DELETE statements with their execution time and parameters.
 // The logging includes statement ID, SQL query, arguments, and execution duration.
 // Logging is controlled by statement attributes or global debug settings.
-func (m *DebugMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
-	if !m.isDeBugMode(stmt, configuration) {
+func (m *DebugMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
+	stmt := ctx.Statement()
+	if !m.isDeBugMode(stmt, ctx.Engine().GetConfiguration()) {
 		return next
 	}
 	// wrapper ExecContext
@@ -216,8 +249,8 @@ type TimeoutMiddleware struct{}
 // QueryContext sets a context timeout for SELECT queries to prevent long-running operations.
 // The timeout value is obtained from the statement's "timeout" attribute.
 // If timeout is <= 0, no timeout is applied and the original handler is returned unchanged.
-func (t TimeoutMiddleware) QueryContext(stmt Statement, _ Configuration, next QueryHandler) QueryHandler {
-	timeout := t.getTimeout(stmt)
+func (t TimeoutMiddleware) QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler {
+	timeout := t.getTimeout(ctx.Statement())
 	if timeout <= 0 {
 		return next
 	}
@@ -232,8 +265,8 @@ func (t TimeoutMiddleware) QueryContext(stmt Statement, _ Configuration, next Qu
 // ExecContext sets a context timeout for INSERT/UPDATE/DELETE operations to prevent long-running operations.
 // The timeout value is obtained from the statement's "timeout" attribute.
 // If timeout is <= 0, no timeout is applied and the original handler is returned unchanged.
-func (t TimeoutMiddleware) ExecContext(stmt Statement, _ Configuration, next ExecHandler) ExecHandler {
-	timeout := t.getTimeout(stmt)
+func (t TimeoutMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
+	timeout := t.getTimeout(ctx.Statement())
 	if timeout <= 0 {
 		return next
 	}
@@ -275,18 +308,23 @@ type useGeneratedKeysMiddleware struct {
 // It retrieves the last insert ID from the database result and sets it to the appropriate field
 // in the parameter object. Supports both single record and batch operations with configurable
 // key properties and increment strategies.
-func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration Configuration, next ExecHandler) ExecHandler {
+func (m *useGeneratedKeysMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
+	stmt := ctx.Statement()
+
 	if stmt.Action() != sql.Insert {
 		return next
 	}
 	const _useGeneratedKeys = "useGeneratedKeys"
 	// If the useGeneratedKeys is not set or false, return the result directly.
 	// If the useGeneratedKeys is not set, but the global useGeneratedKeys is set and true.
-	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" || configuration.Settings().Get(_useGeneratedKeys) == "true"
+	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" || ctx.Engine().GetConfiguration().Settings().Get(_useGeneratedKeys) == "true"
 
 	if !useGeneratedKeys {
 		return next
 	}
+
+	param := ctx.Param()
+
 	return func(ctx context.Context, query string, args ...any) (sql.Result, error) {
 		result, err := next(ctx, query, args...)
 		if err != nil {
@@ -305,13 +343,6 @@ func (m *useGeneratedKeysMiddleware) ExecContext(stmt Statement, configuration C
 		// calculate the last insert ID by the number of rows affected.
 		if rowsAffected > 1 {
 			id = id + rowsAffected - 1
-		}
-		// try to get param from context
-		// ParamCtxInjectorExecutor is already set in middlewares, so the param should be in the context.
-		param := eval.ParamFromContext(ctx)
-
-		if param == nil {
-			return nil, errors.New("useGeneratedKeys is true, but the param is nil")
 		}
 
 		// Support parameters wrapped in a single-entry map.
@@ -368,6 +399,13 @@ func isInTransaction(ctx context.Context) bool {
 	manager, _ := ManagerFromContext(ctx)
 	return IsTxManager(manager)
 }
+
+const (
+	// RandomDataSource selects a random datasource from all available sources
+	RandomDataSource = "?"
+	// RandomSecondaryDataSource selects a random datasource excluding the primary source
+	RandomSecondaryDataSource = "?!"
+)
 
 // TxSensitiveDataSourceSwitchMiddleware provides dynamic database routing capabilities
 // while maintaining transaction safety. It supports explicit datasource naming,
@@ -433,33 +471,24 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) chooseDataSourceName(dataSourceN
 	}
 }
 
-// switchDataSource handles the datasource switching logic.
-// It returns the original context if:
-// - The manager is not an Engine
-// - The chosen datasource is already active.
-func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Context, dataSourceName string) (context.Context, error) {
-	manager, _ := ManagerFromContext(ctx)
-	engine, ok := manager.(*Engine)
-	if !ok {
-		// Keep this guard in case future managers support datasource switching differently.
-		logger.Printf("[juice]: failed to switch datasource: %s, the manager is not an Engine", dataSourceName)
-		return ctx, nil
-	}
-
+// switchDataSource updates the middleware session to use the selected datasource.
+// It leaves the session unchanged when the selected datasource is already active.
+func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx *StatementContext, dataSourceName string) error {
+	engine := ctx.Engine()
 	chosenDataSourceName := t.chooseDataSourceName(dataSourceName, engine)
 
 	// No switch is needed when the chosen datasource is already active.
 	if chosenDataSourceName == engine.EnvID() {
-		return ctx, nil
+		return nil
 	}
-
 	newEngine, err := engine.With(chosenDataSourceName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// Inject the selected datasource session into the context.
-	return session.WithContext(ctx, newEngine.DB()), nil
+	// Route the remaining execution chain through the selected datasource session.
+	ctx.WithSession(newEngine.DB())
+	return nil
 }
 
 // QueryContext implements Middleware.
@@ -471,10 +500,10 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx context.Con
 //
 // During transactions, datasource switching is disabled to maintain connection stability.
 // Outside transactions, it can switch to alternative datasources based on configuration.
-func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, configuration Configuration, next QueryHandler) QueryHandler {
-	dataSource := stmt.Attribute("dataSource")
+func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(mctx *StatementContext, next QueryHandler) QueryHandler {
+	dataSource := mctx.Statement().Attribute("dataSource")
 	if dataSource == "" {
-		dataSource = configuration.Settings().Get("selectDataSource").String()
+		dataSource = mctx.Engine().GetConfiguration().Settings().Get("selectDataSource").String()
 	}
 	if dataSource == "" {
 		return next
@@ -483,8 +512,7 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(stmt Statement, con
 		if isInTransaction(ctx) {
 			return next(ctx, query, args...)
 		}
-		ctx, err := t.switchDataSource(ctx, dataSource)
-		if err != nil {
+		if err := t.switchDataSource(mctx, dataSource); err != nil {
 			return nil, err
 		}
 		return next(ctx, query, args...)

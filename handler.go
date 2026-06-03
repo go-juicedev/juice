@@ -21,7 +21,6 @@ package juice
 import (
 	"context"
 
-	"github.com/go-juicedev/juice/session"
 	"github.com/go-juicedev/juice/sql"
 )
 
@@ -52,29 +51,3 @@ type ExecHandler = Handler[sql.Result]
 // Type Parameters:
 //   - T: The custom return type that the handler will produce.
 type GenericQueryHandler[T any] Handler[T]
-
-// SessionQueryHandler is the default QueryHandler.
-// It gets the session from the context and uses it to query the database.
-func SessionQueryHandler(ctx context.Context, query string, args ...any) (sql.Rows, error) {
-	sess, err := session.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return sess.QueryContext(ctx, query, args...)
-}
-
-// ensure SessionQueryHandler implements QueryHandler
-var _ QueryHandler = SessionQueryHandler
-
-// SessionExecHandler is the default ExecHandler.
-// It gets the session from the context and uses it to execute the statement.
-func SessionExecHandler(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	sess, err := session.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return sess.ExecContext(ctx, query, args...)
-}
-
-// ensure SessionExecHandler implements ExecHandler
-var _ ExecHandler = SessionExecHandler

@@ -226,31 +226,46 @@ func (s shStatement) Build(translator jdriver.Translator, parameter eval.Paramet
 	return "SELECT 1", nil, nil
 }
 
-type shNextStatementHandler struct {
-	queryFn func(ctx context.Context, statement Statement, param eval.Param) (jsql.Rows, error)
-	execFn  func(ctx context.Context, statement Statement, param eval.Param) (jsql.Result, error)
-}
-
 type shExecErrorMiddleware struct {
 	err error
 }
 
-func (m shExecErrorMiddleware) QueryContext(_ Statement, _ Configuration, next QueryHandler) QueryHandler {
+func (m shExecErrorMiddleware) QueryContext(_ *StatementContext, next QueryHandler) QueryHandler {
 	return next
 }
 
-func (m shExecErrorMiddleware) ExecContext(_ Statement, _ Configuration, _ ExecHandler) ExecHandler {
+func (m shExecErrorMiddleware) ExecContext(_ *StatementContext, _ ExecHandler) ExecHandler {
 	return func(_ context.Context, _ string, _ ...any) (jsql.Result, error) {
 		return nil, m.err
 	}
 }
 
-func (h shNextStatementHandler) QueryContext(ctx context.Context, statement Statement, param eval.Param) (jsql.Rows, error) {
-	return h.queryFn(ctx, statement, param)
+type shObserveMiddleware struct {
+	queryFn func(*StatementContext)
+	execFn  func(*StatementContext)
 }
 
-func (h shNextStatementHandler) ExecContext(ctx context.Context, statement Statement, param eval.Param) (jsql.Result, error) {
-	return h.execFn(ctx, statement, param)
+func (m shObserveMiddleware) QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler {
+	if m.queryFn != nil {
+		m.queryFn(ctx)
+	}
+	return next
+}
+
+func (m shObserveMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
+	if m.execFn != nil {
+		m.execFn(ctx)
+	}
+	return next
+}
+
+func newStatementTestEngine(sess session.Session, middlewares ...Middleware) *Engine {
+	return &Engine{
+		configuration: &xmlConfiguration{settings: keyValueSettingProvider{}},
+		driver:        &jdriver.SQLiteDriver{},
+		db:            nil,
+		middlewares:   middlewares,
+	}
 }
 
 func TestBuildStatementQuery_statement_handler_test(t *testing.T) {
@@ -299,36 +314,50 @@ func TestBuildStatementQuery_statement_handler_test(t *testing.T) {
 	}
 }
 
-func TestContextStatementHandler_statement_handler_test(t *testing.T) {
+func TestExecuteStatementHandler_statement_handler_test(t *testing.T) {
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
 	param := H{"id": 1}
 	stmt := shStatement{}
 
-	next := shNextStatementHandler{
-		queryFn: func(ctx context.Context, _ Statement, gotParam eval.Param) (jsql.Rows, error) {
-			sess, err := session.FromContext(ctx)
-			if err != nil || sess != db {
-				t.Fatalf("expected db in session context, err=%v", err)
-			}
-			if !reflect.DeepEqual(eval.ParamFromContext(ctx), gotParam) {
-				t.Fatalf("expected param in context")
-			}
-			return jsql.NewRowsBuffer([]string{"value"}, [][]any{}), nil
-		},
-		execFn: func(ctx context.Context, _ Statement, gotParam eval.Param) (jsql.Result, error) {
-			sess, err := session.FromContext(ctx)
-			if err != nil || sess != db {
-				t.Fatalf("expected db in session context, err=%v", err)
-			}
-			if !reflect.DeepEqual(eval.ParamFromContext(ctx), gotParam) {
-				t.Fatalf("expected param in context")
-			}
-			return sqldriver.RowsAffected(1), nil
+	engine := newStatementTestEngine(db)
+	var querySeen, execSeen bool
+	engine.middlewares = MiddlewareGroup{
+		shObserveMiddleware{
+			queryFn: func(ctx *StatementContext) {
+				querySeen = true
+				if ctx.Engine() != engine {
+					t.Fatalf("expected engine in middleware context")
+				}
+				if ctx.Statement().Name() != stmt.Name() {
+					t.Fatalf("expected statement in middleware context")
+				}
+				if !reflect.DeepEqual(ctx.Param(), param) {
+					t.Fatalf("expected param in middleware context")
+				}
+				if ctx.session != db {
+					t.Fatalf("expected bound session in middleware context")
+				}
+			},
+			execFn: func(ctx *StatementContext) {
+				execSeen = true
+				if ctx.Engine() != engine {
+					t.Fatalf("expected engine in middleware context")
+				}
+				if ctx.Statement().Name() != stmt.Name() {
+					t.Fatalf("expected statement in middleware context")
+				}
+				if !reflect.DeepEqual(ctx.Param(), param) {
+					t.Fatalf("expected param in middleware context")
+				}
+				if ctx.session != db {
+					t.Fatalf("expected bound session in middleware context")
+				}
+			},
 		},
 	}
 
-	h := newContextStatementHandler(db, next)
+	h := newExecuteStatementHandler("SELECT 1", nil, engine, db)
 
 	rows, err := h.QueryContext(context.Background(), stmt, param)
 	if err != nil {
@@ -344,14 +373,18 @@ func TestContextStatementHandler_statement_handler_test(t *testing.T) {
 	if err != nil || rowsAffected != 1 {
 		t.Fatalf("unexpected rows affected: %d, err=%v", rowsAffected, err)
 	}
+	if !querySeen || !execSeen {
+		t.Fatalf("expected middleware to observe both query and exec contexts")
+	}
 }
 
 func TestCompiledStatementHandler_statement_handler_test(t *testing.T) {
 	stmt := shStatement{}
-	h := newCompiledStatementHandler("SELECT ?", []any{1}, nil, &jdriver.SQLiteDriver{}, nil)
+	engine := newStatementTestEngine(nil)
+	h := newExecuteStatementHandler("SELECT ?", []any{1}, engine, nil)
 
 	qCalled := false
-	_, err := h.WithQueryHandler(func(_ context.Context, query string, args ...any) (jsql.Rows, error) {
+	_, err := h.withQueryHandler(func(_ context.Context, query string, args ...any) (jsql.Rows, error) {
 		qCalled = true
 		if query != "SELECT ?" || len(args) != 1 || args[0] != 1 {
 			t.Fatalf("unexpected query call: %s %#v", query, args)
@@ -366,7 +399,7 @@ func TestCompiledStatementHandler_statement_handler_test(t *testing.T) {
 	}
 
 	eCalled := false
-	result, err := h.WithExecHandler(func(_ context.Context, query string, args ...any) (jsql.Result, error) {
+	result, err := h.withExecHandler(func(_ context.Context, query string, args ...any) (jsql.Result, error) {
 		eCalled = true
 		if query != "SELECT ?" || len(args) != 1 || args[0] != 1 {
 			t.Fatalf("unexpected exec call: %s %#v", query, args)
@@ -386,10 +419,8 @@ func TestCompiledStatementHandler_statement_handler_test(t *testing.T) {
 
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
-	ctx := session.WithContext(context.Background(), db)
-
-	defaultHandler := newCompiledStatementHandler("SELECT 1", nil, nil, &jdriver.SQLiteDriver{}, nil)
-	rows, err := defaultHandler.QueryContext(ctx, stmt, nil)
+	defaultHandler := newExecuteStatementHandler("SELECT 1", nil, newStatementTestEngine(db), db)
+	rows, err := defaultHandler.QueryContext(context.Background(), stmt, nil)
 	if err != nil {
 		t.Fatalf("unexpected default query error: %v", err)
 	}
@@ -397,7 +428,7 @@ func TestCompiledStatementHandler_statement_handler_test(t *testing.T) {
 		_ = rows.Close()
 	}
 
-	if _, err = defaultHandler.ExecContext(ctx, stmt, nil); err != nil {
+	if _, err = defaultHandler.ExecContext(context.Background(), stmt, nil); err != nil {
 		t.Fatalf("unexpected default exec error: %v", err)
 	}
 
@@ -409,9 +440,10 @@ func TestCompiledStatementHandler_statement_handler_test(t *testing.T) {
 func TestPreparedStatementHandler_statement_handler_test(t *testing.T) {
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
-	h := newPreparedStatementHandler(nil, &jdriver.SQLiteDriver{}, nil, db)
+	engine := newStatementTestEngine(db)
+	h := newPreparedStatementHandler(db, engine)
 	ctx := context.Background()
-	if err := newPreparedStatementHandler(nil, &jdriver.SQLiteDriver{}, nil, db).Close(); err != nil {
+	if err := newPreparedStatementHandler(db, engine).Close(); err != nil {
 		t.Fatalf("unexpected empty close error: %v", err)
 	}
 
@@ -484,7 +516,7 @@ func TestPreparedStatementHandler_statement_handler_test(t *testing.T) {
 func TestQueryBuildStatementHandler_statement_handler_test(t *testing.T) {
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
-	h := newQueryBuildStatementHandler(&jdriver.SQLiteDriver{}, db, nil)
+	h := newQueryBuildStatementHandler(newStatementTestEngine(db), db)
 	ctx := context.Background()
 
 	stmt := shStatement{buildFn: func(_ jdriver.Translator, _ eval.Parameter) (string, []any, error) {
@@ -524,12 +556,13 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
 	ctx := context.Background()
+	engine := newStatementTestEngine(db)
 
 	stmt := shStatement{buildFn: func(_ jdriver.Translator, _ eval.Parameter) (string, []any, error) {
 		return "INSERT INTO t(v) VALUES (?)", []any{1}, nil
 	}}
 
-	sliceHandler := newSliceBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, db, nil, reflect.ValueOf([]int{1}), 10)
+	sliceHandler := newSliceBatchStatementHandler(engine, db, reflect.ValueOf([]int{1}), 10)
 	rows, err := sliceHandler.QueryContext(ctx, stmt, []int{1})
 	if err != nil {
 		t.Fatalf("unexpected slice query error: %v", err)
@@ -547,7 +580,7 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 	}
 
 	multiSlice := []int{1, 2, 3}
-	multiSliceHandler := newSliceBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, db, nil, reflect.ValueOf(multiSlice), 2)
+	multiSliceHandler := newSliceBatchStatementHandler(engine, db, reflect.ValueOf(multiSlice), 2)
 	result, err := multiSliceHandler.ExecContext(ctx, stmt, multiSlice)
 	if err != nil {
 		t.Fatalf("unexpected multi-slice ExecContext error: %v", err)
@@ -557,12 +590,12 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 		t.Fatalf("expected multi-slice rows affected 4, got %d err=%v", rowsAffected, err)
 	}
 
-	emptySliceHandler := newSliceBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, db, nil, reflect.ValueOf([]int{}), 10)
+	emptySliceHandler := newSliceBatchStatementHandler(engine, db, reflect.ValueOf([]int{}), 10)
 	if _, err = emptySliceHandler.ExecContext(ctx, stmt, []int{}); err == nil || !strings.Contains(err.Error(), "empty slice") {
 		t.Fatalf("expected empty slice error, got %v", err)
 	}
 
-	mapHandler := newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, nil, db, reflect.ValueOf(map[string][]int{"ids": {1}}), 10)
+	mapHandler := newMapBatchStatementHandler(engine, db, reflect.ValueOf(map[string][]int{"ids": {1}}), 10)
 	rows, err = mapHandler.QueryContext(ctx, stmt, map[string][]int{"ids": {1}})
 	if err != nil {
 		t.Fatalf("unexpected map query error: %v", err)
@@ -580,7 +613,7 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 	}
 
 	multiMap := map[string][]int{"ids": {1, 2, 3}}
-	multiMapHandler := newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, nil, db, reflect.ValueOf(multiMap), 2)
+	multiMapHandler := newMapBatchStatementHandler(engine, db, reflect.ValueOf(multiMap), 2)
 	result, err = multiMapHandler.ExecContext(ctx, stmt, multiMap)
 	if err != nil {
 		t.Fatalf("unexpected multi-map ExecContext error: %v", err)
@@ -590,19 +623,19 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 		t.Fatalf("expected multi-map rows affected 4, got %d err=%v", rowsAffected, err)
 	}
 
-	if _, err = newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, nil, db, reflect.ValueOf(map[string][]int{"a": {1}, "b": {2}}), 10).ExecContext(ctx, stmt, nil); err == nil {
+	if _, err = newMapBatchStatementHandler(engine, db, reflect.ValueOf(map[string][]int{"a": {1}, "b": {2}}), 10).ExecContext(ctx, stmt, nil); err == nil {
 		t.Fatalf("expected map key count error")
 	}
 
-	if _, err = newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, nil, db, reflect.ValueOf(map[int][]int{1: {1}}), 10).ExecContext(ctx, stmt, nil); err == nil {
+	if _, err = newMapBatchStatementHandler(engine, db, reflect.ValueOf(map[int][]int{1: {1}}), 10).ExecContext(ctx, stmt, nil); err == nil {
 		t.Fatalf("expected map key type error")
 	}
 
-	if _, err = newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, nil, db, reflect.ValueOf(map[string]int{"ids": 1}), 10).ExecContext(ctx, stmt, nil); err == nil {
+	if _, err = newMapBatchStatementHandler(engine, db, reflect.ValueOf(map[string]int{"ids": 1}), 10).ExecContext(ctx, stmt, nil); err == nil {
 		t.Fatalf("expected map value type error")
 	}
 
-	if _, err = newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, nil, nil, db, reflect.ValueOf(map[string][]int{"ids": {}}), 10).ExecContext(ctx, stmt, nil); err == nil {
+	if _, err = newMapBatchStatementHandler(engine, db, reflect.ValueOf(map[string][]int{"ids": {}}), 10).ExecContext(ctx, stmt, nil); err == nil {
 		t.Fatalf("expected empty map slice error")
 	}
 
@@ -613,7 +646,7 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 		},
 	}
 
-	batchHandler := newBatchStatementHandler(&jdriver.SQLiteDriver{}, db, nil)
+	batchHandler := newBatchStatementHandler(engine, db)
 
 	rows, err = batchHandler.QueryContext(ctx, stmt, nil)
 	if err != nil {
@@ -652,23 +685,23 @@ func TestSliceMapAndBatchStatementHandlers_statement_handler_test(t *testing.T) 
 	}
 
 	skipErr := fmt.Errorf("skip this batch: %w", ErrBatchSkip)
-	skipSliceHandler := newSliceBatchStatementHandler(&jdriver.SQLiteDriver{}, MiddlewareGroup{shExecErrorMiddleware{err: skipErr}}, db, nil, reflect.ValueOf(multiSlice), 2)
+	skipSliceHandler := newSliceBatchStatementHandler(newStatementTestEngine(db, shExecErrorMiddleware{err: skipErr}), db, reflect.ValueOf(multiSlice), 2)
 	if _, err = skipSliceHandler.ExecContext(ctx, stmt, multiSlice); err == nil || !errors.Is(err, ErrBatchSkip) {
 		t.Fatalf("expected ErrBatchSkip from slice batch, got %v", err)
 	}
 
-	skipMapHandler := newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, MiddlewareGroup{shExecErrorMiddleware{err: skipErr}}, nil, db, reflect.ValueOf(multiMap), 2)
+	skipMapHandler := newMapBatchStatementHandler(newStatementTestEngine(db, shExecErrorMiddleware{err: skipErr}), db, reflect.ValueOf(multiMap), 2)
 	if _, err = skipMapHandler.ExecContext(ctx, stmt, multiMap); err == nil || !errors.Is(err, ErrBatchSkip) {
 		t.Fatalf("expected ErrBatchSkip from map batch, got %v", err)
 	}
 
 	nonSkipErr := errors.New("hard failure")
-	nonSkipSliceHandler := newSliceBatchStatementHandler(&jdriver.SQLiteDriver{}, MiddlewareGroup{shExecErrorMiddleware{err: nonSkipErr}}, db, nil, reflect.ValueOf(multiSlice), 2)
+	nonSkipSliceHandler := newSliceBatchStatementHandler(newStatementTestEngine(db, shExecErrorMiddleware{err: nonSkipErr}), db, reflect.ValueOf(multiSlice), 2)
 	if _, err = nonSkipSliceHandler.ExecContext(ctx, stmt, multiSlice); !errors.Is(err, nonSkipErr) {
 		t.Fatalf("expected non-skip error from slice batch, got %v", err)
 	}
 
-	nonSkipMapHandler := newMapBatchStatementHandler(&jdriver.SQLiteDriver{}, MiddlewareGroup{shExecErrorMiddleware{err: nonSkipErr}}, nil, db, reflect.ValueOf(multiMap), 2)
+	nonSkipMapHandler := newMapBatchStatementHandler(newStatementTestEngine(db, shExecErrorMiddleware{err: nonSkipErr}), db, reflect.ValueOf(multiMap), 2)
 	if _, err = nonSkipMapHandler.ExecContext(ctx, stmt, multiMap); !errors.Is(err, nonSkipErr) {
 		t.Fatalf("expected non-skip error from map batch, got %v", err)
 	}
