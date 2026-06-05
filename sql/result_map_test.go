@@ -67,12 +67,12 @@ type RowScannerStruct struct {
 	scanned bool
 }
 
-// ScanRows implements the RowScanner interface
-func (rs *RowScannerStruct) ScanRows(rows Rows) error {
+// ScanRow implements the RowScanner interface.
+func (rs *RowScannerStruct) ScanRow(row Row) error {
 	rs.scanned = true
 	// A simplified scan, assuming order or specific columns
-	// In a real scenario, you might inspect rows.ColumnsLine()
-	return rows.Scan(&rs.ID, &rs.Content)
+	// In a real scenario, you might inspect row.Columns()
+	return row.Scan(&rs.ID, &rs.Content)
 }
 
 // --- Test Cases ---
@@ -100,6 +100,23 @@ func TestSingleRowResultMap_MapTo_Success_result_map_test(t *testing.T) {
 	}
 	if !result.Age.Valid || result.Age.Int64 != 30 {
 		t.Errorf("Expected Age to be 30, got %v", result.Age)
+	}
+}
+
+func TestSingleRowResultMap_MapTo_RowScanner_result_map_test(t *testing.T) {
+	mapper := SingleRowResultMap{}
+	rows := &RowsBuffer{
+		ColumnsLine: []string{"col_id", "col_content"},
+		Data:        [][]any{{10, "Data1"}},
+	}
+	var result RowScannerStruct
+
+	err := mapper.MapTo(reflect.ValueOf(&result), rows)
+	if err != nil {
+		t.Fatalf("MapTo with RowScanner failed: %v", err)
+	}
+	if !result.scanned || result.ID != 10 || result.Content != "Data1" {
+		t.Errorf("Unexpected result with RowScanner: %+v", result)
 	}
 }
 

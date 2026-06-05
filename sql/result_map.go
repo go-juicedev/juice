@@ -61,6 +61,19 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 		return sql.ErrNoRows
 	}
 
+	if rowScanner, ok := rv.Interface().(RowScanner); ok {
+		if err := rowScanner.ScanRow(rows); err != nil {
+			return fmt.Errorf("failed to scan row using RowScanner: %w", err)
+		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("error occurred during row scanning: %w", err)
+		}
+		if rows.Next() {
+			return ErrTooManyRows
+		}
+		return nil
+	}
+
 	// Get column information
 	columns, err := rows.Columns()
 	if err != nil {
@@ -158,7 +171,18 @@ func (m MultiRowsResultMap) validateInput(rv reflect.Value) error {
 	return nil
 }
 
-// resolveTypes returns the element type, whether it's a pointer, and the actual type
+// resolveTypes returns whether the slice element is a pointer and whether each
+// element should be mapped through RowScanner.
+//
+// RowScanner is checked on the pointer form of the element type because custom
+// scanners usually mutate the receiver, so implementations are normally declared
+// with a pointer receiver, for example:
+//
+//	func (u *User) ScanRow(row Row) error
+//
+// MultiRowsResultMap also creates new elements with reflect.New, which returns a
+// pointer value. Checking *T for a []T target lets []T and []*T both use the same
+// RowScanner implementation on *T.
 func (m MultiRowsResultMap) resolveTypes(elementType reflect.Type) (bool, bool) {
 	isPointer := elementType.Kind() == reflect.Pointer
 	pointerType := elementType
@@ -187,7 +211,7 @@ func (m MultiRowsResultMap) mapWithRowScanner(rows Rows, isPointer bool) ([]refl
 		newValue := m.New()
 
 		rowScanner, _ := reflect.TypeAssert[RowScanner](newValue)
-		if err := rowScanner.ScanRows(rows); err != nil {
+		if err := rowScanner.ScanRow(rows); err != nil {
 			return nil, fmt.Errorf("failed to scan row using RowScanner: %w", err)
 		}
 

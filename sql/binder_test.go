@@ -67,6 +67,20 @@ func TestBind_binder_test(t *testing.T) {
 		}
 	})
 
+	t.Run("RowScannerStruct", func(t *testing.T) {
+		rows := &RowsBuffer{
+			ColumnsLine: []string{"col_id", "col_content"},
+			Data:        [][]any{{10, "Data1"}},
+		}
+		result, err := Bind[RowScannerStruct](rows)
+		if err != nil {
+			t.Fatalf("Bind failed for RowScannerStruct: %v", err)
+		}
+		if !result.scanned || result.ID != 10 || result.Content != "Data1" {
+			t.Errorf("Expected RowScannerStruct to be scanned, got %+v", result)
+		}
+	})
+
 	// Test binding to a slice of pointers to structs
 	t.Run("SliceOfPointerToStructs", func(t *testing.T) {
 		rows := &RowsBuffer{
