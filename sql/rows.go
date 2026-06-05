@@ -21,20 +21,11 @@ import (
 	_ "unsafe" // for go:linkname
 )
 
-// Rows represents a query result. Its cursor starts before the first row
-// of the result set. Use Next to advance from row to row.
-type Rows interface {
-	// Next prepares the next result row for reading with the Scan method. It
-	// returns true on success, or false if there is no next result row or an error
-	// happened while preparing it. Err should be consulted to distinguish between
-	// the two cases.
-	//
-	// Every call to Scan, even the first one, must be preceded by a call to Next.
-	Next() bool
-
+// Row represents the current row in a query result.
+type Row interface {
 	// Scan copies the columns in the current row into the values pointed at by dest.
 	// The number of values in dest must be the same as the number of columns
-	// in Rows.
+	// in Row.
 	//
 	// Scan converts columns read from the database into the following common
 	// Go types and nil if the column value is NULL:
@@ -57,6 +48,23 @@ type Rows interface {
 	// If an error occurs during conversion, Scan returns the error.
 	Scan(dest ...any) error
 
+	// Columns returns the column names, or an error if the rows are closed.
+	Columns() ([]string, error)
+}
+
+// Rows represents a query result. Its cursor starts before the first row
+// of the result set. Use Next to advance from row to row.
+type Rows interface {
+	Row
+
+	// Next prepares the next result row for reading with the Scan method. It
+	// returns true on success, or false if there is no next result row or an error
+	// happened while preparing it. Err should be consulted to distinguish between
+	// the two cases.
+	//
+	// Every call to Scan, even the first one, must be preceded by a call to Next.
+	Next() bool
+
 	// Close closes the Rows, preventing further enumeration. If Next returns
 	// false and there are no further result sets, Rows closes automatically;
 	// callers only need to check Err. Close is
@@ -66,10 +74,10 @@ type Rows interface {
 	// Err returns the error, if any, that was encountered during iteration.
 	// Err may be called after an explicit or implicit Close.
 	Err() error
-
-	// Columns returns the column names, or an error if the rows are closed.
-	Columns() ([]string, error)
 }
+
+// Ensure *sql.Rows implements Row.
+var _ Row = (*sql.Rows)(nil)
 
 // Ensure *sql.Rows implements Rows.
 var _ Rows = (*sql.Rows)(nil)

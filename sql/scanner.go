@@ -21,13 +21,14 @@ import (
 	"sync"
 )
 
-// RowScanner is an interface that provides a custom mechanism for mapping database rows
-// to Go structures. It serves as an extension point in the data binding system,
-// allowing implementers to override the default reflection-based mapping behavior.
+// RowScanner provides a custom mechanism for mapping the current database row
+// to a Go value. It serves as an extension point in the data binding system,
+// allowing implementers to override the default reflection-based row mapping behavior.
 //
 // When a type implements this interface, the binding system will detect it during
-// the mapping process and delegate the row scanning responsibility to the implementation.
-// This gives complete control over how database values are mapped to the target structure.
+// the mapping process and delegate the current row scanning responsibility to the
+// implementation. ScanRow is called only after Rows.Next has successfully advanced
+// the cursor, so implementations should call Row.Scan directly.
 //
 // Use cases:
 // - Custom mapping logic for complex database schemas or legacy systems
@@ -38,14 +39,14 @@ import (
 //
 // Example implementation:
 //
-//	func (u *User) ScanRows(rows *sql.Rows) error {
-//	    return rows.Scan(&u.ID, &u.Name, &u.Email)
+//	func (u *User) ScanRow(row Row) error {
+//	    return row.Scan(&u.ID, &u.Name, &u.Email)
 //	}
 //
 // The implementation must ensure proper handling of NULL values and return
 // appropriate errors if the scanning process fails.
 type RowScanner interface {
-	ScanRows(rows Rows) error
+	ScanRow(row Row) error
 }
 
 // rowScannerType is the type of the RowScanner interface

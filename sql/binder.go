@@ -39,10 +39,6 @@ func bindWithResultMap(rows Rows, v any, resultMap ResultMap) error {
 	if rows == nil {
 		return ErrNilRows
 	}
-	// Use custom row scanning when the destination provides it.
-	if rowScanner, ok := v.(RowScanner); ok {
-		return rowScanner.ScanRows(rows)
-	}
 	rv := reflect.ValueOf(v)
 
 	if rv.Kind() != reflect.Pointer {
