@@ -198,7 +198,7 @@ func TestSingleRowResultMap_MapTo_UnexportedTaggedField_result_map_test(t *testi
 		ColumnsLine: []string{"id"},
 		Data:        [][]any{{1}},
 	}
-	var result unexportedTaggedStruct
+	result := unexportedTaggedStruct{id: -1}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -212,6 +212,9 @@ func TestSingleRowResultMap_MapTo_UnexportedTaggedField_result_map_test(t *testi
 	}
 	if !strings.Contains(err.Error(), `column "id" maps to an unexported or unsettable field`) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.id != -1 {
+		t.Fatalf("unexported field should not be set, got %d", result.id)
 	}
 }
 
