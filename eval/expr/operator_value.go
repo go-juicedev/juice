@@ -17,6 +17,7 @@ limitations under the License.
 package expr
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/go-juicedev/juice/internal/reflectlite"
@@ -87,6 +88,9 @@ type OperationError struct {
 	left, right reflect.Value
 	operator    string
 }
+
+// ErrDivisionByZero is returned when a division or remainder operation uses zero as the divisor.
+var ErrDivisionByZero = errors.New("division by zero")
 
 // Error method implements the error interface. It returns a string describing the error.
 func (c OperationError) Error() string {
@@ -185,8 +189,14 @@ func (o IntOperator) Operate(left, right reflect.Value) (reflect.Value, error) {
 	case Mul:
 		return reflect.ValueOf(left.Int() * right.Int()), nil
 	case Quo:
+		if right.Int() == 0 {
+			return invalidValue, ErrDivisionByZero
+		}
 		return reflect.ValueOf(left.Int() / right.Int()), nil
 	case Rem:
+		if right.Int() == 0 {
+			return invalidValue, ErrDivisionByZero
+		}
 		return reflect.ValueOf(left.Int() % right.Int()), nil
 	case And:
 		return reflect.ValueOf(left.Int() & right.Int()), nil
@@ -234,8 +244,14 @@ func (o UintOperator) Operate(left, right reflect.Value) (reflect.Value, error) 
 	case Mul:
 		return reflect.ValueOf(left.Uint() * right.Uint()), nil
 	case Quo:
+		if right.Uint() == 0 {
+			return invalidValue, ErrDivisionByZero
+		}
 		return reflect.ValueOf(left.Uint() / right.Uint()), nil
 	case Rem:
+		if right.Uint() == 0 {
+			return invalidValue, ErrDivisionByZero
+		}
 		return reflect.ValueOf(left.Uint() % right.Uint()), nil
 	case And:
 		return reflect.ValueOf(left.Uint() & right.Uint()), nil
@@ -283,8 +299,14 @@ func (o FloatOperator) Operate(left, right reflect.Value) (reflect.Value, error)
 	case Mul:
 		return reflect.ValueOf(left.Float() * right.Float()), nil
 	case Quo:
+		if right.Float() == 0 {
+			return invalidValue, ErrDivisionByZero
+		}
 		return reflect.ValueOf(left.Float() / right.Float()), nil
 	case Rem:
+		if right.Float() == 0 {
+			return invalidValue, ErrDivisionByZero
+		}
 		return reflect.ValueOf(float64(int64(left.Float()) % int64(right.Float()))), nil
 	case And:
 		return reflect.ValueOf(float64(int64(left.Float()) & int64(right.Float()))), nil
