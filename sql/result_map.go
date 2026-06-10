@@ -365,7 +365,11 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 		if len(indexes) == 0 {
 			s.dest[i] = &s.sink
 		} else {
-			s.dest[i] = rv.FieldByIndex(indexes).Addr().Interface()
+			field := rv.FieldByIndex(indexes)
+			if !field.CanAddr() || !field.CanSet() {
+				return nil, fmt.Errorf("column %q maps to an unexported or unsettable field", columns[i])
+			}
+			s.dest[i] = field.Addr().Interface()
 		}
 	}
 	return s.dest, nil
