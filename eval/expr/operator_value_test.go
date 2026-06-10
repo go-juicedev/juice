@@ -1,6 +1,7 @@
 package expr_test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -264,6 +265,7 @@ func TestNilNe_operator_value_test(t *testing.T) {
 		t.Errorf("Expected true, got %v", result.Bool())
 	}
 }
+
 // ---------------------------------------------------------------------------
 // UintOperator: all branches
 // ---------------------------------------------------------------------------
@@ -306,6 +308,79 @@ func TestUintOperatorAllBranches_exec_coverage_test(t *testing.T) {
 	// Unsupported operator
 	if _, err := (expr.UintOperator{OperatorExpr: expr.OperatorExpr(999)}).Operate(left, right); err == nil {
 		t.Fatal("expected error for unsupported uint operator")
+	}
+}
+
+func TestNumericOperatorsDivisionByZero_operator_value_test(t *testing.T) {
+	tests := []struct {
+		name     string
+		operator expr.Operator
+		left     reflect.Value
+		right    reflect.Value
+	}{
+		{
+			name:     "int division",
+			operator: expr.IntOperator{OperatorExpr: expr.Quo},
+			left:     reflect.ValueOf(1),
+			right:    reflect.ValueOf(0),
+		},
+		{
+			name:     "int remainder",
+			operator: expr.IntOperator{OperatorExpr: expr.Rem},
+			left:     reflect.ValueOf(1),
+			right:    reflect.ValueOf(0),
+		},
+		{
+			name:     "uint division",
+			operator: expr.UintOperator{OperatorExpr: expr.Quo},
+			left:     reflect.ValueOf(uint(1)),
+			right:    reflect.ValueOf(uint(0)),
+		},
+		{
+			name:     "uint remainder",
+			operator: expr.UintOperator{OperatorExpr: expr.Rem},
+			left:     reflect.ValueOf(uint(1)),
+			right:    reflect.ValueOf(uint(0)),
+		},
+		{
+			name:     "float division",
+			operator: expr.FloatOperator{OperatorExpr: expr.Quo},
+			left:     reflect.ValueOf(1.0),
+			right:    reflect.ValueOf(0.0),
+		},
+		{
+			name:     "float remainder",
+			operator: expr.FloatOperator{OperatorExpr: expr.Rem},
+			left:     reflect.ValueOf(1.0),
+			right:    reflect.ValueOf(0.0),
+		},
+		{
+			name:     "generic int division",
+			operator: expr.GenericOperator{OperatorExpr: expr.Quo},
+			left:     reflect.ValueOf(1),
+			right:    reflect.ValueOf(0),
+		},
+		{
+			name:     "generic uint remainder",
+			operator: expr.GenericOperator{OperatorExpr: expr.Rem},
+			left:     reflect.ValueOf(uint(1)),
+			right:    reflect.ValueOf(uint(0)),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("Operate() panicked: %v", r)
+				}
+			}()
+
+			_, err := tt.operator.Operate(tt.left, tt.right)
+			if !errors.Is(err, expr.ErrDivisionByZero) {
+				t.Fatalf("expected ErrDivisionByZero, got %v", err)
+			}
+		})
 	}
 }
 
