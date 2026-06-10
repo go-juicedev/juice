@@ -40,6 +40,10 @@ type CustomTagStruct struct {
 	Field2 int    `column:"field_2"`
 }
 
+type unexportedTaggedStruct struct {
+	id int `column:"id"`
+}
+
 type ScannerStruct struct {
 	Value   string
 	scanned bool
@@ -185,6 +189,29 @@ func TestSingleRowResultMap_MapTo_NotAPointer_result_map_test(t *testing.T) {
 	err := mapper.MapTo(reflect.ValueOf(result), rows)
 	if !errors.Is(err, ErrPointerRequired) {
 		t.Errorf("Expected ErrPointerRequired, got %v", err)
+	}
+}
+
+func TestSingleRowResultMap_MapTo_UnexportedTaggedField_result_map_test(t *testing.T) {
+	mapper := SingleRowResultMap{}
+	rows := &RowsBuffer{
+		ColumnsLine: []string{"id"},
+		Data:        [][]any{{1}},
+	}
+	var result unexportedTaggedStruct
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("MapTo panicked: %v", r)
+		}
+	}()
+
+	err := mapper.MapTo(reflect.ValueOf(&result), rows)
+	if err == nil {
+		t.Fatalf("expected error for unexported tagged field")
+	}
+	if !strings.Contains(err.Error(), `column "id" maps to an unexported or unsettable field`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
