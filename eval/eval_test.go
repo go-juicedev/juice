@@ -1328,6 +1328,22 @@ func TestCallFuncReturnsError_eval_coverage_test(t *testing.T) {
 	}
 }
 
+func TestCallFuncSecondReturnValueMustBeError_eval_coverage_test(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("expected error, got panic: %v", r)
+		}
+	}()
+
+	fn := func() (int, int) {
+		return 0, 0
+	}
+	_, err := testEval(`fn()`, H{"fn": fn})
+	if err == nil || !strings.Contains(err.Error(), "invalid second return value") {
+		t.Fatalf("expected invalid second return value error, got %v", err)
+	}
+}
+
 func TestCallFuncWrongArgCount_eval_coverage_test(t *testing.T) {
 	fn := func(a, b int) (int, error) { return a + b, nil }
 	_, err := testEval(`fn(1)`, H{"fn": fn})
