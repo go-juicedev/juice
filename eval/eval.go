@@ -401,6 +401,9 @@ func evalCallExpr(exp *ast.CallExpr, params Parameter) (reflect.Value, error) {
 	if fnType.NumOut() != 2 {
 		return reflect.Value{}, fmt.Errorf("invalid number of return values: expected 2, got %d", fn.Type().NumOut())
 	}
+	if !fnType.Out(1).Implements(errType) {
+		return reflect.Value{}, fmt.Errorf("invalid second return value: expected error, got %s", fnType.Out(1))
+	}
 
 	// Call the function and unwrap the conventional (value, error) result.
 	rets := fn.Call(args)
@@ -409,10 +412,7 @@ func evalCallExpr(exp *ast.CallExpr, params Parameter) (reflect.Value, error) {
 	}
 	errRet := rets[1]
 	if !errRet.IsNil() {
-		if ok := errRet.Type().Implements(errType); ok {
-			return reflect.Value{}, errRet.Interface().(error)
-		}
-		return reflect.Value{}, errors.New("cannot convert return value to error")
+		return reflect.Value{}, errRet.Interface().(error)
 	}
 	return rets[0], nil
 }
