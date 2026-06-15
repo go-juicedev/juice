@@ -331,6 +331,15 @@ func TestParseMapperByURLLoadsRemoteMapper_parser_test(t *testing.T) {
 	}
 }
 
+func TestParseMapperByReaderRequiresMapperRoot_parser_test(t *testing.T) {
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	_, err := parser.parseMapperByReader(strings.NewReader(`<notMapper/>`))
+	if !errors.Is(err, errMapperRootElementNotFound) {
+		t.Fatalf("parseMapperByReader() error = %v, want %v", err, errMapperRootElementNotFound)
+	}
+}
+
 func TestParseTrimKeepsCharData_parser_test(t *testing.T) {
 	parser := &XMLMappersElementParser{parser: &XMLParser{}}
 

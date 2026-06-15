@@ -49,6 +49,7 @@ var mapperURLTimeout = func() time.Duration {
 
 var (
 	errUnexpectedMapperHTTPStatus = errors.New("unexpected mapper http status")
+	errMapperRootElementNotFound  = errors.New("mapper root element <mapper> not found")
 )
 
 // ConfigurationParser is the interface for parsing configuration.
@@ -448,21 +449,17 @@ func (p *XMLMappersElementParser) parseMapperByReader(reader io.Reader) (mapper 
 		token, err := decoder.Token()
 		if err != nil {
 			if err == io.EOF {
-				break
+				return nil, errMapperRootElementNotFound
 			}
 			return nil, err
 		}
 		switch token := token.(type) {
 		case xml.StartElement:
 			if token.Name.Local == "mapper" {
-				if mapper, err = p.parseMapper(decoder, token); err != nil {
-					return nil, err
-				}
-				break
+				return p.parseMapper(decoder, token)
 			}
 		}
 	}
-	return mapper, err
 }
 
 func (p *XMLMappersElementParser) parseMapperByResource(resource string) (*Mapper, error) {

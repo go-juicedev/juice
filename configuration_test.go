@@ -100,6 +100,58 @@ func TestNewXMLConfigurationWithFSEmptyMappers_configuration_test(t *testing.T) 
 	}
 }
 
+func TestNewXMLConfigurationWithFSResourceMapperRequiresMapperRoot_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="prod">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+	<mappers>
+		<mapper resource="not-a-mapper.xml"/>
+	</mappers>
+</configuration>`),
+		},
+		"not-a-mapper.xml": {
+			Data: []byte(`<notMapper/>`),
+		},
+	}
+
+	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
+	if !errors.Is(err, errMapperRootElementNotFound) {
+		t.Fatalf("expected mapper root error, got %v", err)
+	}
+}
+
+func TestNewXMLConfigurationWithFSPatternMapperRequiresMapperRoot_configuration_test(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {
+			Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<environments default="prod">
+		<environment id="prod">
+			<dataSource>sqlite.db</dataSource>
+			<driver>sqlite3</driver>
+		</environment>
+	</environments>
+	<mappers pattern="mappers/*.xml" />
+</configuration>`),
+		},
+		"mappers/not-a-mapper.xml": {
+			Data: []byte(`<notMapper/>`),
+		},
+	}
+
+	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
+	if !errors.Is(err, errMapperRootElementNotFound) {
+		t.Fatalf("expected mapper root error, got %v", err)
+	}
+}
+
 func TestNewXMLConfigurationWithFSUnknownDefaultEnvironment_configuration_test(t *testing.T) {
 	fsys := fstest.MapFS{
 		"juice.xml": {
