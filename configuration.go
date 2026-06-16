@@ -137,6 +137,7 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, e
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = root.Close() }()
 	return newXMLConfigurationParser(root.FS(), filename, ignoreEnv)
 }
 
