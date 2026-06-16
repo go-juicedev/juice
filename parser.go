@@ -405,8 +405,8 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 	for {
 		token, err := decoder.Token()
 		if err != nil {
-			if err == io.EOF {
-				break
+			if err == io.EOF || isXMLUnexpectedEOF(err) {
+				return nil, p.wrapParseError(decoder, xml.StartElement{Name: xml.Name{Local: "mapper"}}, &nodeUnclosedError{nodeName: "mapper"})
 			}
 			return nil, err
 		}
@@ -440,7 +440,6 @@ func (p *XMLMappersElementParser) parseMapper(decoder *xml.Decoder, token xml.St
 			}
 		}
 	}
-	return mapper, nil
 }
 
 func (p *XMLMappersElementParser) parseMapperByReader(reader io.Reader) (mapper *Mapper, err error) {
@@ -562,8 +561,8 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 	for {
 		token, err := decoder.Token()
 		if err != nil {
-			if err == io.EOF {
-				break
+			if err == io.EOF || isXMLUnexpectedEOF(err) {
+				return p.wrapParseError(decoder, xml.StartElement{Name: xml.Name{Local: stmt.action.String()}}, &nodeUnclosedError{nodeName: stmt.action.String()})
 			}
 			return err
 		}
@@ -596,7 +595,6 @@ func (p *XMLMappersElementParser) parseStatement(stmt *xmlSQLStatement, decoder 
 			}
 		}
 	}
-	return nil
 }
 
 func (p *XMLMappersElementParser) parseTags(mapper *Mapper, decoder *xml.Decoder, token xml.StartElement) (node.Node, error) {
@@ -1203,6 +1201,11 @@ func (p *XMLMappersElementParser) wrapParseError(decoder *xml.Decoder, token xml
 		XMLContent: xmlContent,
 		Err:        err,
 	}
+}
+
+func isXMLUnexpectedEOF(err error) bool {
+	var syntaxErr *xml.SyntaxError
+	return errors.As(err, &syntaxErr) && strings.Contains(syntaxErr.Msg, "unexpected EOF")
 }
 
 // buildXMLContent constructs a string representation of the XML element.

@@ -340,6 +340,35 @@ func TestParseMapperByReaderRequiresMapperRoot_parser_test(t *testing.T) {
 	}
 }
 
+func TestParseMapperByReaderRejectsUnclosedMapper_parser_test(t *testing.T) {
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	_, err := parser.parseMapperByReader(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="pkg.UserMapper">
+	<select id="FindByID">SELECT * FROM users WHERE id = #{id}</select>`))
+	if err == nil {
+		t.Fatalf("parseMapperByReader() error = nil, want unclosed mapper error")
+	}
+	if !strings.Contains(err.Error(), "node mapper is not closed") {
+		t.Fatalf("parseMapperByReader() error = %v, want unclosed mapper error", err)
+	}
+}
+
+func TestParseMapperByReaderRejectsUnclosedStatement_parser_test(t *testing.T) {
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	_, err := parser.parseMapperByReader(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="pkg.UserMapper">
+	<select id="FindByID">
+		SELECT * FROM users WHERE id = #{id}`))
+	if err == nil {
+		t.Fatalf("parseMapperByReader() error = nil, want unclosed select error")
+	}
+	if !strings.Contains(err.Error(), "node select is not closed") {
+		t.Fatalf("parseMapperByReader() error = %v, want unclosed select error", err)
+	}
+}
+
 func TestParseTrimKeepsCharData_parser_test(t *testing.T) {
 	parser := &XMLMappersElementParser{parser: &XMLParser{}}
 
