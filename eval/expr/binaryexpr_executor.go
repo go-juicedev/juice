@@ -26,9 +26,6 @@ import (
 )
 
 var (
-	// nilValue represents the nil value
-	nilValue = reflect.ValueOf(nil)
-
 	// invalidValue represents the invalid value
 	invalidValue = reflect.Value{}
 )
