@@ -106,17 +106,8 @@ func bothNil(left, right reflect.Value) bool {
 			valid = left
 		}
 
-		// if the invalid value is nil, the valid value is equal to nil
+		// if the valid value is nilable and is nil, it is equal to nil
 		if reflectlite.IsNilable(valid) {
-			// nil value
-			if valid.Equal(nilValue) {
-				return true
-			}
-
-			// unwrap interface value
-			if valid.Kind() == reflect.Interface {
-				valid = valid.Elem()
-			}
 			return valid.IsNil()
 		}
 	}
