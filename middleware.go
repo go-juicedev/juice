@@ -407,6 +407,20 @@ const (
 	RandomSecondaryDataSource = "?!"
 )
 
+// statementAffectsData reports whether a statement should be treated as a write
+// for routing decisions. A select can affect data when it is used for statements
+// like PostgreSQL INSERT ... RETURNING.
+func statementAffectsData(stmt Statement) bool {
+	switch stmt.Action() {
+	case sql.Insert, sql.Update, sql.Delete:
+		return true
+	case sql.Select:
+		return stmt.Attribute("affectData") == "true"
+	default:
+		return false
+	}
+}
+
 // TxSensitiveDataSourceSwitchMiddleware provides dynamic database routing capabilities
 // while maintaining transaction safety. It supports explicit datasource naming,
 // random selection from secondary sources (?), and random selection from all sources (!).
@@ -498,11 +512,21 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) switchDataSource(ctx *StatementC
 // 2. Global 'selectDataSource' configuration setting
 // 3. Default to primary datasource if not configured
 //
+// Statements marked affectData="true" keep statement-level dataSource routing,
+// but skip the global selectDataSource rule because they must be treated as writes.
+//
 // During transactions, datasource switching is disabled to maintain connection stability.
 // Outside transactions, it can switch to alternative datasources based on configuration.
 func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(statementContext *StatementContext, next QueryHandler) QueryHandler {
-	dataSource := statementContext.Statement().Attribute("dataSource")
+	stmt := statementContext.Statement()
+	dataSource := stmt.Attribute("dataSource")
 	if dataSource == "" {
+		// Statements such as PostgreSQL INSERT ... RETURNING may be declared
+		// as select statements but still affect data. They must not be routed
+		// through the global read-datasource rule.
+		if statementAffectsData(stmt) {
+			return next
+		}
 		dataSource = statementContext.Engine().GetConfiguration().Settings().Get("selectDataSource").String()
 	}
 	if dataSource == "" {
