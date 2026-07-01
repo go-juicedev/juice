@@ -54,6 +54,7 @@
                 useCache CDATA #IMPLIED
                 paramName CDATA #IMPLIED
                 dataSource CDATA #IMPLIED
+                affectData CDATA #IMPLIED
                 >
 
         <!ELEMENT update (#PCDATA | include | trim | where | set | foreach | choose | if | bind )*>
