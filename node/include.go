@@ -65,9 +65,10 @@ type nodeManager interface {
 // the <sql> tag. The reference can be within the same mapper or from
 // another mapper if properly configured.
 type IncludeNode struct {
-	sqlNode Node
-	manager nodeManager
-	refId   string
+	sqlNode    Node
+	manager    nodeManager
+	refId      string
+	properties eval.Parameter
 }
 
 // Accept accepts parameters and returns query and arguments.
@@ -82,7 +83,16 @@ func (i *IncludeNode) Accept(translator driver.Translator, p eval.Parameter) (qu
 		i.sqlNode = sqlNode
 	}
 
+	if i.properties != nil {
+		p = eval.ParamGroup{i.properties, p}
+	}
+
 	return i.sqlNode.Accept(translator, p)
+}
+
+func (i *IncludeNode) WithProperties(properties eval.Parameter) *IncludeNode {
+	i.properties = properties
+	return i
 }
 
 func NewIncludeNode(sqlNode Node, manager nodeManager, refId string) *IncludeNode {

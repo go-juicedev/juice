@@ -128,4 +128,34 @@ func TestIncludeNode_Accept_include_test(t *testing.T) {
 			t.Errorf("manager calls = %d, want 1", manager.calls)
 		}
 	})
+
+	t.Run("PropertiesOverrideParentParameter", func(t *testing.T) {
+		innerNode := NewTextNode("SELECT ${columns} FROM ${table} WHERE ID = #{ID}")
+		manager := &mockNodeManager{}
+		node := NewIncludeNode(innerNode, manager, "ref").WithProperties(eval.H{
+			"columns": "ID, name",
+			"table":   "users",
+		})
+
+		query, args, err := node.Accept(
+			translator,
+			eval.NewGenericParam(eval.H{
+				"ID":      1,
+				"columns": "ignored",
+				"table":   "ignored",
+			}, ""),
+		)
+		if err != nil {
+			t.Fatalf("Accept() error = %v", err)
+		}
+		if query != "SELECT ID, name FROM users WHERE ID = ?" {
+			t.Errorf("query = %s", query)
+		}
+		if len(args) != 1 || args[0] != 1 {
+			t.Errorf("args = %v", args)
+		}
+		if manager.calls != 0 {
+			t.Errorf("manager calls = %d, want 0", manager.calls)
+		}
+	})
 }

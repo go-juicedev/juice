@@ -6,9 +6,14 @@
                 prefix CDATA #IMPLIED
                 >
 
-        <!ELEMENT include (#PCDATA)>
+        <!ELEMENT include (property*)>
         <!ATTLIST include
                 refid CDATA #REQUIRED
+                >
+        <!ELEMENT property EMPTY>
+        <!ATTLIST property
+                name CDATA #REQUIRED
+                value CDATA #REQUIRED
                 >
 
         <!ELEMENT trim (#PCDATA | include | trim | where | set | foreach | choose | if | bind)*>
