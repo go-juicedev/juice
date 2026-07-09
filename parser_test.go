@@ -407,3 +407,50 @@ func TestParseTrimKeepsCharData_parser_test(t *testing.T) {
 		t.Fatalf("Build() args = %#v, want []any{42}", args)
 	}
 }
+
+func TestParseIncludeProperty_parser_test(t *testing.T) {
+	parser := &XMLMappersElementParser{parser: &XMLParser{}}
+
+	mapper, err := parser.parseMapperByReader(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="pkg.UserMapper">
+	<sql id="Columns">
+		${alias}.id, ${alias}.name
+	</sql>
+	<select id="FindByID">
+		SELECT
+		<include refid="Columns">
+			<property name="alias" value="u"/>
+		</include>
+		FROM users u
+		WHERE u.id = #{id}
+	</select>
+</mapper>`))
+	if err != nil {
+		t.Fatalf("parseMapperByReader() error = %v", err)
+	}
+
+	statement, ok := mapper.GetStatementByID("FindByID")
+	if !ok {
+		t.Fatalf("statement FindByID not found")
+	}
+
+	query, args, err := statement.Build(
+		driver.MySQLDriver{}.Translator(),
+		eval.NewGenericParam(eval.H{
+			"alias": "ignored",
+			"id":    42,
+		}, ""),
+	)
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	normalizedQuery := strings.Join(strings.Fields(query), " ")
+	wantQuery := "SELECT u.id, u.name FROM users u WHERE u.id = ?"
+	if normalizedQuery != wantQuery {
+		t.Fatalf("Build() query = %q, want %q", normalizedQuery, wantQuery)
+	}
+	if len(args) != 1 || args[0] != 42 {
+		t.Fatalf("Build() args = %#v, want []any{42}", args)
+	}
+}

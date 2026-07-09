@@ -627,7 +627,7 @@ func (p *XMLMappersElementParser) parseInclude(mapper *Mapper, decoder *xml.Deco
 	// If it is not available yet, IncludeNode resolves it lazily when needed.
 	sqlNode, _ := mapper.GetSQLNodeByID(ref)
 
-	includeNode := node.NewIncludeNode(sqlNode, mapper, ref)
+	var properties eval.H
 
 	for {
 		token, err := decoder.Token()
@@ -638,17 +638,65 @@ func (p *XMLMappersElementParser) parseInclude(mapper *Mapper, decoder *xml.Deco
 			return nil, err
 		}
 		switch token := token.(type) {
-		// Note: Properties parsing is not currently implemented.
-		// Properties in MyBatis are typically used for placeholder substitution in configuration.
-		// In Juice, this can be achieved through environment variables or Go configuration patterns.
-		// If properties support is needed, consider using os.Getenv() or a configuration library.
+		case xml.StartElement:
+			if token.Name.Local != "property" {
+				return nil, p.wrapParseError(decoder, token, fmt.Errorf("unknown tag: %s", token.Name.Local))
+			}
+			name, value, err := p.parseIncludeProperty(decoder, token)
+			if err != nil {
+				return nil, p.wrapParseError(decoder, token, err)
+			}
+			if properties == nil {
+				properties = make(eval.H, 1)
+			}
+
+			if _, exists := properties[name]; exists {
+				return nil, p.wrapParseError(decoder, token, fmt.Errorf("duplicate property name: %s", name))
+			}
+			properties[name] = value
 		case xml.EndElement:
 			if token.Name.Local == "include" {
+				includeNode := node.NewIncludeNode(sqlNode, mapper, ref)
+				if len(properties) > 0 {
+					includeNode = includeNode.WithProperties(properties)
+				}
 				return includeNode, nil
 			}
 		}
 	}
 	return nil, &nodeUnclosedError{nodeName: "include"}
+}
+
+func (p *XMLMappersElementParser) parseIncludeProperty(decoder *xml.Decoder, token xml.StartElement) (name, value string, err error) {
+	name = getXMLAttr("name", token.Attr)
+	if name == "" {
+		return "", "", p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "property", attrName: "name"})
+	}
+
+	value = getXMLAttr("value", token.Attr)
+	if value == "" {
+		return "", "", p.wrapParseError(decoder, token, &nodeAttributeRequiredError{nodeName: "property", attrName: "value"})
+	}
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", "", err
+		}
+		switch token := token.(type) {
+		case xml.StartElement:
+			return "", "", p.wrapParseError(decoder, token, fmt.Errorf("unknown tag: %s", token.Name.Local))
+		case xml.EndElement:
+			if token.Name.Local == "property" {
+				return name, value, nil
+			}
+		}
+	}
+
+	return "", "", &nodeUnclosedError{nodeName: "property"}
 }
 
 func (p *XMLMappersElementParser) parseSet(mapper *Mapper, decoder *xml.Decoder) (node.Node, error) {
