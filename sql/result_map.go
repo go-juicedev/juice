@@ -25,9 +25,6 @@ import (
 	"os"
 	"reflect"
 	"slices"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 var (
@@ -375,84 +372,9 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	return s.dest, nil
 }
 
-// destIndexCacheKey identifies a column-to-field index mapping.
-//
-// The mapping depends on both the destination struct type and the exact set
-// (and order) of result columns, so both are part of the key. reflect.Type is
-// comparable and can be used directly as a map key field.
-type destIndexCacheKey struct {
-	typ        reflect.Type
-	columnsKey string
-}
-
-// destIndexCache caches the column-to-field index mapping ([][]int) per
-// (struct type, columns) combination.
-//
-// The mapping is derived purely from the struct's tags and the result columns,
-// so it is identical for every query that returns the same columns into the
-// same type. Building it requires a full reflection walk over the struct
-// fields; caching it turns that per-query cost into a one-time cost.
-//
-// Entries are write-once and the stored [][]int is only ever read afterwards
-// (see destinationForStruct), so sharing a single slice across goroutines is
-// safe without copying. The number of entries is bounded by the number of
-// distinct (type, column set) combinations an application uses — effectively
-// the number of distinct SELECT projections — so it converges and does not
-// grow with traffic, row count, or uptime.
-var destIndexCache sync.Map // map[destIndexCacheKey][][]int
-
-// loadDestIndexes returns the cached column-to-field index mapping for key,
-// if one has been stored.
-func loadDestIndexes(key destIndexCacheKey) ([][]int, bool) {
-	cached, ok := destIndexCache.Load(key)
-	if !ok {
-		return nil, false
-	}
-	return cached.([][]int), true
-}
-
-// storeDestIndexes publishes the column-to-field index mapping for key so that
-// subsequent queries with the same (type, columns) can reuse it. If two
-// goroutines race on the same key, the last writer wins; both built equivalent,
-// read-only slices, so the choice is irrelevant to correctness.
-func storeDestIndexes(key destIndexCacheKey, indexes [][]int) {
-	destIndexCache.Store(key, indexes)
-}
-
-// buildColumnsKey joins columns into a cache key. A NUL byte is used as the
-// separator because it cannot appear in SQL column names, and each segment is
-// length-prefixed so no two distinct column sets can ever encode to the same
-// key (e.g. ["a","b\x00c"] vs ["a\x00b","c"]).
-func buildColumnsKey(columns []string) string {
-	var b strings.Builder
-	size := 0
-	for _, c := range columns {
-		size += len(c) + 5 // worst-case length prefix + separator
-	}
-	b.Grow(size)
-	for _, c := range columns {
-		b.WriteString(strconv.Itoa(len(c)))
-		b.WriteByte(':')
-		b.WriteString(c)
-		b.WriteByte(0)
-	}
-	return b.String()
-}
-
-// setIndexes maps result columns to struct field indexes, using a global cache
-// keyed by (struct type, columns) to avoid repeating the reflection walk on
-// every query.
+// setIndexes maps result columns to struct field indexes.
 func (s *rowDestination) setIndexes(rv reflect.Value, columns []string) {
 	tp := rv.Type()
-	key := destIndexCacheKey{typ: tp, columnsKey: buildColumnsKey(columns)}
-
-	// Fast path: reuse the previously computed mapping. The cached slice is
-	// read-only from here on, so it is safe to share.
-	if cached, ok := loadDestIndexes(key); ok {
-		s.indexes = cached
-		return
-	}
-
 	s.indexes = make([][]int, len(columns))
 
 	// columnIndex is a map to store the index of the column.
@@ -463,9 +385,6 @@ func (s *rowDestination) setIndexes(rv reflect.Value, columns []string) {
 
 	// walk into the struct
 	s.findFromStruct(tp, columnIndex, nil)
-
-	// Publish for reuse by subsequent queries.
-	storeDestIndexes(key, s.indexes)
 }
 
 // findFromStruct finds matching field indexes in the struct type.
