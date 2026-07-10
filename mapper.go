@@ -12,7 +12,7 @@ import (
 type Mapper struct {
 	namespace  string
 	mappers    *Mappers
-	statements map[string]*xmlSQLStatement
+	statements map[string]*mappedStatement
 	sqlNodes   map[string]*node.SQLNode
 	attrs      map[string]string
 }

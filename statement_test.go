@@ -11,7 +11,7 @@ import (
 	jsql "github.com/go-juicedev/juice/sql"
 )
 
-func TestXMLSQLStatement_MetadataAndBuild_statement_test(t *testing.T) {
+func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 	mappers := &Mappers{}
 	mappers.setAttribute("prefix", "app")
 
@@ -23,7 +23,7 @@ func TestXMLSQLStatement_MetadataAndBuild_statement_test(t *testing.T) {
 		},
 	}
 
-	stmt := &xmlSQLStatement{
+	stmt := &mappedStatement{
 		mapper: mapper,
 		action: jsql.Select,
 		Nodes: node.Group{
@@ -79,8 +79,8 @@ func TestXMLSQLStatement_MetadataAndBuild_statement_test(t *testing.T) {
 	}
 }
 
-func TestXMLSQLStatement_BuildEmptyQuery_statement_test(t *testing.T) {
-	stmt := &xmlSQLStatement{
+func TestMappedStatement_BuildEmptyQuery_statement_test(t *testing.T) {
+	stmt := &mappedStatement{
 		mapper: &Mapper{namespace: "ns", mappers: &Mappers{}},
 		id:     "Empty",
 	}

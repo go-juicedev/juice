@@ -244,7 +244,7 @@ func (emptyStatementID) StatementID() string { return "" }
 func TestXMLConfigurationMethods_configuration_test(t *testing.T) {
 	mapper := &Mapper{
 		namespace: "pkg.Mapper",
-		statements: map[string]*xmlSQLStatement{
+		statements: map[string]*mappedStatement{
 			"Statement": {
 				id: "Statement",
 				mapper: &Mapper{

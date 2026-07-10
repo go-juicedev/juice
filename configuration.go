@@ -26,6 +26,7 @@ import (
 	"reflect"
 
 	"github.com/go-juicedev/juice/internal/rootfs"
+	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 	errConfigurationEnvironmentsRequired      = errors.New("environments section is required")
 	errConfigurationDefaultEnvironmentMissing = errors.New("default environment is not specified")
 	errConfigurationDefaultEnvironmentUnknown = errors.New("default environment not found")
+	errMapperRootElementNotFound              = xmlparser.ErrMapperRootElementNotFound
 )
 
 // Configuration provides access to environments, settings, and mapped statements.
@@ -157,16 +159,12 @@ func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error)
 // When ignoreEnv is true, the <environments> section is skipped.
 // For internal use only.
 func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
-	file, err := fs.Open(filepath)
+	document, err := (&xmlparser.Parser{FS: fs, IgnoreEnvironment: ignoreEnv}).ParseFile(filepath)
 	if err != nil {
+		if errors.Is(err, xmlparser.ErrMapperRootElementNotFound) {
+			return nil, errors.Join(errMapperRootElementNotFound, err)
+		}
 		return nil, err
 	}
-	defer func() { _ = file.Close() }()
-	parser := &XMLParser{FS: fs, ignoreEnv: ignoreEnv}
-	parser.AddXMLElementParser(
-		&XMLEnvironmentsElementParser{},
-		&XMLMappersElementParser{},
-		&XMLSettingsElementParser{},
-	)
-	return parser.Parse(file)
+	return adaptConfigurationDocument(document, ignoreEnv)
 }
