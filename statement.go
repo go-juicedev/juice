@@ -45,8 +45,8 @@ type Statement interface {
 	StatementBuilder
 }
 
-// xmlSQLStatement represents a SQL statement parsed from XML.
-type xmlSQLStatement struct {
+// mappedStatement represents a SQL statement produced from mapper configuration.
+type mappedStatement struct {
 	mapper    *Mapper
 	action    sql.Action
 	Nodes     node.Group
@@ -57,7 +57,7 @@ type xmlSQLStatement struct {
 }
 
 // Attribute returns the value of the attribute with the given key.
-func (s *xmlSQLStatement) Attribute(key string) string {
+func (s *mappedStatement) Attribute(key string) string {
 	value := s.attrs[key]
 	if value == "" {
 		value = s.mapper.Attribute(key)
@@ -66,7 +66,7 @@ func (s *xmlSQLStatement) Attribute(key string) string {
 }
 
 // setAttribute sets the attribute with the given key and value.
-func (s *xmlSQLStatement) setAttribute(key, value string) {
+func (s *mappedStatement) setAttribute(key, value string) {
 	if s.attrs == nil {
 		s.attrs = make(map[string]string)
 	}
@@ -74,11 +74,11 @@ func (s *xmlSQLStatement) setAttribute(key, value string) {
 }
 
 // ID returns the statement id within its namespace.
-func (s *xmlSQLStatement) ID() string {
+func (s *mappedStatement) ID() string {
 	return s.id
 }
 
-func (s *xmlSQLStatement) lazyName() string {
+func (s *mappedStatement) lazyName() string {
 	var builder strings.Builder
 	if prefix := s.mapper.mappers.Prefix(); prefix != "" {
 		builder.WriteString(prefix)
@@ -91,7 +91,7 @@ func (s *xmlSQLStatement) lazyName() string {
 }
 
 // Name returns the fully qualified statement name.
-func (s *xmlSQLStatement) Name() string {
+func (s *mappedStatement) Name() string {
 	if s.name == "" {
 		s.name = s.lazyName()
 	}
@@ -99,13 +99,13 @@ func (s *xmlSQLStatement) Name() string {
 }
 
 // Action returns the SQL action for the statement.
-func (s *xmlSQLStatement) Action() sql.Action {
+func (s *mappedStatement) Action() sql.Action {
 	return s.action
 }
 
 // ResultMap returns the result mapping strategy for the statement.
-func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
-	// Design Decision: ResultMap is intentionally not implemented for XML statements.
+func (s *mappedStatement) ResultMap() (sql.ResultMap, error) {
+	// Design Decision: ResultMap is intentionally not implemented for mapped statements.
 	// Rationale:
 	//   1. Complexity: Full ResultMap implementation requires complex nested object mapping,
 	//      association handling, and discriminator logic similar to MyBatis.
@@ -118,8 +118,8 @@ func (s *xmlSQLStatement) ResultMap() (sql.ResultMap, error) {
 	return nil, sql.ErrResultMapNotSet
 }
 
-// Build renders the XML statement with the provided parameters.
-func (s *xmlSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
+// Build renders the mapped statement with the provided parameters.
+func (s *mappedStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
 	parameter = s.bindNodes.ConvertParameter(parameter)
 	query, args, err = s.Nodes.Accept(translator, parameter)
 	if err != nil {

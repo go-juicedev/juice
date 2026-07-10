@@ -12,7 +12,7 @@ import (
 type Mapper struct {
 	namespace  string
 	mappers    *Mappers
-	statements map[string]*xmlSQLStatement
+	statements map[string]*mappedStatement
 	sqlNodes   map[string]*node.SQLNode
 	attrs      map[string]string
 }
@@ -20,13 +20,6 @@ type Mapper struct {
 // Namespace returns the namespace of the mapper.
 func (m *Mapper) Namespace() string {
 	return m.namespace
-}
-
-func (m *Mapper) setAttribute(key, value string) {
-	if m.attrs == nil {
-		m.attrs = make(map[string]string)
-	}
-	m.attrs[key] = value
 }
 
 func (m *Mapper) setSqlNode(n *node.SQLNode) error {
