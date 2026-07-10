@@ -72,11 +72,3 @@ func (s keyValueSettingProvider) Get(name string) StringValue {
 
 // ensure keyValueSettingProvider implements SettingProvider.
 var _ SettingProvider = (*keyValueSettingProvider)(nil)
-
-// settingItem is a setting element.
-type settingItem struct {
-	// The name of the setting.
-	Name string `xml:"name,attr"`
-	// The value of the setting.
-	Value StringValue `xml:"value,attr"`
-}

@@ -99,14 +99,6 @@ type environments struct {
 	envs map[string]*Environment
 }
 
-// setAttr sets a value of the attribute.
-func (e *environments) setAttr(key, value string) {
-	if e.attr == nil {
-		e.attr = make(map[string]string)
-	}
-	e.attr[key] = value
-}
-
 // Attribute returns a value of the attribute.
 func (e *environments) Attribute(key string) string {
 	return e.attr[key]

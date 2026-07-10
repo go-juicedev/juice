@@ -22,13 +22,6 @@ func (m *Mapper) Namespace() string {
 	return m.namespace
 }
 
-func (m *Mapper) setAttribute(key, value string) {
-	if m.attrs == nil {
-		m.attrs = make(map[string]string)
-	}
-	m.attrs[key] = value
-}
-
 func (m *Mapper) setSqlNode(n *node.SQLNode) error {
 	if m.sqlNodes == nil {
 		m.sqlNodes = make(map[string]*node.SQLNode)
