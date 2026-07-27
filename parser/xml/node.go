@@ -272,7 +272,7 @@ func parseChoose(decoder *stdxml.Decoder, resolver *includeResolver) (node.Node,
 	}
 }
 
-func parseWhen(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
+func parseWhen(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (*WhenNode, error) {
 	test, err := requiredAttribute(start, "test")
 	if err != nil {
 		return nil, wrap("when", err)
