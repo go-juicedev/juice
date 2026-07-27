@@ -279,7 +279,7 @@ func (m shSwitchSessionMiddleware) ExecContext(statementContext *StatementContex
 
 func newStatementTestEngine(sess session.Session, middlewares ...Middleware) *Engine {
 	return &Engine{
-		configuration: &xmlConfiguration{settings: keyValueSettingProvider{}},
+		configuration: &configuration{settings: keyValueSettingProvider{}},
 		driver:        &jdriver.SQLiteDriver{},
 		db:            nil,
 		middlewares:   middlewares,

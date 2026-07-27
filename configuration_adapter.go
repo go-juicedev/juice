@@ -142,12 +142,13 @@ func adaptMappers(configuration Configuration, document *configparser.Document) 
 	return compiled, nil
 }
 
-func adaptConfigurationDocument(document *configparser.Document, ignoreEnv bool) (Configuration, error) {
+func adaptConfigurationDocument(document *configparser.Document, backend configparser.Backend, ignoreEnv bool) (Configuration, error) {
 	if document == nil {
 		return nil, errConfigurationRequired
 	}
 
-	configuration := &xmlConfiguration{
+	compiled := &configuration{
+		backend:  backend,
 		settings: adaptSettings(document.Settings),
 	}
 
@@ -155,16 +156,16 @@ func adaptConfigurationDocument(document *configparser.Document, ignoreEnv bool)
 	if err != nil {
 		return nil, err
 	}
-	configuration.environments = environments
+	compiled.environments = environments
 
-	mappers, err := adaptMappers(configuration, document)
+	mappers, err := adaptMappers(compiled, document)
 	if err != nil {
 		return nil, err
 	}
-	configuration.mappers = mappers
+	compiled.mappers = mappers
 
-	if err := configuration.validate(ignoreEnv); err != nil {
+	if err := compiled.validate(ignoreEnv); err != nil {
 		return nil, err
 	}
-	return configuration, nil
+	return compiled, nil
 }

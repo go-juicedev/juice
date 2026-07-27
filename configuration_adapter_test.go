@@ -115,11 +115,11 @@ func TestXMLConfigurationIgnoreEnvironmentSkipsEnvironmentParsing(t *testing.T) 
     </mappers>
 </configuration>`)},
 	}
-	configuration, err := newXMLConfigurationParser(fsys, "juice.xml", true)
+	configured, err := newXMLConfigurationParser(fsys, "juice.xml", true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if configuration.(*xmlConfiguration).environments != nil {
-		t.Fatalf("expected environments to be ignored, got %#v", configuration.Environments())
+	if configured.(*configuration).environments != nil {
+		t.Fatalf("expected environments to be ignored, got %#v", configured.Environments())
 	}
 }
