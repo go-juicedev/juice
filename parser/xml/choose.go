@@ -68,7 +68,7 @@ import (
 // Note: Similar to a switch statement in programming languages,
 // only the first matching condition is executed.
 type ChooseNode struct {
-	WhenNodes     []node.Node
+	WhenNodes     []*WhenNode
 	OtherwiseNode node.Node
 	BindNodes     bindNodeGroup
 }
@@ -77,14 +77,14 @@ type ChooseNode struct {
 func (c ChooseNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	p = c.BindNodes.ConvertParameter(p)
 
-	for _, n := range c.WhenNodes {
-		q, a, err := n.Accept(translator, p)
+	for _, when := range c.WhenNodes {
+		branchParameter := when.BindNodes.ConvertParameter(p)
+		matched, err := when.Match(branchParameter)
 		if err != nil {
 			return "", nil, err
 		}
-		// if one of when Nodes is true, return query and arguments
-		if len(q) > 0 {
-			return q, a, nil
+		if matched {
+			return when.Nodes.Accept(translator, branchParameter)
 		}
 	}
 

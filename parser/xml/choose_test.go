@@ -29,9 +29,9 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 	translator := drv.Translator()
 	emptyParams := eval.NewGenericParam(eval.H{}, "")
 
-	// Helper to create a ConditionNode (WhenNode) for testing
-	newTestWhenNode := func(condition string, content string, paramsForParse eval.Parameter) *ConditionNode {
-		cn := &ConditionNode{
+	// Helper to create a WhenNode for testing
+	newTestWhenNode := func(condition string, content string) *WhenNode {
+		cn := &WhenNode{
 			Nodes: Group{NewTextNode(content)},
 		}
 		err := cn.Parse(condition)
@@ -52,7 +52,7 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		return eval.NewGenericParam(eval.H{"choice": choice, "name": "TestName"}, "")
 	}
 
-	errorWhenNode := &ConditionNode{Nodes: Group{&mockErrorNode{}}}
+	errorWhenNode := &WhenNode{Nodes: Group{&mockErrorNode{}}}
 	if err := errorWhenNode.Parse("true"); err != nil {
 		panic("Failed to parse condition for errorWhenNode: " + err.Error())
 	}
@@ -60,7 +60,7 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		whenNodes      []Node
+		whenNodes      []*WhenNode
 		otherwiseNode  Node
 		params         eval.Parameter
 		expectedQuery  string
@@ -70,9 +70,9 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 	}{
 		{
 			name: "FirstWhenMatches",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 1", "Content for choice 1: #{name}", paramsWithChoice(1)),
-				newTestWhenNode("choice == 2", "Content for choice 2", paramsWithChoice(1)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 1", "Content for choice 1: #{name}"),
+				newTestWhenNode("choice == 2", "Content for choice 2"),
 			},
 			otherwiseNode: newTestOtherwiseNode("Otherwise content"),
 			params:        paramsWithChoice(1),
@@ -81,9 +81,9 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		},
 		{
 			name: "SecondWhenMatches",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 1", "Content for choice 1", paramsWithChoice(2)),
-				newTestWhenNode("choice == 2", "Content for choice 2: #{name}", paramsWithChoice(2)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 1", "Content for choice 1"),
+				newTestWhenNode("choice == 2", "Content for choice 2: #{name}"),
 			},
 			otherwiseNode: newTestOtherwiseNode("Otherwise content"),
 			params:        paramsWithChoice(2),
@@ -92,9 +92,9 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		},
 		{
 			name: "NoWhenMatches_OtherwiseExecutes",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 1", "Content for choice 1", paramsWithChoice(3)),
-				newTestWhenNode("choice == 2", "Content for choice 2", paramsWithChoice(3)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 1", "Content for choice 1"),
+				newTestWhenNode("choice == 2", "Content for choice 2"),
 			},
 			otherwiseNode: newTestOtherwiseNode("Otherwise content: #{name}"),
 			params:        paramsWithChoice(3),
@@ -103,19 +103,19 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		},
 		{
 			name: "NoWhenMatches_NoOtherwise",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 1", "Content for choice 1", paramsWithChoice(3)),
-				newTestWhenNode("choice == 2", "Content for choice 2", paramsWithChoice(3)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 1", "Content for choice 1"),
+				newTestWhenNode("choice == 2", "Content for choice 2"),
 			},
 			params:        paramsWithChoice(3),
 			expectedQuery: "",
 		},
 		{
 			name: "WhenNodeItselfReturnsError",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 0", "Should not be chosen", paramsWithChoice(1)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 0", "Should not be chosen"),
 				errorWhenNode,
-				newTestWhenNode("choice == 2", "Should also not be chosen", paramsWithChoice(1)),
+				newTestWhenNode("choice == 2", "Should also not be chosen"),
 			},
 			params:         paramsWithChoice(1),
 			expectError:    true,
@@ -123,9 +123,9 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		},
 		{
 			name: "OtherwiseNodeReturnsError",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 1", "Content for choice 1", paramsWithChoice(3)),
-				newTestWhenNode("choice == 2", "Content for choice 2", paramsWithChoice(3)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 1", "Content for choice 1"),
+				newTestWhenNode("choice == 2", "Content for choice 2"),
 			},
 			otherwiseNode:  errorOtherwiseNode,
 			params:         paramsWithChoice(3),
@@ -134,24 +134,24 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		},
 		{
 			name:          "EmptyWhenNodesList_OtherwiseExecutes",
-			whenNodes:     []Node{},
+			whenNodes:     []*WhenNode{},
 			otherwiseNode: newTestOtherwiseNode("Only otherwise"),
 			params:        emptyParams,
 			expectedQuery: "Only otherwise",
 		},
 		{
 			name: "OneWhenNode_NoMatch_NoOtherwise",
-			whenNodes: []Node{
-				newTestWhenNode("choice == 1", "Content for choice 1", paramsWithChoice(2)),
+			whenNodes: []*WhenNode{
+				newTestWhenNode("choice == 1", "Content for choice 1"),
 			},
 			params:        paramsWithChoice(2),
 			expectedQuery: "",
 		},
 		{
 			name: "WhenNodeConditionParseError",
-			whenNodes: []Node{
-				func() Node {
-					cn := &ConditionNode{Nodes: Group{NewTextNode("content")}}
+			whenNodes: []*WhenNode{
+				func() *WhenNode {
+					cn := &WhenNode{Nodes: Group{NewTextNode("content")}}
 					err := cn.Parse("invalid condition syntax @#$")
 					if err == nil {
 						panic("Expected parse error for test setup but got none")
@@ -162,6 +162,16 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 			params:         emptyParams,
 			expectError:    true,
 			expectedErrMsg: ErrNilExpression.Error(),
+		},
+		{
+			name: "MatchedWhenWithEmptyBodyStopsSelection",
+			whenNodes: []*WhenNode{
+				newTestWhenNode("true", ""),
+				newTestWhenNode("true", "must not be selected"),
+			},
+			otherwiseNode: newTestOtherwiseNode("must not use otherwise"),
+			params:        emptyParams,
+			expectedQuery: "",
 		},
 	}
 
