@@ -64,7 +64,7 @@ import (
 // Example results:
 //
 //	Input collection: [1, 2, 3]
-//	xmlConfiguration: open="(", separator=",", close=")"
+//	Configuration: open="(", separator=",", close=")"
 //	Output: "(1,2,3)"
 type ForeachNode struct {
 	Collection string

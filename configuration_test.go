@@ -7,6 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	xmlparser "github.com/go-juicedev/juice/parser/xml"
 	jsql "github.com/go-juicedev/juice/sql"
 )
 
@@ -14,9 +15,12 @@ import (
 var cfg embed.FS
 
 func TestNewXMLConfigurationWithFS_configuration_test(t *testing.T) {
-	_, err := NewXMLConfigurationWithFS(cfg, "testdata/configuration/juice.xml")
+	configuration, err := NewXMLConfigurationWithFS(cfg, "testdata/configuration/juice.xml")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, ok := configuration.Backend().(xmlparser.Backend); !ok {
+		t.Fatalf("expected XML backend, got %T", configuration.Backend())
 	}
 }
 
@@ -241,7 +245,7 @@ type emptyStatementID struct{}
 
 func (emptyStatementID) StatementID() string { return "" }
 
-func TestXMLConfigurationMethods_configuration_test(t *testing.T) {
+func TestConfigurationMethods_configuration_test(t *testing.T) {
 	mapper := &Mapper{
 		namespace: "pkg.Mapper",
 		statements: map[string]*mappedStatement{
@@ -263,7 +267,7 @@ func TestXMLConfigurationMethods_configuration_test(t *testing.T) {
 
 	envs := &environments{envs: map[string]*Environment{"default": {DataSource: "dsn", Driver: "sqlite3"}}}
 	settings := keyValueSettingProvider{"s": "v"}
-	conf := xmlConfiguration{environments: envs, mappers: mappers, settings: settings}
+	conf := configuration{environments: envs, mappers: mappers, settings: settings}
 
 	if conf.Environments() != envs {
 		t.Fatalf("expected Environments passthrough")

@@ -54,8 +54,11 @@ type Configuration interface {
 	GetStatement(v any) (Statement, error)
 }
 
-// xmlConfiguration is the XML-backed implementation of Configuration.
-type xmlConfiguration struct {
+// configuration is the syntax-independent runtime implementation of Configuration.
+type configuration struct {
+	// backend provides the syntax-specific script behavior.
+	backend configparser.Backend
+
 	// environments is a map of environments.
 	environments *environments
 
@@ -66,7 +69,7 @@ type xmlConfiguration struct {
 	settings keyValueSettingProvider
 }
 
-func (c *xmlConfiguration) validate(ignoreEnv bool) error {
+func (c *configuration) validate(ignoreEnv bool) error {
 	if !ignoreEnv {
 		if c.environments == nil {
 			return errConfigurationEnvironmentsRequired
@@ -84,22 +87,22 @@ func (c *xmlConfiguration) validate(ignoreEnv bool) error {
 }
 
 // Environments returns the environments.
-func (c xmlConfiguration) Environments() EnvironmentProvider {
+func (c configuration) Environments() EnvironmentProvider {
 	return c.environments
 }
 
 // Settings returns the settings.
-func (c xmlConfiguration) Settings() SettingProvider {
+func (c configuration) Settings() SettingProvider {
 	return &c.settings
 }
 
-// Backend returns the XML syntax backend.
-func (c xmlConfiguration) Backend() configparser.Backend {
-	return xmlparser.Backend{}
+// Backend returns the syntax backend associated with the configuration.
+func (c configuration) Backend() configparser.Backend {
+	return c.backend
 }
 
 // GetStatement returns the statement associated with the given value.
-func (c xmlConfiguration) GetStatement(v any) (Statement, error) {
+func (c configuration) GetStatement(v any) (Statement, error) {
 	if v == nil {
 		return nil, errors.New("nil statement query")
 	}
@@ -168,12 +171,16 @@ func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error)
 // When ignoreEnv is true, the <environments> section is skipped.
 // For internal use only.
 func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
-	document, err := (&xmlparser.Parser{FS: fs, IgnoreEnvironment: ignoreEnv}).ParseFile(filepath)
+	parser := &xmlparser.Parser{
+		FS:                fs,
+		IgnoreEnvironment: ignoreEnv,
+	}
+	document, err := parser.ParseFile(filepath)
 	if err != nil {
 		if errors.Is(err, xmlparser.ErrMapperRootElementNotFound) {
 			return nil, errors.Join(errMapperRootElementNotFound, err)
 		}
 		return nil, err
 	}
-	return adaptConfigurationDocument(document, ignoreEnv)
+	return adaptConfigurationDocument(document, xmlparser.Backend{}, ignoreEnv)
 }
