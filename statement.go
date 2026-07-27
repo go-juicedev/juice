@@ -18,14 +18,14 @@ package juice
 
 import (
 	"fmt"
-	"github.com/go-juicedev/juice/node"
 	"hash/fnv"
 	"strconv"
 	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
-	xmlparser "github.com/go-juicedev/juice/parser/xml"
+	"github.com/go-juicedev/juice/node"
+	"github.com/go-juicedev/juice/parser"
 	"github.com/go-juicedev/juice/sql"
 )
 
@@ -134,6 +134,7 @@ func (s *mappedStatement) Build(translator driver.Translator, parameter eval.Par
 // It implements the Statement interface and provides methods for query execution.
 type RawSQLStatement struct {
 	query  string
+	script node.Node
 	action sql.Action
 	attrs  map[string]string
 }
@@ -180,7 +181,7 @@ func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
 
 // Build renders the raw SQL statement with the provided parameters.
 func (s RawSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
-	query, args, err = xmlparser.NewTextNode(s.query).Accept(translator, parameter)
+	query, args, err = s.script.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
 	}
@@ -199,10 +200,11 @@ func (s *RawSQLStatement) WithAttribute(key, value string) *RawSQLStatement {
 	return s
 }
 
-// NewRawSQLStatement creates a new raw SQL statement with the given query and action.
-func NewRawSQLStatement(query string, action sql.Action) *RawSQLStatement {
+// NewRawSQLStatement creates a raw SQL statement using the given syntax backend.
+func NewRawSQLStatement(backend parser.Backend, query string, action sql.Action) *RawSQLStatement {
 	return &RawSQLStatement{
 		query:  query,
+		script: backend.Script(query),
 		action: action,
 	}
 }
