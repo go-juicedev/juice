@@ -139,6 +139,29 @@ func TestSetNode_Accept_Comprehensive_set_test(t *testing.T) {
 			expectedQuery: "SET name = ?, modified_at = NOW()",
 			expectedArgs:  []any{"Valid Name"},
 		},
+		{
+			name: "TrailingDynamicAssignmentIsEmpty",
+			nodes: Group{
+				&IfNode{
+					Nodes: Group{
+						NewTextNode("name = #{name},"),
+					},
+					expr: parseExprNoError(t, `name != ""`),
+				},
+				&IfNode{
+					Nodes: Group{
+						NewTextNode("age = #{age},"),
+					},
+					expr: parseExprNoError(t, "age > 0"),
+				},
+			},
+			params: eval.NewGenericParam(eval.H{
+				"name": "Valid Name",
+				"age":  0,
+			}, ""),
+			expectedQuery: "SET name = ?",
+			expectedArgs:  []any{"Valid Name"},
+		},
 	}
 
 	for _, tt := range tests {

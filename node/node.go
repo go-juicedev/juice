@@ -41,7 +41,8 @@ type Node interface {
 type Group []Node
 
 // Accept processes all Nodes in the group and combines their results.
-// The method ensures proper spacing between node outputs and trims any extra whitespace.
+// The method inserts spacing only between nodes that produce non-empty output
+// and preserves whitespace already provided at fragment boundaries.
 // If the group is empty or no Nodes produce output, it returns empty results.
 func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	// Return early if group is empty
@@ -62,29 +63,35 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 	// Pre-allocate args slice to avoid reallocations
 	args = make([]any, 0, nodeLength)
 
-	lastIdx := nodeLength - 1
+	hasQuery := false
+	queryEndsWithSpace := false
 
 	// Process each node in the group
-	for i, node := range g {
+	for _, node := range g {
 		q, a, err := node.Accept(translator, p)
 		if err != nil {
 			return "", nil, err
 		}
-		builder.WriteString(q)
 		if len(a) > 0 {
 			args = append(args, a...)
 		}
 
-		// Add space between Nodes, but only if something was written
-		// and it's not the last node and doesn't already end with space.
-		// Check q directly instead of builder.String() to avoid string allocation.
-		if i < lastIdx && len(q) > 0 && q[len(q)-1] != ' ' {
+		if len(q) == 0 {
+			continue
+		}
+
+		// Insert a separator only when another node actually produces output.
+		if hasQuery && !queryEndsWithSpace && q[0] != ' ' {
 			builder.WriteByte(' ')
 		}
+
+		builder.WriteString(q)
+		hasQuery = true
+		queryEndsWithSpace = q[len(q)-1] == ' '
 	}
 
 	// Return empty results if no content was generated
-	if builder.Len() == 0 {
+	if !hasQuery {
 		return "", nil, nil
 	}
 
