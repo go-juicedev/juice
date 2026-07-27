@@ -24,15 +24,27 @@ import (
 	"github.com/go-juicedev/juice/parser"
 )
 
-func (p *Parser) parseConfiguration(decoder *stdxml.Decoder) (*parser.Document, error) {
+type mapperSource struct {
+	resource string
+	url      string
+	pattern  string
+}
+
+type mapperEntry struct {
+	source *mapperSource
+	mapper *parser.Mapper
+}
+
+func (p *Parser) parseConfiguration(decoder *stdxml.Decoder, registry *sqlRegistry) (*parser.Document, []mapperEntry, error) {
 	document := &parser.Document{}
+	var mapperEntries []mapperEntry
 	for {
 		token, err := decoder.Token()
 		if err != nil {
 			if err == io.EOF {
-				return nil, fmt.Errorf("element <configuration> is not closed")
+				return nil, nil, fmt.Errorf("element <configuration> is not closed")
 			}
-			return nil, err
+			return nil, nil, err
 		}
 		switch token := token.(type) {
 		case stdxml.StartElement:
@@ -40,31 +52,33 @@ func (p *Parser) parseConfiguration(decoder *stdxml.Decoder) (*parser.Document, 
 			case "settings":
 				settings, err := parseSettings(decoder)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				document.Settings = settings
 			case "environments":
 				if p.IgnoreEnvironment {
 					if err := skipElement(decoder, token); err != nil {
-						return nil, err
+						return nil, nil, err
 					}
 					continue
 				}
 				environments, err := parseEnvironments(decoder, token)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				document.Environments = environments
 			case "mappers":
-				if err := parseMappers(decoder, token, document); err != nil {
-					return nil, err
+				entries, err := parseMappers(decoder, token, document, registry)
+				if err != nil {
+					return nil, nil, err
 				}
+				mapperEntries = append(mapperEntries, entries...)
 			default:
-				return nil, wrap(token.Name.Local, fmt.Errorf("unknown configuration element"))
+				return nil, nil, wrap(token.Name.Local, fmt.Errorf("unknown configuration element"))
 			}
 		case stdxml.EndElement:
 			if token.Name.Local == "configuration" {
-				return document, nil
+				return document, mapperEntries, nil
 			}
 		}
 	}
@@ -171,22 +185,22 @@ func parseEnvironment(decoder *stdxml.Decoder, start stdxml.StartElement) (parse
 	}
 }
 
-func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *parser.Document) error {
+func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *parser.Document, registry *sqlRegistry) ([]mapperEntry, error) {
 	document.MapperAttributes = attributes(start)
+	var entries []mapperEntry
 	if pattern := attribute(start, "pattern"); pattern != "" {
-		source := parser.MapperSource{Pattern: pattern}
-		document.MapperSources = append(document.MapperSources, source)
-		document.MapperEntries = append(document.MapperEntries, parser.MapperEntry{Source: &source})
+		source := mapperSource{pattern: pattern}
+		entries = append(entries, mapperEntry{source: &source})
 	}
 	for {
 		token, err := decoder.Token()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		switch token := token.(type) {
 		case stdxml.StartElement:
 			if token.Name.Local != "mapper" {
-				return wrap(token.Name.Local, fmt.Errorf("expected <mapper>"))
+				return nil, wrap(token.Name.Local, fmt.Errorf("expected <mapper>"))
 			}
 			resource := attribute(token, "resource")
 			mapperURL := attribute(token, "url")
@@ -198,26 +212,25 @@ func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *
 				}
 			}
 			if set != 1 {
-				return wrap("mapper", fmt.Errorf("exactly one of resource, url, or namespace is required"))
+				return nil, wrap("mapper", fmt.Errorf("exactly one of resource, url, or namespace is required"))
 			}
 			if resource != "" || mapperURL != "" {
-				source := parser.MapperSource{Resource: resource, URL: mapperURL}
-				document.MapperSources = append(document.MapperSources, source)
-				document.MapperEntries = append(document.MapperEntries, parser.MapperEntry{Source: &source})
+				source := mapperSource{resource: resource, url: mapperURL}
+				entries = append(entries, mapperEntry{source: &source})
 				if err := skipElement(decoder, token); err != nil {
-					return err
+					return nil, err
 				}
 				continue
 			}
-			mapperDocument, err := parseMapper(decoder, token)
+			mapperDocument, err := parseMapper(decoder, token, registry)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			document.Mappers = append(document.Mappers, mapperDocument)
-			document.MapperEntries = append(document.MapperEntries, parser.MapperEntry{Mapper: &mapperDocument})
+			entries = append(entries, mapperEntry{mapper: &mapperDocument})
 		case stdxml.EndElement:
 			if token.Name.Local == "mappers" {
-				return nil
+				return entries, nil
 			}
 		}
 	}

@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
 // SetNode represents an SQL SET clause for UPDATE statements.
@@ -62,8 +63,8 @@ import (
 // proper formatting of the SET clause regardless of which fields
 // are included dynamically.
 type SetNode struct {
-	Nodes     Group
-	BindNodes BindNodeGroup
+	Nodes     node.Group
+	BindNodes bindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
@@ -89,4 +90,4 @@ func (s SetNode) Accept(translator driver.Translator, p eval.Parameter) (query s
 	return query, args, nil
 }
 
-var _ Node = (*SetNode)(nil)
+var _ node.Node = (*SetNode)(nil)

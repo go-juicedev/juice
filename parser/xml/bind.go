@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"errors"
@@ -24,21 +24,22 @@ import (
 	"github.com/go-juicedev/juice/eval"
 )
 
-// BindNode represents a named bind variable backed by a compiled expression.
-type BindNode struct {
-	Name string
+// bindNode is the XML <bind> declaration after its value attribute has been
+// compiled. It is a scoped declaration, not a renderable node.Node.
+type bindNode struct {
+	name string
 	expr eval.Expression
 }
 
-// Parse compiles the given expression string and stores the result.
-func (b *BindNode) Parse(expression string) (err error) {
-	b.expr, err = eval.Compile(expression)
-	return err
+func newBindNode(name, value string) (*bindNode, error) {
+	expression, err := eval.Compile(value)
+	if err != nil {
+		return nil, err
+	}
+	return &bindNode{name: name, expr: expression}, nil
 }
 
-// Execute evaluates the compiled expression against the provided Parameter
-// and returns the resulting reflect.Value.
-func (b *BindNode) Execute(p eval.Parameter) (reflect.Value, error) {
+func (b *bindNode) execute(p eval.Parameter) (reflect.Value, error) {
 	value, err := b.expr.Execute(p)
 	if err != nil {
 		return reflect.Value{}, err
@@ -46,9 +47,9 @@ func (b *BindNode) Execute(p eval.Parameter) (reflect.Value, error) {
 	return value, nil
 }
 
-type BindNodeGroup []*BindNode
+type bindNodeGroup []*bindNode
 
-func (b BindNodeGroup) ConvertParameter(parameter eval.Parameter) eval.Parameter {
+func (b bindNodeGroup) ConvertParameter(parameter eval.Parameter) eval.Parameter {
 	if len(b) == 0 {
 		return parameter
 	}
@@ -78,6 +79,20 @@ var ErrBindVariableNotFound = errors.New("juice: bind variable not found")
 
 type boundParameterDecorator struct {
 	scope *bindScope
+}
+
+type bindScope struct {
+	nodes     []*bindNode
+	parameter eval.Parameter
+}
+
+func (b bindScope) Get(name string) (reflect.Value, error) {
+	for _, bind := range b.nodes {
+		if bind.name == name {
+			return bind.execute(b.parameter)
+		}
+	}
+	return reflect.Value{}, ErrBindVariableNotFound
 }
 
 func (e boundParameterDecorator) Get(name string) (reflect.Value, bool) {

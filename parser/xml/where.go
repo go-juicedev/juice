@@ -14,20 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
 // WhereNode represents a SQL WHERE clause and its conditions.
 // It manages a group of condition Nodes that form the complete WHERE clause.
 type WhereNode struct {
-	Nodes     Group
-	BindNodes BindNodeGroup
+	Nodes     node.Group
+	BindNodes bindNodeGroup
 }
 
 // Accept processes the WHERE clause and its conditions.
@@ -68,4 +69,4 @@ func (w WhereNode) Accept(translator driver.Translator, p eval.Parameter) (query
 	return
 }
 
-var _ Node = (*WhereNode)(nil)
+var _ node.Node = (*WhereNode)(nil)

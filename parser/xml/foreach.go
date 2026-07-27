@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/internal/reflectlite"
+	"github.com/go-juicedev/juice/node"
 )
 
 // ForeachNode represents a dynamic SQL fragment that iterates over a collection.
@@ -67,13 +68,13 @@ import (
 //	Output: "(1,2,3)"
 type ForeachNode struct {
 	Collection string
-	Nodes      []Node
+	Nodes      []node.Node
 	Item       string
 	Index      string
 	Open       string
 	Close      string
 	Separator  string
-	BindNodes  BindNodeGroup
+	BindNodes  bindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
@@ -139,8 +140,8 @@ func (f ForeachNode) acceptSlice(value reflect.Value, translator driver.Translat
 			fp.IndexValue = reflectlite.FromInt(i)
 		}
 
-		for _, node := range f.Nodes {
-			q, a, err := node.Accept(translator, fp)
+		for _, n := range f.Nodes {
+			q, a, err := n.Accept(translator, fp)
 			if err != nil {
 				return "", nil, err
 			}
@@ -193,8 +194,8 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 		fp.ItemValue = iter.Value()
 		fp.IndexValue = iter.Key()
 
-		for _, node := range f.Nodes {
-			q, a, err := node.Accept(translator, fp)
+		for _, n := range f.Nodes {
+			q, a, err := n.Accept(translator, fp)
 			if err != nil {
 				return "", nil, err
 			}
@@ -220,4 +221,4 @@ func (f ForeachNode) acceptMap(value reflect.Value, translator driver.Translator
 	return builder.String(), args, nil
 }
 
-var _ Node = (*ForeachNode)(nil)
+var _ node.Node = (*ForeachNode)(nil)

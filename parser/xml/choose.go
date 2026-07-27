@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
 // ChooseNode implements a switch-like conditional structure for SQL generation.
@@ -67,17 +68,17 @@ import (
 // Note: Similar to a switch statement in programming languages,
 // only the first matching condition is executed.
 type ChooseNode struct {
-	WhenNodes     []Node
-	OtherwiseNode Node
-	BindNodes     BindNodeGroup
+	WhenNodes     []node.Node
+	OtherwiseNode node.Node
+	BindNodes     bindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (c ChooseNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	p = c.BindNodes.ConvertParameter(p)
 
-	for _, node := range c.WhenNodes {
-		q, a, err := node.Accept(translator, p)
+	for _, n := range c.WhenNodes {
+		q, a, err := n.Accept(translator, p)
 		if err != nil {
 			return "", nil, err
 		}
@@ -94,4 +95,4 @@ func (c ChooseNode) Accept(translator driver.Translator, p eval.Parameter) (quer
 	return "", nil, nil
 }
 
-var _ Node = (*ChooseNode)(nil)
+var _ node.Node = (*ChooseNode)(nil)

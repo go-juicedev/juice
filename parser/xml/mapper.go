@@ -19,11 +19,12 @@ package xml
 import (
 	stdxml "encoding/xml"
 	"fmt"
+	"strings"
 
 	"github.com/go-juicedev/juice/parser"
 )
 
-func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Mapper, error) {
+func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement, registry *sqlRegistry) (parser.Mapper, error) {
 	namespace, err := requiredAttribute(start, "namespace")
 	if err != nil {
 		return parser.Mapper{}, wrap("mapper", err)
@@ -32,8 +33,9 @@ func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Map
 		Namespace:  namespace,
 		Attributes: attributes(start),
 	}
+	resolver := &includeResolver{namespace: namespace, registry: registry}
 	statementIDs := make(map[string]struct{})
-	fragmentIDs := make(map[string]struct{})
+	sqlIDs := make(map[string]struct{})
 
 	for {
 		token, err := decoder.Token()
@@ -45,7 +47,7 @@ func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Map
 			action := parser.Action(token.Name.Local)
 			switch action {
 			case parser.Select, parser.Insert, parser.Update, parser.Delete:
-				statement, err := parseStatement(decoder, token, action)
+				statement, err := parseStatement(decoder, token, action, resolver)
 				if err != nil {
 					return parser.Mapper{}, err
 				}
@@ -55,15 +57,17 @@ func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Map
 				statementIDs[statement.ID] = struct{}{}
 				mapperDocument.Statements = append(mapperDocument.Statements, statement)
 			case "sql":
-				fragment, err := parseFragment(decoder, token)
+				sql, err := parseSQL(decoder, token, resolver)
 				if err != nil {
 					return parser.Mapper{}, err
 				}
-				if _, exists := fragmentIDs[fragment.ID]; exists {
-					return parser.Mapper{}, wrap("sql", fmt.Errorf("duplicate fragment id %q", fragment.ID))
+				if _, exists := sqlIDs[sql.ID()]; exists {
+					return parser.Mapper{}, wrap("sql", fmt.Errorf("duplicate sql id %q", sql.ID()))
 				}
-				fragmentIDs[fragment.ID] = struct{}{}
-				mapperDocument.Fragments = append(mapperDocument.Fragments, fragment)
+				sqlIDs[sql.ID()] = struct{}{}
+				if err := registry.register(namespace+"."+sql.ID(), sql); err != nil {
+					return parser.Mapper{}, wrap("sql", err)
+				}
 			default:
 				return parser.Mapper{}, wrap(token.Name.Local, fmt.Errorf("unknown mapper element"))
 			}
@@ -75,31 +79,85 @@ func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Map
 	}
 }
 
-func parseStatement(decoder *stdxml.Decoder, start stdxml.StartElement, action parser.Action) (parser.Statement, error) {
+func parseStatement(decoder *stdxml.Decoder, start stdxml.StartElement, action parser.Action, resolver *includeResolver) (parser.Statement, error) {
 	id, err := requiredAttribute(start, "id")
 	if err != nil {
 		return parser.Statement{}, wrap(start.Name.Local, err)
 	}
-	nodes, err := parseNodes(decoder, start.Name.Local, true)
-	if err != nil {
-		return parser.Statement{}, err
+	var nodes group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return parser.Statement{}, elementReadError(start.Name.Local, err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := string(token)
+			if strings.TrimSpace(text) != "" {
+				nodes.nodes = append(nodes.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return parser.Statement{}, err
+				}
+				nodes.binds = append(nodes.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return parser.Statement{}, err
+			}
+			nodes.nodes = append(nodes.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == start.Name.Local {
+				return parser.Statement{
+					ID:         id,
+					Action:     action,
+					Attributes: attributes(start),
+					Node:       nodes,
+				}, nil
+			}
+		}
 	}
-	return parser.Statement{
-		ID:         id,
-		Action:     action,
-		Attributes: attributes(start),
-		Nodes:      nodes,
-	}, nil
 }
 
-func parseFragment(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Fragment, error) {
+func parseSQL(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (*SQL, error) {
 	id, err := requiredAttribute(start, "id")
 	if err != nil {
-		return parser.Fragment{}, wrap("sql", err)
+		return nil, wrap("sql", err)
 	}
-	nodes, err := parseNodes(decoder, "sql", false)
-	if err != nil {
-		return parser.Fragment{}, err
+	var nodes group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("sql", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				nodes.nodes = append(nodes.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				nodes.binds = append(nodes.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			nodes.nodes = append(nodes.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "sql" {
+				return &SQL{id: id, node: nodes}, nil
+			}
+		}
 	}
-	return parser.Fragment{ID: id, Nodes: nodes}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/go-juicedev/juice/internal/container"
-	"github.com/go-juicedev/juice/node"
 )
 
 // Mapper defines a set of statements.
@@ -13,7 +12,6 @@ type Mapper struct {
 	namespace  string
 	mappers    *Mappers
 	statements map[string]*mappedStatement
-	sqlNodes   map[string]*node.SQLNode
 	attrs      map[string]string
 }
 
@@ -22,35 +20,9 @@ func (m *Mapper) Namespace() string {
 	return m.namespace
 }
 
-func (m *Mapper) setSqlNode(n *node.SQLNode) error {
-	if m.sqlNodes == nil {
-		m.sqlNodes = make(map[string]*node.SQLNode)
-	}
-	if _, exists := m.sqlNodes[n.ID]; exists {
-		return fmt.Errorf("sql node %s already exists", n.ID)
-	}
-	m.sqlNodes[n.ID] = n
-	return nil
-}
-
 // Attribute returns the attribute value by key.
 func (m *Mapper) Attribute(key string) string {
 	return m.attrs[key]
-}
-
-func (m *Mapper) GetSQLNodeByID(id string) (node.Node, error) {
-	// if the id is not cross-namespace
-	isCrossNamespace := strings.Contains(id, ".")
-
-	if !isCrossNamespace {
-		n, exists := m.sqlNodes[id]
-		if !exists {
-			return nil, fmt.Errorf("SQL node %q not found in mapper %q", id, m.namespace)
-		}
-		return n, nil
-	}
-
-	return m.mappers.GetSQLNodeByID(id)
 }
 
 func (m *Mapper) GetStatementByID(id string) (Statement, bool) {
@@ -124,14 +96,6 @@ func (m *Mappers) GetStatementByID(id string) (Statement, error) {
 	}
 
 	return statement, nil
-}
-
-func (m *Mappers) GetSQLNodeByID(id string) (node.Node, error) {
-	mapper, sqlNodeID, err := m.getMapperAndNodeID(id)
-	if err != nil {
-		return nil, err
-	}
-	return mapper.GetSQLNodeByID(sqlNodeID)
 }
 
 // Configuration represents a configuration of juice.

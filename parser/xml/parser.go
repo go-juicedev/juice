@@ -38,31 +38,42 @@ type Parser struct {
 var _ parser.Parser = (*Parser)(nil)
 
 func (p *Parser) Parse(reader io.Reader) (*parser.Document, error) {
+	document, _, _, err := p.parse(reader)
+	return document, err
+}
+
+func (p *Parser) parse(reader io.Reader) (*parser.Document, []mapperEntry, *sqlRegistry, error) {
+	registry := &sqlRegistry{}
 	decoder := stdxml.NewDecoder(reader)
 	for {
 		token, err := decoder.Token()
 		if err != nil {
 			if err == io.EOF {
-				return nil, fmt.Errorf("configuration root element not found")
+				return nil, nil, nil, fmt.Errorf("configuration root element not found")
 			}
-			return nil, err
+			return nil, nil, nil, err
 		}
 		start, ok := token.(stdxml.StartElement)
 		if !ok {
 			continue
 		}
 		if start.Name.Local != "configuration" {
-			return nil, wrap(start.Name.Local, fmt.Errorf("expected <configuration> root element"))
+			return nil, nil, nil, wrap(start.Name.Local, fmt.Errorf("expected <configuration> root element"))
 		}
-		return p.parseConfiguration(decoder)
+		document, entries, err := p.parseConfiguration(decoder, registry)
+		return document, entries, registry, err
 	}
 }
 
-func Parse(reader io.Reader) (*parser.Document, error) {
+func New(reader io.Reader) (*parser.Document, error) {
 	return new(Parser).Parse(reader)
 }
 
 func ParseMapper(reader io.Reader) (*parser.Mapper, error) {
+	return parseMapperDocument(reader, &sqlRegistry{})
+}
+
+func parseMapperDocument(reader io.Reader, registry *sqlRegistry) (*parser.Mapper, error) {
 	decoder := stdxml.NewDecoder(reader)
 	for {
 		token, err := decoder.Token()
@@ -79,7 +90,7 @@ func ParseMapper(reader io.Reader) (*parser.Mapper, error) {
 		if start.Name.Local != "mapper" {
 			return nil, wrap(start.Name.Local, ErrMapperRootElementNotFound)
 		}
-		mapperDocument, err := parseMapper(decoder, start)
+		mapperDocument, err := parseMapper(decoder, start, registry)
 		if err != nil {
 			return nil, err
 		}

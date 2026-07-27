@@ -17,81 +17,27 @@ limitations under the License.
 package node
 
 import (
-	"fmt"
-	"reflect"
-	"regexp"
-	"strconv"
+	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
-	"github.com/go-juicedev/juice/internal/reflectlite"
 )
 
-var (
-	// paramRegex matches parameter placeholders in SQL queries using #{...} syntax.
-	// Examples:
-	//   - #{ID}         -> matches
-	//   - #{user.name}  -> matches
-	//   - #{  age  }    -> matches (whitespace is ignored)
-	//   - #{}           -> doesn't match (requires identifier)
-	//   - #{123}        -> matches
-	paramRegex = regexp.MustCompile(`#{\s*(\w+(?:\.\w+)*)\s*}`)
-
-	// formatRegexp matches string interpolation placeholders using ${...} syntax.
-	// Unlike paramRegex, these are replaced directly in the SQL string.
-	// WARNING: Be careful with this as it can lead to SQL injection if not properly sanitized.
-	// Examples:
-	//   - ${tableName}  -> matches
-	//   - ${db.schema}  -> matches
-	//   - ${  field  }  -> matches (whitespace is ignored)
-	//   - ${}           -> doesn't match (requires identifier)
-	//   - ${123}        -> matches
-	formatRegexp = regexp.MustCompile(`\${\s*(\w+(?:\.\w+)*)\s*}`)
-)
-
-// Node is the fundamental interface for all SQL generation components.
-// It defines the contract for converting dynamic SQL structures into
-// concrete SQL queries with their corresponding parameters.
+// Node is the syntax-independent runtime abstraction for a SQL fragment.
 //
-// The Accept method follows the Visitor pattern, allowing different
-// SQL dialects to be supported through the translator parameter.
+// Node deliberately defines no parsing or source-language semantics. An XML
+// backend, a JSON backend, or a Go DSL may each provide different concrete
+// implementations; the runtime only asks an implementation to render itself
+// with a dialect translator and a parameter set.
 //
-// Parameters:
-//   - translator: Handles dialect-specific SQL translations
-//   - parameter: Contains parameter values for SQL generation
-//
-// Returns:
-//   - query: The generated SQL fragment
-//   - args: Slice of arguments for prepared statement
-//   - err: Any error during SQL generation
-//
-// Implementing types include:
-//   - SQLNode: Complete SQL statements
-//   - WhereNode: WHERE clause handling
-//   - SetNode: SET clause for updates
-//   - IfNode: Conditional inclusion
-//   - ChooseNode: Switch-like conditionals
-//   - ForeachNode: Collection iteration
-//   - TrimNode: String manipulation
-//   - IncludeNode: SQL fragment reuse
-//
-// Example usage:
-//
-//	query, args, err := node.Accept(mysqlTranslator, params)
-//	if err != nil {
-//	  // handle error
-//	}
-//	// use query and args with database
-//
-// Note: Implementations should handle their specific SQL generation
-// logic while maintaining consistency with the overall SQL structure.
+// Accept returns the rendered SQL fragment, the arguments for its placeholders,
+// and any evaluation error.
 type Node interface {
-	// Accept processes the node with given translator and parameters
-	// to produce a SQL fragment and its arguments.
+	// Accept renders the node with the given translator and parameters.
 	Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error)
 }
 
-// Group wraps multiple Nodes into a single node.
+// Group composes Nodes in source order into one syntax-independent Node.
 type Group []Node
 
 // Accept processes all Nodes in the group and combines their results.
@@ -107,8 +53,7 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 		return g[0].Accept(translator, p)
 	}
 
-	var builder = getStringBuilder()
-	defer putStringBuilder(builder)
+	var builder strings.Builder
 
 	// Pre-allocate string builder capacity to minimize buffer reallocations
 	estimatedCapacity := nodeLength*12 + nodeLength - 1
@@ -147,54 +92,3 @@ func (g Group) Accept(translator driver.Translator, p eval.Parameter) (query str
 }
 
 var _ Node = (Group)(nil)
-
-// reflectValueToString converts reflect.Value to string
-func reflectValueToString(v reflect.Value) string {
-	v = reflectlite.Unwrap(v)
-	if !v.IsValid() {
-		return ""
-	}
-	switch v.Kind() {
-	case reflect.String:
-		return v.String()
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(v.Int(), 10)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return strconv.FormatUint(v.Uint(), 10)
-	case reflect.Float32:
-		return strconv.FormatFloat(v.Float(), 'g', -1, 32)
-	case reflect.Float64:
-		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
-	case reflect.Bool:
-		return strconv.FormatBool(v.Bool())
-	case reflect.Slice:
-		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return string(v.Bytes())
-		}
-	}
-
-	if v.CanInterface() {
-		if t, ok := v.Interface().(fmt.Stringer); ok {
-			return t.String()
-		}
-		return fmt.Sprintf("%v", v.Interface())
-	}
-	return ""
-}
-
-// bindScope provides lookup and execution of bind variables within a scope.
-type bindScope struct {
-	nodes     []*BindNode
-	parameter eval.Parameter
-}
-
-// Get finds a BindNode by name and executes it using the scope's parameter.
-// Returns ErrBindVariableNotFound wrapped if no bind with the given name exists.
-func (b bindScope) Get(name string) (reflect.Value, error) {
-	for _, bind := range b.nodes {
-		if bind.Name == name {
-			return bind.Execute(b.parameter)
-		}
-	}
-	return reflect.Value{}, fmt.Errorf("%w: %s", ErrBindVariableNotFound, name)
-}
