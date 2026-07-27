@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	jdriver "github.com/go-juicedev/juice/driver"
+	configparser "github.com/go-juicedev/juice/parser"
 )
 
 type dbManagerDriver struct {
@@ -123,6 +124,8 @@ type invalidConfiguration struct {
 func (c invalidConfiguration) Environments() EnvironmentProvider { return c.envs }
 
 func (invalidConfiguration) Settings() SettingProvider { return keyValueSettingProvider{} }
+
+func (invalidConfiguration) Backend() configparser.Backend { return nil }
 
 func (invalidConfiguration) GetStatement(any) (Statement, error) { return nil, nil }
 

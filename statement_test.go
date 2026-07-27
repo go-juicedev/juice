@@ -93,7 +93,7 @@ func TestMappedStatement_BuildEmptyQuery_statement_test(t *testing.T) {
 }
 
 func TestRawSQLStatement_MetadataAndBuild_statement_test(t *testing.T) {
-	stmt := NewRawSQLStatement("SELECT * FROM ${table} WHERE id = #{id}", jsql.Select)
+	stmt := NewRawSQLStatement(xmlparser.Backend{}, "SELECT * FROM ${table} WHERE id = #{id}", jsql.Select)
 	stmt.WithAttribute("cache", "true")
 
 	if got := stmt.Attribute("cache"); got != "true" {
@@ -139,7 +139,7 @@ func TestRawSQLStatement_MetadataAndBuild_statement_test(t *testing.T) {
 }
 
 func TestRawSQLStatement_BuildEmptyQuery_statement_test(t *testing.T) {
-	stmt := NewRawSQLStatement("", jsql.Select)
+	stmt := NewRawSQLStatement(xmlparser.Backend{}, "", jsql.Select)
 	_, _, err := stmt.Build(driver.TranslateFunc(func(_ string) string { return "?" }), eval.H{})
 	if !errors.Is(err, ErrEmptyQuery) {
 		t.Fatalf("expected ErrEmptyQuery, got %v", err)

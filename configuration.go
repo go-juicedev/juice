@@ -26,6 +26,7 @@ import (
 	"reflect"
 
 	"github.com/go-juicedev/juice/internal/rootfs"
+	configparser "github.com/go-juicedev/juice/parser"
 	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
 
@@ -45,6 +46,9 @@ type Configuration interface {
 
 	// Settings returns the settings.
 	Settings() SettingProvider
+
+	// Backend returns the syntax backend used by the configuration.
+	Backend() configparser.Backend
 
 	// GetStatement returns the statement associated with the given value.
 	GetStatement(v any) (Statement, error)
@@ -87,6 +91,11 @@ func (c xmlConfiguration) Environments() EnvironmentProvider {
 // Settings returns the settings.
 func (c xmlConfiguration) Settings() SettingProvider {
 	return &c.settings
+}
+
+// Backend returns the XML syntax backend.
+func (c xmlConfiguration) Backend() configparser.Backend {
+	return xmlparser.Backend{}
 }
 
 // GetStatement returns the statement associated with the given value.
