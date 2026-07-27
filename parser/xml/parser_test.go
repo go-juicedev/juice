@@ -39,7 +39,7 @@ func TestParserParseFileLoadsMapperSources(t *testing.T) {
 }
 
 func TestParseConfigurationDocument(t *testing.T) {
-	document, err := xmlparser.Parse(strings.NewReader(`
+	document, err := xmlparser.New(strings.NewReader(`
 <configuration>
     <settings>
         <setting name="debug" value="true"/>
@@ -73,12 +73,6 @@ func TestParseConfigurationDocument(t *testing.T) {
 	if environment.Driver != "sqlite3" || environment.DataSource != "app.db" || environment.MaxOpenConns != "20" {
 		t.Fatalf("unexpected environment: %#v", environment)
 	}
-	if len(document.MapperSources) != 3 {
-		t.Fatalf("unexpected mapper sources: %#v", document.MapperSources)
-	}
-	if document.MapperSources[0].Pattern != "mappers/*.xml" || document.MapperSources[1].Resource != "mappers/user.xml" {
-		t.Fatalf("unexpected mapper sources: %#v", document.MapperSources)
-	}
 	if len(document.Mappers) != 1 || document.Mappers[0].Namespace != "example.Inline" {
 		t.Fatalf("unexpected inline mappers: %#v", document.Mappers)
 	}
@@ -110,9 +104,6 @@ func TestParseMapperDynamicNodes(t *testing.T) {
 	if mapperDocument.Namespace != "example.UserMapper" {
 		t.Fatalf("unexpected namespace: %s", mapperDocument.Namespace)
 	}
-	if len(mapperDocument.Fragments) != 1 || mapperDocument.Fragments[0].ID != "columns" {
-		t.Fatalf("unexpected fragments: %#v", mapperDocument.Fragments)
-	}
 	if len(mapperDocument.Statements) != 1 {
 		t.Fatalf("unexpected statements: %#v", mapperDocument.Statements)
 	}
@@ -121,25 +112,8 @@ func TestParseMapperDynamicNodes(t *testing.T) {
 		t.Fatalf("unexpected statement: %#v", statement)
 	}
 
-	include, ok := statement.Nodes[1].(parser.IncludeNode)
-	if !ok || include.RefID != "columns" || include.Properties["prefix"] != "u" {
-		t.Fatalf("unexpected include node: %#v", statement.Nodes[1])
-	}
-	where, ok := statement.Nodes[3].(parser.WhereNode)
-	if !ok || len(where.Children) != 3 {
-		t.Fatalf("unexpected where node: %#v", statement.Nodes[3])
-	}
-	ifNode, ok := where.Children[0].(parser.IfNode)
-	if !ok || ifNode.Test != "name != nil" {
-		t.Fatalf("unexpected if node: %#v", where.Children[0])
-	}
-	foreach, ok := where.Children[1].(parser.ForeachNode)
-	if !ok || foreach.Collection != "ids" || foreach.Item != "id" {
-		t.Fatalf("unexpected foreach node: %#v", where.Children[1])
-	}
-	choose, ok := where.Children[2].(parser.ChooseNode)
-	if !ok || len(choose.Whens) != 1 || len(choose.Otherwise) != 1 {
-		t.Fatalf("unexpected choose node: %#v", where.Children[2])
+	if statement.Node == nil {
+		t.Fatal("expected the XML backend to return an executable node")
 	}
 }
 
@@ -219,12 +193,7 @@ func TestParseMapperPreservesTrimText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	trim, ok := mapperDocument.Statements[0].Nodes[1].(parser.TrimNode)
-	if !ok || len(trim.Children) != 1 {
-		t.Fatalf("unexpected trim node: %#v", mapperDocument.Statements[0].Nodes)
-	}
-	text, ok := trim.Children[0].(parser.TextNode)
-	if !ok || text.Text != "AND id = #{id}" {
-		t.Fatalf("unexpected trim text: %#v", trim.Children[0])
+	if mapperDocument.Statements[0].Node == nil {
+		t.Fatal("expected the XML backend to return an executable trim node")
 	}
 }

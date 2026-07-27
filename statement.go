@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	xmlparser "github.com/go-juicedev/juice/parser/xml"
 	"github.com/go-juicedev/juice/sql"
 )
 
@@ -47,13 +48,12 @@ type Statement interface {
 
 // mappedStatement represents a SQL statement produced from mapper configuration.
 type mappedStatement struct {
-	mapper    *Mapper
-	action    sql.Action
-	Nodes     node.Group
-	bindNodes node.BindNodeGroup
-	attrs     map[string]string
-	name      string
-	id        string
+	mapper *Mapper
+	action sql.Action
+	Nodes  node.Group
+	attrs  map[string]string
+	name   string
+	id     string
 }
 
 // Attribute returns the value of the attribute with the given key.
@@ -120,7 +120,6 @@ func (s *mappedStatement) ResultMap() (sql.ResultMap, error) {
 
 // Build renders the mapped statement with the provided parameters.
 func (s *mappedStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
-	parameter = s.bindNodes.ConvertParameter(parameter)
 	query, args, err = s.Nodes.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
@@ -181,7 +180,7 @@ func (s RawSQLStatement) ResultMap() (sql.ResultMap, error) {
 
 // Build renders the raw SQL statement with the provided parameters.
 func (s RawSQLStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
-	query, args, err = node.NewTextNode(s.query).Accept(translator, parameter)
+	query, args, err = xmlparser.NewTextNode(s.query).Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
 	}

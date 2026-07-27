@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
 // TrimNode handles SQL fragment cleanup by managing prefixes, suffixes, and their overrides.
@@ -55,12 +56,12 @@ import (
 //	Input:  "AND ID = ? AND name = ?"
 //	Output: "WHERE ID = ? AND name = ?"
 type TrimNode struct {
-	Nodes           Group
+	Nodes           node.Group
 	Prefix          string
 	PrefixOverrides []string
 	Suffix          string
 	SuffixOverrides []string
-	BindNodes       BindNodeGroup
+	BindNodes       bindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
@@ -113,4 +114,4 @@ func (t TrimNode) Accept(translator driver.Translator, p eval.Parameter) (query 
 	return builder.String(), args, nil
 }
 
-var _ Node = (*TrimNode)(nil)
+var _ node.Node = (*TrimNode)(nil)

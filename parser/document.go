@@ -16,13 +16,13 @@ limitations under the License.
 
 package parser
 
+import "github.com/go-juicedev/juice/node"
+
 // Document is the format-independent representation of a Juice configuration.
 type Document struct {
 	Settings         map[string]string
 	Environments     Environments
 	MapperAttributes map[string]string
-	MapperSources    []MapperSource
-	MapperEntries    []MapperEntry
 	Mappers          []Mapper
 }
 
@@ -45,31 +45,11 @@ type Environment struct {
 	Attributes          map[string]string
 }
 
-// MapperSource identifies mapper documents referenced by the configuration.
-type MapperSource struct {
-	Resource string
-	URL      string
-	Pattern  string
-}
-
-// MapperEntry preserves the declaration order of mapper sources and inline mappers.
-type MapperEntry struct {
-	Source *MapperSource
-	Mapper *Mapper
-}
-
 // Mapper is a parsed mapper document.
 type Mapper struct {
 	Namespace  string
 	Attributes map[string]string
 	Statements []Statement
-	Fragments  []Fragment
-}
-
-// Fragment is a reusable SQL node group declared by a sql element.
-type Fragment struct {
-	ID    string
-	Nodes []Node
 }
 
 // Action identifies the operation represented by a statement.
@@ -87,5 +67,5 @@ type Statement struct {
 	ID         string
 	Action     Action
 	Attributes map[string]string
-	Nodes      []Node
+	Node       node.Node
 }

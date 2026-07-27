@@ -41,51 +41,51 @@ func (p *Parser) ParseFile(path string) (*parser.Document, error) {
 	}
 	defer func() { _ = file.Close() }()
 
-	document, err := p.Parse(file)
+	document, entries, registry, err := p.parse(file)
 	if err != nil {
 		return nil, err
 	}
-	if err := p.loadMapperSources(document); err != nil {
+	if err := p.loadMapperEntries(document, entries, registry); err != nil {
 		return nil, err
 	}
 	return document, nil
 }
 
-func (p *Parser) loadMapperSources(document *parser.Document) error {
-	if len(document.MapperEntries) == 0 {
+func (p *Parser) loadMapperEntries(document *parser.Document, entries []mapperEntry, registry *sqlRegistry) error {
+	if len(entries) == 0 {
 		return nil
 	}
-	resolved := make([]parser.Mapper, 0, len(document.MapperEntries))
-	for _, entry := range document.MapperEntries {
-		if entry.Mapper != nil {
-			resolved = append(resolved, *entry.Mapper)
+	resolved := make([]parser.Mapper, 0, len(entries))
+	for _, entry := range entries {
+		if entry.mapper != nil {
+			resolved = append(resolved, *entry.mapper)
 			continue
 		}
-		if entry.Source == nil {
+		if entry.source == nil {
 			continue
 		}
-		source := *entry.Source
+		source := *entry.source
 		switch {
-		case source.Pattern != "":
-			matches, err := fs.Glob(p.FS, source.Pattern)
+		case source.pattern != "":
+			matches, err := fs.Glob(p.FS, source.pattern)
 			if err != nil {
-				return fmt.Errorf("invalid mapper pattern %q: %w", source.Pattern, err)
+				return fmt.Errorf("invalid mapper pattern %q: %w", source.pattern, err)
 			}
 			for _, match := range matches {
-				mapperDocument, err := p.loadMapperResource(match)
+				mapperDocument, err := p.loadMapperResource(match, registry)
 				if err != nil {
 					return err
 				}
 				resolved = append(resolved, mapperDocument)
 			}
-		case source.Resource != "":
-			mapperDocument, err := p.loadMapperResource(source.Resource)
+		case source.resource != "":
+			mapperDocument, err := p.loadMapperResource(source.resource, registry)
 			if err != nil {
 				return err
 			}
 			resolved = append(resolved, mapperDocument)
-		case source.URL != "":
-			mapperDocument, err := p.loadMapperURL(source.URL)
+		case source.url != "":
+			mapperDocument, err := p.loadMapperURL(source.url, registry)
 			if err != nil {
 				return err
 			}
@@ -96,7 +96,7 @@ func (p *Parser) loadMapperSources(document *parser.Document) error {
 	return nil
 }
 
-func (p *Parser) loadMapperResource(resource string) (parser.Mapper, error) {
+func (p *Parser) loadMapperResource(resource string, registry *sqlRegistry) (parser.Mapper, error) {
 	if p.FS == nil {
 		return parser.Mapper{}, errors.New("xml parser filesystem is required")
 	}
@@ -105,29 +105,29 @@ func (p *Parser) loadMapperResource(resource string) (parser.Mapper, error) {
 		return parser.Mapper{}, err
 	}
 	defer func() { _ = file.Close() }()
-	mapperDocument, err := ParseMapper(file)
+	mapperDocument, err := parseMapperDocument(file, registry)
 	if err != nil {
 		return parser.Mapper{}, fmt.Errorf("failed to parse mapper %q: %w", resource, err)
 	}
 	return *mapperDocument, nil
 }
 
-func (p *Parser) loadMapperURL(rawURL string) (parser.Mapper, error) {
+func (p *Parser) loadMapperURL(rawURL string, registry *sqlRegistry) (parser.Mapper, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return parser.Mapper{}, err
 	}
 	switch parsedURL.Scheme {
 	case "file":
-		return p.loadMapperResource(strings.TrimPrefix(parsedURL.Path, "/"))
+		return p.loadMapperResource(strings.TrimPrefix(parsedURL.Path, "/"), registry)
 	case "http", "https":
-		return p.loadRemoteMapper(rawURL)
+		return p.loadRemoteMapper(rawURL, registry)
 	default:
 		return parser.Mapper{}, fmt.Errorf("invalid mapper URL scheme %q", parsedURL.Scheme)
 	}
 }
 
-func (p *Parser) loadRemoteMapper(rawURL string) (parser.Mapper, error) {
+func (p *Parser) loadRemoteMapper(rawURL string, registry *sqlRegistry) (parser.Mapper, error) {
 	client := p.Client
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
@@ -141,7 +141,7 @@ func (p *Parser) loadRemoteMapper(rawURL string) (parser.Mapper, error) {
 		_, _ = io.Copy(io.Discard, response.Body)
 		return parser.Mapper{}, fmt.Errorf("%w: %s returned %s", ErrUnexpectedHTTPStatus, rawURL, response.Status)
 	}
-	mapperDocument, err := ParseMapper(response.Body)
+	mapperDocument, err := parseMapperDocument(response.Body, registry)
 	if err != nil {
 		return parser.Mapper{}, fmt.Errorf("failed to parse mapper %q: %w", rawURL, err)
 	}

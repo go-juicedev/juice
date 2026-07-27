@@ -14,15 +14,50 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
-type nodeManager interface {
-	GetSQLNodeByID(id string) (Node, error)
+type sqlRegistry struct {
+	nodes map[string]node.Node
+}
+
+func (r *sqlRegistry) register(id string, n node.Node) error {
+	if r.nodes == nil {
+		r.nodes = make(map[string]node.Node)
+	}
+	if _, exists := r.nodes[id]; exists {
+		return fmt.Errorf("duplicate SQL node %q", id)
+	}
+	r.nodes[id] = n
+	return nil
+}
+
+type includeResolver struct {
+	namespace string
+	registry  *sqlRegistry
+}
+
+func (r *includeResolver) resolve(refID string) (node.Node, error) {
+	if r == nil || r.registry == nil {
+		return nil, fmt.Errorf("XML include %q has no SQL registry", refID)
+	}
+	id := refID
+	if !strings.ContainsRune(id, '.') {
+		id = r.namespace + "." + id
+	}
+	n, exists := r.registry.nodes[id]
+	if !exists {
+		return nil, fmt.Errorf("SQL node %q not found", id)
+	}
+	return n, nil
 }
 
 // IncludeNode represents a reference to another SQL fragment, enabling SQL reuse.
@@ -65,8 +100,8 @@ type nodeManager interface {
 // the <sql> tag. The reference can be within the same mapper or from
 // another mapper if properly configured.
 type IncludeNode struct {
-	sqlNode    Node
-	manager    nodeManager
+	sqlNode    node.Node
+	resolver   *includeResolver
 	refId      string
 	properties eval.Parameter
 }
@@ -74,9 +109,7 @@ type IncludeNode struct {
 // Accept accepts parameters and returns query and arguments.
 func (i *IncludeNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
 	if i.sqlNode == nil {
-		// lazy loading
-		// does it need to be thread safe?
-		sqlNode, err := i.manager.GetSQLNodeByID(i.refId)
+		sqlNode, err := i.resolver.resolve(i.refId)
 		if err != nil {
 			return "", nil, err
 		}
@@ -95,10 +128,9 @@ func (i *IncludeNode) WithProperties(properties eval.Parameter) *IncludeNode {
 	return i
 }
 
-func NewIncludeNode(sqlNode Node, manager nodeManager, refId string) *IncludeNode {
+func newIncludeNode(refID string, resolver *includeResolver) *IncludeNode {
 	return &IncludeNode{
-		sqlNode: sqlNode,
-		manager: manager,
-		refId:   refId,
+		refId:    refID,
+		resolver: resolver,
 	}
 }

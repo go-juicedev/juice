@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
 // OtherwiseNode represents the default branch in a <choose> statement,
@@ -63,8 +64,8 @@ import (
 // Note: Unlike WhenNode, OtherwiseNode doesn't evaluate any conditions.
 // It simply provides default SQL fragments when needed.
 type OtherwiseNode struct {
-	Nodes     Group
-	BindNodes BindNodeGroup
+	Nodes     node.Group
+	BindNodes bindNodeGroup
 }
 
 // Accept accepts parameters and returns query and arguments.
@@ -74,4 +75,4 @@ func (o OtherwiseNode) Accept(translator driver.Translator, p eval.Parameter) (q
 	return o.Nodes.Accept(translator, p)
 }
 
-var _ Node = (*OtherwiseNode)(nil)
+var _ node.Node = (*OtherwiseNode)(nil)

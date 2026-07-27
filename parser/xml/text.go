@@ -14,15 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
 import (
 	"fmt"
+	"reflect"
+	"regexp"
 	"sort"
+	"strconv"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
+
+var paramRegex = regexp.MustCompile(`#{\s*(\w+(?:\.\w+)*)\s*}`)
+var formatRegexp = regexp.MustCompile(`\${\s*(\w+(?:\.\w+)*)\s*}`)
 
 // pureTextNode stores static SQL text without parameter replacement.
 type pureTextNode string
@@ -31,12 +38,32 @@ func (p pureTextNode) Accept(_ driver.Translator, _ eval.Parameter) (query strin
 	return string(p), nil, nil
 }
 
-var _ Node = (*pureTextNode)(nil)
+var _ node.Node = (*pureTextNode)(nil)
 
 // TextNode stores SQL text that may contain placeholders or text substitutions.
 type TextNode struct {
 	value  string
 	tokens []textToken
+}
+
+func reflectValueToString(v reflect.Value) string {
+	if !v.IsValid() {
+		return ""
+	}
+	switch v.Kind() {
+	case reflect.String:
+		return v.String()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(v.Uint(), 10)
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool())
+	default:
+		return fmt.Sprint(v.Interface())
+	}
 }
 
 type textToken struct {
@@ -89,7 +116,7 @@ func (c *TextNode) Accept(translator driver.Translator, p eval.Parameter) (query
 // NewTextNode creates a new text node based on the input string.
 // It returns either a lightweight pureTextNode for static SQL,
 // or a full TextNode for dynamic SQL with placeholders/substitutions.
-func NewTextNode(str string) Node {
+func NewTextNode(str string) node.Node {
 	placeholder := paramRegex.FindAllStringSubmatchIndex(str, -1)
 	textSubstitution := formatRegexp.FindAllStringSubmatchIndex(str, -1)
 
@@ -123,4 +150,4 @@ func NewTextNode(str string) Node {
 	return &TextNode{value: str, tokens: tokens}
 }
 
-var _ Node = (*TextNode)(nil)
+var _ node.Node = (*TextNode)(nil)

@@ -8,6 +8,7 @@ import (
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/node"
+	xmlparser "github.com/go-juicedev/juice/parser/xml"
 	jsql "github.com/go-juicedev/juice/sql"
 )
 
@@ -27,7 +28,7 @@ func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 		mapper: mapper,
 		action: jsql.Select,
 		Nodes: node.Group{
-			node.NewTextNode("SELECT 1"),
+			xmlparser.NewTextNode("SELECT 1"),
 		},
 		id: "SelectOne",
 	}

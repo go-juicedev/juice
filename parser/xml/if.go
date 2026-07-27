@@ -14,23 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package xml
 
-// IfNode is an alias for ConditionNode, representing a conditional SQL fragment.
-// It evaluates a condition and determines whether its content should be included in the final SQL.
+// IfNode represents an XML <if> element.
+// It is an alias because <if> uses ConditionNode's shared conditional-rendering
+// behavior.
 //
-// The condition can be based on various types:
-//   - Boolean: direct condition
-//   - Numbers: non-zero values are true
-//   - Strings: non-empty strings are true
-//
-// Example usage:
+// Example:
 //
 //	<if test="ID > 0">
 //	    AND ID = #{ID}
 //	</if>
-//
-// See ConditionNode for detailed behavior of condition evaluation.
 type IfNode = ConditionNode
-
-var _ Node = (*IfNode)(nil)

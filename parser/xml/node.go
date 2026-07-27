@@ -21,78 +21,145 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-juicedev/juice/parser"
+	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/node"
 )
 
-func parseNodes(decoder *stdxml.Decoder, end string, preserveWhitespace bool) ([]parser.Node, error) {
-	var nodes []parser.Node
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			return nil, elementReadError(end, err)
-		}
-		switch token := token.(type) {
-		case stdxml.CharData:
-			text := string(token)
-			if strings.TrimSpace(text) == "" {
-				continue
-			}
-			if !preserveWhitespace {
-				text = strings.TrimSpace(text)
-			}
-			nodes = append(nodes, parser.TextNode{Text: text})
-		case stdxml.StartElement:
-			node, err := parseNode(decoder, token)
-			if err != nil {
-				return nil, err
-			}
-			nodes = append(nodes, node)
-		case stdxml.EndElement:
-			if token.Name.Local == end {
-				return nodes, nil
-			}
-		}
-	}
-}
-
-func parseNode(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node, error) {
+func parseNode(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
 	switch start.Name.Local {
 	case "if":
-		return parseIf(decoder, start)
-	case "bind":
-		return parseBind(decoder, start)
+		return parseIf(decoder, start, resolver)
 	case "foreach":
-		return parseForeach(decoder, start)
+		return parseForeach(decoder, start, resolver)
 	case "choose":
-		return parseChoose(decoder)
+		return parseChoose(decoder, resolver)
 	case "trim":
-		return parseTrim(decoder, start)
+		return parseTrim(decoder, start, resolver)
 	case "where":
-		children, err := parseNodes(decoder, "where", false)
-		return parser.WhereNode{Children: children}, err
+		return parseWhere(decoder, resolver)
 	case "set":
-		children, err := parseNodes(decoder, "set", false)
-		return parser.SetNode{Children: children}, err
+		return parseSet(decoder, resolver)
 	case "include":
-		return parseInclude(decoder, start)
+		return parseInclude(decoder, start, resolver)
 	default:
 		return nil, wrap(start.Name.Local, fmt.Errorf("unknown dynamic SQL element"))
 	}
 }
 
-func parseIf(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node, error) {
+func parseWhere(decoder *stdxml.Decoder, resolver *includeResolver) (node.Node, error) {
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("where", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "where" {
+				return &WhereNode{Nodes: children.nodes, BindNodes: children.binds}, nil
+			}
+		}
+	}
+}
+
+func parseSet(decoder *stdxml.Decoder, resolver *includeResolver) (node.Node, error) {
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("set", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "set" {
+				return &SetNode{Nodes: children.nodes, BindNodes: children.binds}, nil
+			}
+		}
+	}
+}
+
+func parseIf(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
 	test, err := requiredAttribute(start, "test")
 	if err != nil {
 		return nil, wrap("if", err)
 	}
-	children, err := parseNodes(decoder, "if", false)
-	if err != nil {
-		return nil, err
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("if", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "if" {
+				compiled := &IfNode{Nodes: children.nodes, BindNodes: children.binds}
+				if err := compiled.Parse(test); err != nil {
+					return nil, err
+				}
+				return compiled, nil
+			}
+		}
 	}
-	return parser.IfNode{Test: test, Children: children}, nil
 }
 
-func parseBind(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node, error) {
+func parseBind(decoder *stdxml.Decoder, start stdxml.StartElement) (*bindNode, error) {
 	name, err := requiredAttribute(start, "name")
 	if err != nil {
 		return nil, wrap("bind", err)
@@ -104,31 +171,63 @@ func parseBind(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node,
 	if err := skipElement(decoder, start); err != nil {
 		return nil, err
 	}
-	return parser.BindNode{Name: name, Value: value}, nil
+	return newBindNode(name, value)
 }
 
-func parseForeach(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node, error) {
+func parseForeach(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
 	item, err := requiredAttribute(start, "item")
 	if err != nil {
 		return nil, wrap("foreach", err)
 	}
-	children, err := parseNodes(decoder, "foreach", false)
-	if err != nil {
-		return nil, err
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("foreach", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "foreach" {
+				collection := attribute(start, "collection")
+				if collection == "" {
+					collection = eval.DefaultParamKey()
+				}
+				return &ForeachNode{
+					Collection: collection,
+					Item:       item,
+					Index:      attribute(start, "index"),
+					Open:       attribute(start, "open"),
+					Close:      attribute(start, "close"),
+					Separator:  attribute(start, "separator"),
+					Nodes:      children.nodes,
+					BindNodes:  children.binds,
+				}, nil
+			}
+		}
 	}
-	return parser.ForeachNode{
-		Collection: attribute(start, "collection"),
-		Item:       item,
-		Index:      attribute(start, "index"),
-		Open:       attribute(start, "open"),
-		Close:      attribute(start, "close"),
-		Separator:  attribute(start, "separator"),
-		Children:   children,
-	}, nil
 }
 
-func parseChoose(decoder *stdxml.Decoder) (parser.Node, error) {
-	choose := parser.ChooseNode{}
+func parseChoose(decoder *stdxml.Decoder, resolver *includeResolver) (node.Node, error) {
+	choose := &ChooseNode{}
 	for {
 		token, err := decoder.Token()
 		if err != nil {
@@ -146,28 +245,22 @@ func parseChoose(decoder *stdxml.Decoder) (parser.Node, error) {
 				if err != nil {
 					return nil, err
 				}
-				binding := parsed.(parser.BindNode)
-				choose.Bindings = append(choose.Bindings, binding)
+				choose.BindNodes = append(choose.BindNodes, parsed)
 			case "when":
-				test, err := requiredAttribute(token, "test")
-				if err != nil {
-					return nil, wrap("when", err)
-				}
-				children, err := parseNodes(decoder, "when", false)
+				when, err := parseWhen(decoder, token, resolver)
 				if err != nil {
 					return nil, err
 				}
-				choose.Whens = append(choose.Whens, parser.WhenNode{Test: test, Children: children})
+				choose.WhenNodes = append(choose.WhenNodes, when)
 			case "otherwise":
-				if choose.HasOtherwise {
+				if choose.OtherwiseNode != nil {
 					return nil, wrap("otherwise", fmt.Errorf("element may only appear once"))
 				}
-				children, err := parseNodes(decoder, "otherwise", false)
+				otherwise, err := parseOtherwise(decoder, resolver)
 				if err != nil {
 					return nil, err
 				}
-				choose.Otherwise = children
-				choose.HasOtherwise = true
+				choose.OtherwiseNode = otherwise
 			default:
 				return nil, wrap(token.Name.Local, fmt.Errorf("expected <when> or <otherwise>"))
 			}
@@ -179,26 +272,149 @@ func parseChoose(decoder *stdxml.Decoder) (parser.Node, error) {
 	}
 }
 
-func parseTrim(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node, error) {
-	children, err := parseNodes(decoder, "trim", false)
+func parseWhen(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
+	test, err := requiredAttribute(start, "test")
 	if err != nil {
-		return nil, err
+		return nil, wrap("when", err)
 	}
-	return parser.TrimNode{
-		Prefix:          attribute(start, "prefix"),
-		Suffix:          attribute(start, "suffix"),
-		PrefixOverrides: attribute(start, "prefixOverrides"),
-		SuffixOverrides: attribute(start, "suffixOverrides"),
-		Children:        children,
-	}, nil
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("when", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "when" {
+				when := &WhenNode{
+					Nodes:     children.nodes,
+					BindNodes: children.binds,
+				}
+				if err := when.Parse(test); err != nil {
+					return nil, err
+				}
+				return when, nil
+			}
+		}
+	}
 }
 
-func parseInclude(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Node, error) {
+func parseOtherwise(decoder *stdxml.Decoder, resolver *includeResolver) (node.Node, error) {
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("otherwise", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "otherwise" {
+				return &OtherwiseNode{
+					Nodes:     children.nodes,
+					BindNodes: children.binds,
+				}, nil
+			}
+		}
+	}
+}
+
+func parseTrim(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
+	var children group
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, elementReadError("trim", err)
+		}
+		switch token := token.(type) {
+		case stdxml.CharData:
+			text := strings.TrimSpace(string(token))
+			if text != "" {
+				children.nodes = append(children.nodes, NewTextNode(text))
+			}
+		case stdxml.StartElement:
+			if token.Name.Local == "bind" {
+				binding, err := parseBind(decoder, token)
+				if err != nil {
+					return nil, err
+				}
+				children.binds = append(children.binds, binding)
+				continue
+			}
+			n, err := parseNode(decoder, token, resolver)
+			if err != nil {
+				return nil, err
+			}
+			children.nodes = append(children.nodes, n)
+		case stdxml.EndElement:
+			if token.Name.Local == "trim" {
+				return &TrimNode{
+					Prefix:          attribute(start, "prefix"),
+					Suffix:          attribute(start, "suffix"),
+					PrefixOverrides: splitOverrides(attribute(start, "prefixOverrides")),
+					SuffixOverrides: splitOverrides(attribute(start, "suffixOverrides")),
+					Nodes:           children.nodes,
+					BindNodes:       children.binds,
+				}, nil
+			}
+		}
+	}
+}
+
+func splitOverrides(value string) []string {
+	if value == "" {
+		return nil
+	}
+	values := strings.Split(value, "|")
+	for index := range values {
+		values[index] = strings.TrimSpace(values[index])
+	}
+	return values
+}
+
+func parseInclude(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *includeResolver) (node.Node, error) {
 	refID, err := requiredAttribute(start, "refid")
 	if err != nil {
 		return nil, wrap("include", err)
 	}
-	include := parser.IncludeNode{RefID: refID}
+	properties := make(eval.H)
 	for {
 		token, err := decoder.Token()
 		if err != nil {
@@ -221,18 +437,19 @@ func parseInclude(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.No
 			if err != nil {
 				return nil, wrap("property", err)
 			}
-			if include.Properties == nil {
-				include.Properties = make(map[string]string)
-			}
-			if _, exists := include.Properties[name]; exists {
+			if _, exists := properties[name]; exists {
 				return nil, wrap("property", fmt.Errorf("duplicate property %q", name))
 			}
-			include.Properties[name] = value
+			properties[name] = value
 			if err := skipElement(decoder, token); err != nil {
 				return nil, err
 			}
 		case stdxml.EndElement:
 			if token.Name.Local == "include" {
+				include := newIncludeNode(refID, resolver)
+				if len(properties) > 0 {
+					include.WithProperties(properties)
+				}
 				return include, nil
 			}
 		}
