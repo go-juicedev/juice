@@ -190,18 +190,14 @@ type shStatement struct {
 	buildFn func(translator jdriver.Translator, parameter eval.Parameter) (query string, args []any, err error)
 }
 
-func (s shStatement) ID() string {
+func (s shStatement) ID() StatementID {
 	if s.id != "" {
-		return s.id
+		return StatementID(s.id)
 	}
-	return "id"
-}
-
-func (s shStatement) Name() string {
 	if s.name != "" {
-		return s.name
+		return StatementID(s.name)
 	}
-	return "name"
+	return "example.Statement"
 }
 
 func (s shStatement) Attribute(key string) string {
@@ -279,10 +275,10 @@ func (m shSwitchSessionMiddleware) ExecContext(statementContext *StatementContex
 
 func newStatementTestEngine(sess session.Session, middlewares ...Middleware) *Engine {
 	return &Engine{
-		configuration: &configuration{settings: keyValueSettingProvider{}},
-		driver:        &jdriver.SQLiteDriver{},
-		db:            nil,
-		middlewares:   middlewares,
+		settings:    keyValueSettingProvider{},
+		driver:      &jdriver.SQLiteDriver{},
+		db:          nil,
+		middlewares: middlewares,
 	}
 }
 
@@ -318,7 +314,7 @@ func TestBuildStatementQuery_statement_handler_test(t *testing.T) {
 		},
 	}
 
-	query, args, err := buildStatementQuery(stmt, nil, &jdriver.SQLiteDriver{}, map[string]any{"id": 7})
+	query, args, err := buildStatementQuery(stmt, &jdriver.SQLiteDriver{}, map[string]any{"id": 7})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -347,7 +343,7 @@ func TestExecuteStatementHandler_statement_handler_test(t *testing.T) {
 				if ctx.Engine() != engine {
 					t.Fatalf("expected engine in middleware context")
 				}
-				if ctx.Statement().Name() != stmt.Name() {
+				if ctx.Statement().ID() != stmt.ID() {
 					t.Fatalf("expected statement in middleware context")
 				}
 				if !reflect.DeepEqual(ctx.Param(), param) {
@@ -362,7 +358,7 @@ func TestExecuteStatementHandler_statement_handler_test(t *testing.T) {
 				if ctx.Engine() != engine {
 					t.Fatalf("expected engine in middleware context")
 				}
-				if ctx.Statement().Name() != stmt.Name() {
+				if ctx.Statement().ID() != stmt.ID() {
 					t.Fatalf("expected statement in middleware context")
 				}
 				if !reflect.DeepEqual(ctx.Param(), param) {

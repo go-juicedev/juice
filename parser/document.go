@@ -20,17 +20,16 @@ import "github.com/go-juicedev/juice/node"
 
 // Document is the format-independent representation of a Juice configuration.
 type Document struct {
-	Settings         map[string]string
-	Environments     Environments
-	MapperAttributes map[string]string
-	Mappers          []Mapper
+	Settings     map[string]string
+	Environments Environments
+	MapperPrefix string
+	Mappers      []Mapper
 }
 
 // Environments contains the configured database environments.
 type Environments struct {
 	Default string
 	Items   []Environment
-	Present bool
 }
 
 // Environment describes one database environment before semantic compilation.
@@ -48,7 +47,6 @@ type Environment struct {
 // Mapper is a parsed mapper document.
 type Mapper struct {
 	Namespace  string
-	Attributes map[string]string
 	Statements []Statement
 }
 

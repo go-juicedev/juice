@@ -17,13 +17,12 @@ func (resultStub) RowsAffected() (int64, error) { return 0, nil }
 
 type statementStub struct{}
 
-func (statementStub) ID() string { return "id" }
-func (statementStub) Name() string { return "name" }
+func (statementStub) ID() StatementID           { return "example.Statement" }
 func (statementStub) Attribute(_ string) string { return "" }
 func (statementStub) Build(_ driver.Translator, _ eval.Parameter) (string, []any, error) {
 	return "SELECT 1", nil, nil
 }
-func (statementStub) Action() jsql.Action { return jsql.Select }
+func (statementStub) Action() jsql.Action                { return jsql.Select }
 func (statementStub) ResultMap() (jsql.ResultMap, error) { return nil, jsql.ErrResultMapNotSet }
 
 type sqlRowsExecutorStub struct {
@@ -43,7 +42,7 @@ func (s *sqlRowsExecutorStub) ExecContext(_ context.Context, _ eval.Param) (jsql
 	return s.execResult, s.execErr
 }
 
-func (s *sqlRowsExecutorStub) Statement() Statement { return s.stmt }
+func (s *sqlRowsExecutorStub) Statement() Statement  { return s.stmt }
 func (s *sqlRowsExecutorStub) Driver() driver.Driver { return s.drv }
 
 func TestErrorRunner_AllMethodsReturnSameError_runner_test(t *testing.T) {
@@ -128,4 +127,3 @@ func (runnerFunc) Update(_ context.Context, _ eval.Param) (jsql.Result, error) {
 func (runnerFunc) Delete(_ context.Context, _ eval.Param) (jsql.Result, error) {
 	return resultStub{}, nil
 }
-

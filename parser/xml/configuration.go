@@ -120,7 +120,7 @@ func parseSettings(decoder *stdxml.Decoder) (map[string]string, error) {
 }
 
 func parseEnvironments(decoder *stdxml.Decoder, start stdxml.StartElement) (parser.Environments, error) {
-	environments := parser.Environments{Default: attribute(start, "default"), Present: true}
+	environments := parser.Environments{Default: attribute(start, "default")}
 	for {
 		token, err := decoder.Token()
 		if err != nil {
@@ -186,7 +186,10 @@ func parseEnvironment(decoder *stdxml.Decoder, start stdxml.StartElement) (parse
 }
 
 func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *parser.Document, registry *sqlRegistry) ([]mapperEntry, error) {
-	document.MapperAttributes = attributes(start)
+	if err := validateAttributes(start, "pattern", "prefix"); err != nil {
+		return nil, wrap("mappers", err)
+	}
+	document.MapperPrefix = attribute(start, "prefix")
 	var entries []mapperEntry
 	if pattern := attribute(start, "pattern"); pattern != "" {
 		source := mapperSource{pattern: pattern}
@@ -201,6 +204,9 @@ func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *
 		case stdxml.StartElement:
 			if token.Name.Local != "mapper" {
 				return nil, wrap(token.Name.Local, fmt.Errorf("expected <mapper>"))
+			}
+			if err := validateAttributes(token, "resource", "url", "namespace"); err != nil {
+				return nil, wrap("mapper", err)
 			}
 			resource := attribute(token, "resource")
 			mapperURL := attribute(token, "url")

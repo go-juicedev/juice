@@ -179,7 +179,7 @@ func (m *DBManager) Close() error {
 	m.closed.Store(true)
 
 	var errs []error
-	m.conns.Range(func(key, value interface{}) bool {
+	m.conns.Range(func(key, value any) bool {
 		c := value.(*conn)
 		if c.db == nil {
 			return true
@@ -196,42 +196,33 @@ func (m *DBManager) Close() error {
 	return nil
 }
 
-// NewDBManager creates a new DBManager instance using the provided
-// configuration. It initializes all configured database sources and validates their
-// parameters before adding them to the manager.
-func NewDBManager(cfg Configuration) (*DBManager, error) {
-	if cfg == nil {
-		return nil, errConfigurationRequired
-	}
-
-	envs := cfg.Environments()
-	if envs == nil {
+// NewDBManager creates a new DBManager instance using the provided sources.
+// It initializes all configured database sources and validates their parameters
+// before adding them to the manager.
+func NewDBManager(sources SourceProvider) (*DBManager, error) {
+	if sources == nil {
 		return nil, errConfigurationEnvironmentsRequired
-	}
-
-	defaultEnv := envs.Attribute("default")
-	if defaultEnv == "" {
-		return nil, errConfigurationDefaultEnvironmentMissing
-	}
-	if _, err := envs.Use(defaultEnv); err != nil {
-		return nil, fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultEnv)
 	}
 
 	m := &DBManager{
 		sources: make(map[string]Source),
 	}
 
-	for name, env := range envs.Iter() {
-		if err := m.Add(name, Source{
-			Driver:          env.Driver,
-			DSN:             env.DataSource,
-			MaxOpenConns:    env.MaxOpenConnNum,
-			MaxIdleConns:    env.MaxIdleConnNum,
-			ConnMaxLifetime: time.Duration(env.MaxConnLifetime) * time.Second,
-			ConnMaxIdleTime: time.Duration(env.MaxIdleConnLifetime) * time.Second,
-		}); err != nil {
+	for name, source := range sources.Sources() {
+		if err := m.Add(name, source); err != nil {
 			return nil, fmt.Errorf("failed to add source %s: %w", name, err)
 		}
+	}
+	if len(m.sources) == 0 {
+		return nil, errConfigurationEnvironmentsRequired
+	}
+
+	defaultSource := sources.DefaultSource()
+	if defaultSource == "" {
+		return nil, errConfigurationDefaultEnvironmentMissing
+	}
+	if _, exists := m.sources[defaultSource]; !exists {
+		return nil, fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultSource)
 	}
 
 	return m, nil
