@@ -34,7 +34,4 @@ var (
 
 	// ErrNoStatementFound is returned when no mapped statement exists.
 	ErrNoStatementFound = errors.New("no statement found")
-
-	// ErrNoManagerFoundInContext is returned when the context has no manager.
-	ErrNoManagerFoundInContext = errors.New("no manager found in context")
 )

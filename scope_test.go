@@ -8,98 +8,109 @@ import (
 	"github.com/go-juicedev/juice/session/tx"
 )
 
-func TestScopeTransactionAndNestedTransaction_scope_test(t *testing.T) {
-	if err := Transaction(context.Background(), func(context.Context) error { return nil }); !errors.Is(err, ErrInvalidManager) {
-		t.Fatalf("expected ErrInvalidManager, got %v", err)
-	}
+func TestTransactionRejectsInvalidManager_scope_test(t *testing.T) {
+	handler := func(context.Context, Manager) error { return nil }
 
-	invalidCtx := ContextWithManager(context.Background(), &managerStub{})
-	if err := Transaction(invalidCtx, func(context.Context) error { return nil }); !errors.Is(err, ErrInvalidManager) {
-		t.Fatalf("expected ErrInvalidManager, got %v", err)
+	if err := Transaction(context.Background(), nil, handler); !errors.Is(err, ErrInvalidManager) {
+		t.Fatalf("Transaction(nil) error = %v, want %v", err, ErrInvalidManager)
 	}
+	if err := Transaction(context.Background(), &managerStub{}, handler); !errors.Is(err, ErrInvalidManager) {
+		t.Fatalf("Transaction(managerStub) error = %v, want %v", err, ErrInvalidManager)
+	}
+	manualManager := &BasicTxManager{basicTxManager: &basicTxManager{}}
+	if err := Transaction(context.Background(), manualManager, handler); !errors.Is(err, ErrInvalidManager) {
+		t.Fatalf("Transaction(BasicTxManager) error = %v, want %v", err, ErrInvalidManager)
+	}
+}
 
+func TestTransactionStartsTransactionForEngine_scope_test(t *testing.T) {
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
 	engine := &Engine{db: db}
-	ctx := ContextWithManager(context.Background(), engine)
 
 	handlerCalled := false
-	err := Transaction(ctx, func(ctx context.Context) error {
+	err := Transaction(context.Background(), engine, func(_ context.Context, manager Manager) error {
 		handlerCalled = true
-		manager, err := ManagerFromContext(ctx)
-		if err != nil {
-			t.Fatalf("expected manager in transaction context: %v", err)
+		if _, ok := manager.(transactionScopedManager); !ok {
+			t.Fatalf("transaction manager type = %T, want transaction-scoped manager", manager)
 		}
-		_, ok := manager.(TxManager)
-		if !ok {
-			t.Fatalf("expected basicTxManager in transaction context, got %T", manager)
+		if IsTxManager(manager) {
+			t.Fatalf("transaction-scoped manager must not expose transaction lifecycle")
+		}
+		if _, ok := manager.(interface{ Commit() error }); ok {
+			t.Fatalf("transaction-scoped manager unexpectedly exposes Commit")
+		}
+		if _, ok := manager.(interface{ Rollback() error }); ok {
+			t.Fatalf("transaction-scoped manager unexpectedly exposes Rollback")
 		}
 		return nil
 	}, tx.WithReadOnly(true))
 	if err != nil {
-		t.Fatalf("unexpected transaction error: %v", err)
+		t.Fatalf("Transaction() error = %v", err)
 	}
 	if !handlerCalled {
-		t.Fatalf("expected transaction handler called")
+		t.Fatal("transaction handler was not called")
 	}
-
-	handlerErr := errors.New("handler failed")
-	err = Transaction(ctx, func(context.Context) error { return handlerErr })
-	if !errors.Is(err, handlerErr) {
-		t.Fatalf("expected handler error, got %v", err)
-	}
-
-	err = Transaction(ctx, func(context.Context) error { return tx.ErrCommitOnSpecific })
-	if !errors.Is(err, tx.ErrCommitOnSpecific) {
-		t.Fatalf("expected ErrCommitOnSpecific, got %v", err)
-	}
-
-	nestedCalled := false
-	txManagerCtx := ContextWithManager(context.Background(), &BasicTxManager{basicTxManager: &basicTxManager{}})
-	err = NestedTransaction(txManagerCtx, func(context.Context) error {
-		nestedCalled = true
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("unexpected nested transaction error: %v", err)
-	}
-	if !nestedCalled {
-		t.Fatalf("expected nested transaction handler called")
-	}
-
-	err = NestedTransaction(ctx, func(context.Context) error { return nil })
-	if err != nil {
-		t.Fatalf("unexpected nested transaction with engine error: %v", err)
+	if state.beginCalls != 1 || state.commitCalls != 1 || state.rollbackCalls != 0 {
+		t.Fatalf("transaction calls = begin:%d commit:%d rollback:%d, want begin:1 commit:1 rollback:0", state.beginCalls, state.commitCalls, state.rollbackCalls)
 	}
 }
 
-func TestTransactionUsesEngineFromContext_scope_test(t *testing.T) {
+func TestTransactionPropagatesHandlerError_scope_test(t *testing.T) {
+	state := &shSQLDriverState{}
+	db := openStatementTestDB(t, state)
+	engine := &Engine{db: db}
+	handlerErr := errors.New("handler failed")
+
+	err := Transaction(context.Background(), engine, func(context.Context, Manager) error {
+		return handlerErr
+	})
+	if !errors.Is(err, handlerErr) {
+		t.Fatalf("Transaction() error = %v, want %v", err, handlerErr)
+	}
+	if state.beginCalls != 1 || state.commitCalls != 0 || state.rollbackCalls != 1 {
+		t.Fatalf("transaction calls = begin:%d commit:%d rollback:%d, want begin:1 commit:0 rollback:1", state.beginCalls, state.commitCalls, state.rollbackCalls)
+	}
+}
+
+func TestTransactionCommitsOnSpecificError_scope_test(t *testing.T) {
 	state := &shSQLDriverState{}
 	db := openStatementTestDB(t, state)
 	engine := &Engine{db: db}
 
-	ctx := ContextWithManager(context.Background(), engine)
+	err := Transaction(context.Background(), engine, func(context.Context, Manager) error {
+		return tx.ErrCommitOnSpecific
+	})
+	if !errors.Is(err, tx.ErrCommitOnSpecific) {
+		t.Fatalf("Transaction() error = %v, want %v", err, tx.ErrCommitOnSpecific)
+	}
+	if state.beginCalls != 1 || state.commitCalls != 1 || state.rollbackCalls != 0 {
+		t.Fatalf("transaction calls = begin:%d commit:%d rollback:%d, want begin:1 commit:1 rollback:0", state.beginCalls, state.commitCalls, state.rollbackCalls)
+	}
+}
 
-	err := Transaction(ctx, func(ctx context.Context) error {
-		return Transaction(ctx, func(inner context.Context) error {
-			manager, err := ManagerFromContext(inner)
-			if err != nil {
-				t.Fatalf("expected manager in inner transaction context: %v", err)
-			}
-			if !IsTxManager(manager) {
-				t.Fatalf("expected tx manager in inner transaction context, got %T", manager)
+func TestTransactionReusesScopedManager_scope_test(t *testing.T) {
+	state := &shSQLDriverState{}
+	db := openStatementTestDB(t, state)
+	engine := &Engine{db: db}
+
+	reusedHandlerCalled := false
+	err := Transaction(context.Background(), engine, func(ctx context.Context, outer Manager) error {
+		return Transaction(ctx, outer, func(_ context.Context, inner Manager) error {
+			reusedHandlerCalled = true
+			if inner != outer {
+				t.Fatalf("inner manager = %p, want outer manager %p", inner, outer)
 			}
 			return nil
-		})
+		}, tx.WithReadOnly(true))
 	})
 	if err != nil {
-		t.Fatalf("unexpected nested Transaction error: %v", err)
+		t.Fatalf("Transaction() error = %v", err)
 	}
-
-	if state.beginCalls != 2 {
-		t.Fatalf("expected begin called twice, got %d", state.beginCalls)
+	if !reusedHandlerCalled {
+		t.Fatal("reused transaction handler was not called")
 	}
-	if state.commitCalls != 2 {
-		t.Fatalf("expected commit called twice, got %d", state.commitCalls)
+	if state.beginCalls != 1 || state.commitCalls != 1 || state.rollbackCalls != 0 {
+		t.Fatalf("transaction calls = begin:%d commit:%d rollback:%d, want begin:1 commit:1 rollback:0", state.beginCalls, state.commitCalls, state.rollbackCalls)
 	}
 }

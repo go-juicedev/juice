@@ -2,7 +2,6 @@ package juice
 
 import (
 	"context"
-	"errors"
 	"testing"
 )
 
@@ -14,26 +13,6 @@ type managerStub struct {
 func (m *managerStub) Object(v any) SQLRowsExecutor {
 	m.lastV = v
 	return m.object
-}
-
-func TestManagerContextFunctions_manager_test(t *testing.T) {
-	ctx := context.Background()
-
-	if _, err := ManagerFromContext(ctx); !errors.Is(err, ErrNoManagerFoundInContext) {
-		t.Fatalf("expected ErrNoManagerFoundInContext, got %v", err)
-	}
-
-	stub := &managerStub{}
-	ctx = ContextWithManager(ctx, stub)
-
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if manager != stub {
-		t.Fatalf("unexpected manager from context")
-	}
 }
 
 func TestIsTxManager_manager_test(t *testing.T) {

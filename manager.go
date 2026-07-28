@@ -77,15 +77,40 @@ type basicTxManager struct {
 	engine *Engine
 }
 
-func (b *basicTxManager) Object(v any) SQLRowsExecutor {
-	statement, err := b.engine.GetConfiguration().GetStatement(v)
+func newManagerExecutor(engine *Engine, sess session.Session, v any) SQLRowsExecutor {
+	statement, err := engine.GetConfiguration().GetStatement(v)
 	if err != nil {
 		return inValidExecutor(err)
 	}
-	drv := b.engine.Driver()
-	statementHandler := newBatchStatementHandler(b.engine, b.Transaction)
+	drv := engine.Driver()
+	statementHandler := newBatchStatementHandler(engine, sess)
 	return NewSQLRowsExecutor(statement, statementHandler, drv)
 }
+
+func (b *basicTxManager) Object(v any) SQLRowsExecutor {
+	return newManagerExecutor(b.engine, b.Transaction, v)
+}
+
+// scopedManager executes statements on a transaction whose lifecycle is owned
+// by Transaction. Its named session field intentionally prevents Commit and
+// Rollback from being exposed through the manager passed to a handler.
+type scopedManager struct {
+	engine  *Engine
+	session session.Session
+}
+
+func (s *scopedManager) Object(v any) SQLRowsExecutor {
+	return newManagerExecutor(s.engine, s.session, v)
+}
+
+func (*scopedManager) transactionScoped() {}
+
+type transactionScopedManager interface {
+	Manager
+	transactionScoped()
+}
+
+var _ transactionScopedManager = (*scopedManager)(nil)
 
 // BasicTxManager implements the TxManager interface providing basic
 // transaction management functionality.
@@ -142,38 +167,6 @@ func (t *BasicTxManager) Raw(query string) Runner {
 		return NewErrorRunner(tx.ErrTransactionNotBegun)
 	}
 	return NewRunner(query, t.engine, t.Transaction)
-}
-
-type managerKey struct{}
-type engineKey struct{}
-
-// managerFromContext returns the Manager from the context.
-func managerFromContext(ctx context.Context) (Manager, bool) {
-	manager, ok := ctx.Value(managerKey{}).(Manager)
-	return manager, ok
-}
-
-func engineFromContext(ctx context.Context) (*Engine, bool) {
-	engine, ok := ctx.Value(engineKey{}).(*Engine)
-	return engine, ok && engine != nil
-}
-
-// ManagerFromContext returns the Manager from the context.
-func ManagerFromContext(ctx context.Context) (Manager, error) {
-	manager, ok := managerFromContext(ctx)
-	if !ok {
-		return nil, ErrNoManagerFoundInContext
-	}
-	return manager, nil
-}
-
-// ContextWithManager returns a new context with the given Manager.
-func ContextWithManager(ctx context.Context, manager Manager) context.Context {
-	ctx = context.WithValue(ctx, managerKey{}, manager)
-	if engine, ok := manager.(*Engine); ok {
-		ctx = context.WithValue(ctx, engineKey{}, engine)
-	}
-	return ctx
 }
 
 // IsTxManager returns true if the manager is a TxManager.

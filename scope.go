@@ -31,59 +31,49 @@ var ErrInvalidManager = errors.New("juice: invalid manager")
 // Deprecated: use tx.ErrCommitOnSpecific instead.
 var ErrCommitOnSpecific = tx.ErrCommitOnSpecific
 
-// Transaction executes a transaction with the given handler.
-// If the context does not carry an Engine, it will return ErrInvalidManager.
+// TransactionHandler handles work using the provided transaction-scoped manager.
+type TransactionHandler func(ctx context.Context, manager Manager) error
+
+// Transaction executes the handler within a transaction.
+//
+// If manager is an Engine, Transaction starts a new transaction and applies
+// opts. If manager is already transaction-scoped, Transaction reuses the
+// existing transaction and ignores opts because an active transaction cannot
+// be reconfigured. Other manager implementations return ErrInvalidManager.
+//
 // If the handler returns an error, the transaction is rolled back.
 // Otherwise, the transaction is committed.
-// The ctx must should be created by ContextWithManager.
 // For example:
 //
-//		var engine *juice.Engine
-//		// ... initialize engine
-//		ctx := juice.ContextWithManager(context.Background(), engine)
-//	    if err := juice.Transaction(ctx, func(ctx context.Context) error {
-//			// ... do something
-//			return nil
-//		}); err != nil {
-//			// handle error
-//		}
-func Transaction(ctx context.Context, handler func(ctx context.Context) error, opts ...tx.TransactionOptionFunc) (err error) {
-	engine, ok := engineFromContext(ctx)
-	if !ok {
+//	var engine *juice.Engine
+//	// ... initialize engine
+//	if err := juice.Transaction(ctx, engine, func(ctx context.Context, txManager juice.Manager) error {
+//		_, err := juice.ExecContext(ctx, txManager, "User.Create", user)
+//		return err
+//	}); err != nil {
+//		// handle error
+//	}
+func Transaction(ctx context.Context, manager Manager, handler TransactionHandler, opts ...tx.TransactionOptionFunc) (err error) {
+	if manager == nil {
 		return ErrInvalidManager
 	}
 
-	handlerFunc := tx.HandlerFunc(func(ctx context.Context, tx *sql.Tx) error {
-		txManager := &BasicTxManager{
-			basicTxManager: &basicTxManager{
-				engine:      engine,
-				ctx:         ctx,
-				Transaction: tx,
-			},
+	if _, ok := manager.(transactionScopedManager); ok {
+		return handler(ctx, manager)
+	}
+
+	engine, ok := manager.(*Engine)
+	if !ok || engine == nil {
+		return ErrInvalidManager
+	}
+
+	handlerFunc := tx.HandlerFunc(func(ctx context.Context, transaction *sql.Tx) error {
+		manager := &scopedManager{
+			engine:  engine,
+			session: transaction,
 		}
-		ctx = ContextWithManager(ctx, txManager)
-		return handler(ctx)
+		return handler(ctx, manager)
 	})
 
 	return tx.AtomicContext(ctx, engine.DB(), handlerFunc, opts...)
-}
-
-// NestedTransaction executes the handler within the current transaction when one
-// is already bound to the context.
-//
-// If the manager in ctx is a TxManager, the handler is executed directly and
-// the existing transaction is reused. In this case, opts are ignored because
-// the current transaction has already been started.
-//
-// If ctx is not in a transaction, NestedTransaction behaves like Transaction
-// and starts a new transaction with opts applied.
-func NestedTransaction(ctx context.Context, handler func(ctx context.Context) error, opts ...tx.TransactionOptionFunc) (err error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	if IsTxManager(manager) {
-		return handler(ctx)
-	}
-	return Transaction(ctx, handler, opts...)
 }
