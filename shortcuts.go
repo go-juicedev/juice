@@ -19,40 +19,27 @@ package juice
 import (
 	"context"
 	"database/sql"
+
 	sqllib "github.com/go-juicedev/juice/sql"
 )
 
-// This file provides context-based database helper shortcuts.
+// This file provides database helper shortcuts.
 
-// QueryContext executes a query with the provided context and scans a single result into T.
-// (ctx must contain a Manager via ManagerFromContext)
-func QueryContext[T any](ctx context.Context, statement, param any) (result T, err error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return result, err
-	}
+// QueryContext executes a query with the provided manager and context and scans a single result into T.
+func QueryContext[T any](ctx context.Context, manager Manager, statement, param any) (result T, err error) {
 	executor := NewGenericManager[T](manager).Object(statement)
 	return executor.QueryContext(ctx, param)
 }
 
-// ExecContext executes a statement that does not return rows and returns a sql.Result.
-// (ctx must contain a Manager via ManagerFromContext)
-func ExecContext(ctx context.Context, statement, param any) (result sql.Result, err error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+// ExecContext executes a statement with the provided manager and context that does not return rows and returns a sql.Result.
+func ExecContext(ctx context.Context, manager Manager, statement, param any) (result sql.Result, err error) {
 	executor := manager.Object(statement)
 	return executor.ExecContext(ctx, param)
 }
 
-// QueryListContext executes a query and returns a slice of T. Rows are closed after reading.
-// (ctx must contain a Manager via ManagerFromContext)
-func QueryListContext[T any](ctx context.Context, statement, param any) (result []T, err error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+// QueryListContext executes a query with the provided manager and context and returns a slice of T.
+// Rows are closed after reading.
+func QueryListContext[T any](ctx context.Context, manager Manager, statement, param any) (result []T, err error) {
 	rows, err := manager.Object(statement).QueryContext(ctx, param)
 	if err != nil {
 		return nil, err
@@ -61,13 +48,9 @@ func QueryListContext[T any](ctx context.Context, statement, param any) (result 
 	return sqllib.List[T](rows)
 }
 
-// QueryList2Context executes a query and returns a slice of pointers to T. Rows are closed after reading.
-// (ctx must contain a Manager via ManagerFromContext)
-func QueryList2Context[T any](ctx context.Context, statement, param any) (result []*T, err error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+// QueryList2Context executes a query with the provided manager and context and returns a slice of pointers to T.
+// Rows are closed after reading.
+func QueryList2Context[T any](ctx context.Context, manager Manager, statement, param any) (result []*T, err error) {
 	rows, err := manager.Object(statement).QueryContext(ctx, param)
 	if err != nil {
 		return nil, err
@@ -76,17 +59,12 @@ func QueryList2Context[T any](ctx context.Context, statement, param any) (result
 	return sqllib.List2[T](rows)
 }
 
-// QueryIterContext executes a query and returns an iterator over T.
+// QueryIterContext executes a query with the provided manager and context and returns an iterator over T.
 // Rows are automatically closed when iteration completes or stops.
-// (ctx must contain a Manager via ManagerFromContext)
 //
 // IMPORTANT: The returned iterator MUST be iterated over (even partially),
 // otherwise the underlying database rows will not be closed, leading to resource leaks.
-func QueryIterContext[T any](ctx context.Context, statement, param any) (sqllib.Iterator[T], error) {
-	manager, err := ManagerFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+func QueryIterContext[T any](ctx context.Context, manager Manager, statement, param any) (sqllib.Iterator[T], error) {
 	rows, err := manager.Object(statement).QueryContext(ctx, param)
 	if err != nil {
 		return nil, err
