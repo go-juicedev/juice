@@ -1,8 +1,9 @@
 package juice
 
 import (
-	"embed"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -11,11 +12,29 @@ import (
 	jsql "github.com/go-juicedev/juice/sql"
 )
 
-//go:embed testdata/configuration
-var cfg embed.FS
-
 func TestNewXMLConfigurationWithFS_configuration_test(t *testing.T) {
-	configuration, err := NewXMLConfigurationWithFS(cfg, "testdata/configuration/juice.xml")
+	fsys := fstest.MapFS{
+		"configuration/juice.xml": {
+			Data: []byte(`
+<configuration>
+	<environments default="prod">
+		<environment id="prod">
+			<dataSource>fake</dataSource>
+			<driver>fake</driver>
+		</environment>
+	</environments>
+	<mappers pattern="mappers/*.xml"/>
+</configuration>`),
+		},
+		"configuration/mappers/mapper.xml": {
+			Data: []byte(`
+<mapper namespace="pkg.Mapper">
+	<select id="Select">SELECT 1</select>
+</mapper>`),
+		},
+	}
+
+	configuration, err := NewXMLConfigurationWithFS(fsys, "configuration/juice.xml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +44,21 @@ func TestNewXMLConfigurationWithFS_configuration_test(t *testing.T) {
 }
 
 func TestNewXMLConfiguration_configuration_test(t *testing.T) {
-	_, err := NewXMLConfiguration("testdata/configuration/juice.xml")
+	filename := filepath.Join(t.TempDir(), "juice.xml")
+	err := os.WriteFile(filename, []byte(`
+<configuration>
+	<environments default="prod">
+		<environment id="prod">
+			<dataSource>fake</dataSource>
+			<driver>fake</driver>
+		</environment>
+	</environments>
+</configuration>`), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewXMLConfiguration(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +71,7 @@ func TestNewXMLConfiguration_emptyPath_configuration_test(t *testing.T) {
 }
 
 func TestNewXMLConfigurationWithFS_emptyPath_configuration_test(t *testing.T) {
-	if _, err := NewXMLConfigurationWithFS(cfg, ""); err == nil || !strings.Contains(err.Error(), "configuration path is required") {
+	if _, err := NewXMLConfigurationWithFS(fstest.MapFS{}, ""); err == nil || !strings.Contains(err.Error(), "configuration path is required") {
 		t.Fatalf("expected empty path error, got %v", err)
 	}
 }
