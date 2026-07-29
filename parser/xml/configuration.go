@@ -186,10 +186,9 @@ func parseEnvironment(decoder *stdxml.Decoder, start stdxml.StartElement) (parse
 }
 
 func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *parser.Document, registry *sqlRegistry) ([]mapperEntry, error) {
-	if err := validateAttributes(start, "pattern", "prefix"); err != nil {
+	if err := validateAttributes(start, "pattern"); err != nil {
 		return nil, wrap("mappers", err)
 	}
-	document.MapperPrefix = attribute(start, "prefix")
 	var entries []mapperEntry
 	if pattern := attribute(start, "pattern"); pattern != "" {
 		source := mapperSource{pattern: pattern}

@@ -3,7 +3,6 @@
         <!ELEMENT mapper (resultMap* | sql* | select* | update* | delete* | insert* )+>
         <!ATTLIST mapper
                 namespace CDATA #IMPLIED
-                prefix CDATA #IMPLIED
                 >
 
         <!ELEMENT include (property*)>

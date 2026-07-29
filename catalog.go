@@ -23,7 +23,7 @@ import (
 )
 
 // StatementID is the fully qualified identifier of a mapped statement.
-// Its canonical form is "[prefix.]namespace.statement".
+// Its canonical form is "namespace.statement".
 type StatementID string
 
 // String returns the canonical statement ID.

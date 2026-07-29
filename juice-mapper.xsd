@@ -70,7 +70,6 @@
             <xs:sequence>
                 <xs:element ref="mapper" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
-            <xs:attribute name="prefix" type="xs:string"/>
             <xs:attribute name="pattern" type="xs:string"/>
         </xs:complexType>
     </xs:element>

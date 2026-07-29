@@ -108,16 +108,12 @@ func adaptRuntimeConfig(document *configparser.Document, lookup EnvValueProvider
 
 func adaptMappers(document *configparser.Document) (*statementCatalog, error) {
 	compiled := newStatementCatalog()
-	prefix := document.MapperPrefix
 
 	for _, mapperDocument := range document.Mappers {
 		if mapperDocument.Namespace == "" {
 			return nil, fmt.Errorf("mapper namespace is required")
 		}
 		namespace := mapperDocument.Namespace
-		if prefix != "" {
-			namespace = prefix + "." + namespace
-		}
 
 		for _, statementDocument := range mapperDocument.Statements {
 			if statementDocument.ID == "" {
