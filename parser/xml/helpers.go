@@ -46,6 +46,22 @@ func attributes(start stdxml.StartElement) map[string]string {
 	return attrs
 }
 
+func validateAttributes(start stdxml.StartElement, allowed ...string) error {
+	for _, attr := range start.Attr {
+		valid := false
+		for _, name := range allowed {
+			if attr.Name.Local == name {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("attribute %q is not allowed on <%s>", attr.Name.Local, start.Name.Local)
+		}
+	}
+	return nil
+}
+
 func attribute(start stdxml.StartElement, name string) string {
 	for _, attr := range start.Attr {
 		if attr.Name.Local == name {

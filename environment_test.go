@@ -3,28 +3,11 @@ package juice
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 )
 
-func TestEnvironmentsMethods_environment_test(t *testing.T) {
-	env := &environments{envs: map[string]*Environment{"dev": {DataSource: "dsn"}}}
-	if got, err := env.Use("dev"); err != nil || got == nil {
-		t.Fatalf("expected env use success, got env=%v err=%v", got, err)
-	}
-	if _, err := env.Use("missing"); err == nil || !strings.Contains(err.Error(), "environment missing not found") {
-		t.Fatalf("expected missing env error, got %v", err)
-	}
-
-	count := 0
-	for range env.Iter() {
-		count++
-	}
-	if count != 1 {
-		t.Fatalf("expected one env in iterator, got %d", count)
-	}
-
+func TestEnvValueProviders_environment_test(t *testing.T) {
 	t.Setenv("JUICE_TEST_ENV", "value")
 	t.Setenv("JUICE.TEST.ENV", "dot")
 
@@ -143,13 +126,13 @@ func TestEnvValueProviderRegistryConcurrentAccess_environment_test(t *testing.T)
 
 		go func() {
 			defer wg.Done()
-				<-start
-				for j := 0; j < iterations; j++ {
-					provider, ok := LookupEnvValueProvider(name)
-					if !ok {
-						t.Errorf("expected seeded provider %q to be found", name)
-						return
-					}
+			<-start
+			for j := 0; j < iterations; j++ {
+				provider, ok := LookupEnvValueProvider(name)
+				if !ok {
+					t.Errorf("expected seeded provider %q to be found", name)
+					return
+				}
 				got, err := provider.Get("x")
 				if err != nil {
 					t.Errorf("LookupEnvValueProvider(%q).Get() error = %v", name, err)

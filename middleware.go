@@ -186,7 +186,7 @@ func (m *DebugMiddleware) logRecord(id, query string, args []any, spent time.Dur
 // Logging is controlled by statement attributes or global debug settings.
 func (m *DebugMiddleware) QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler {
 	stmt := ctx.Statement()
-	if !m.isDeBugMode(stmt, ctx.Engine().GetConfiguration()) {
+	if !m.isDeBugMode(stmt, ctx.Engine().Settings()) {
 		return next
 	}
 	// wrapper QueryHandler
@@ -194,7 +194,7 @@ func (m *DebugMiddleware) QueryContext(ctx *StatementContext, next QueryHandler)
 		start := time.Now()
 		rows, err := next(ctx, query, args...)
 		spent := time.Since(start)
-		m.logRecord(stmt.Name(), query, args, spent)
+		m.logRecord(stmt.ID().String(), query, args, spent)
 		return rows, err
 	}
 }
@@ -205,7 +205,7 @@ func (m *DebugMiddleware) QueryContext(ctx *StatementContext, next QueryHandler)
 // Logging is controlled by statement attributes or global debug settings.
 func (m *DebugMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
 	stmt := ctx.Statement()
-	if !m.isDeBugMode(stmt, ctx.Engine().GetConfiguration()) {
+	if !m.isDeBugMode(stmt, ctx.Engine().Settings()) {
 		return next
 	}
 	// wrapper ExecContext
@@ -213,7 +213,7 @@ func (m *DebugMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) E
 		start := time.Now()
 		rows, err := next(ctx, query, args...)
 		spent := time.Since(start)
-		m.logRecord(stmt.Name(), query, args, spent)
+		m.logRecord(stmt.ID().String(), query, args, spent)
 		return rows, err
 	}
 }
@@ -225,13 +225,13 @@ func (m *DebugMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) E
 // 3. Default is true (debug mode enabled) if neither is explicitly set to false
 //
 // Returns true when debug logging is enabled.
-func (m *DebugMiddleware) isDeBugMode(stmt Statement, configuration Configuration) bool {
+func (m *DebugMiddleware) isDeBugMode(stmt Statement, settings SettingProvider) bool {
 	// Statement-level debug="false" disables logging.
 	debug := stmt.Attribute("debug")
 	if debug == "false" {
 		return false
 	}
-	if configuration.Settings().Get("debug") == "false" {
+	if settings.Get("debug") == "false" {
 		return false
 	}
 	return true
@@ -317,7 +317,7 @@ func (m *useGeneratedKeysMiddleware) ExecContext(ctx *StatementContext, next Exe
 	const _useGeneratedKeys = "useGeneratedKeys"
 	// If the useGeneratedKeys is not set or false, return the result directly.
 	// If the useGeneratedKeys is not set, but the global useGeneratedKeys is set and true.
-	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" || ctx.Engine().GetConfiguration().Settings().Get(_useGeneratedKeys) == "true"
+	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" || ctx.Engine().Settings().Get(_useGeneratedKeys) == "true"
 
 	if !useGeneratedKeys {
 		return next
@@ -527,7 +527,7 @@ func (t *TxSensitiveDataSourceSwitchMiddleware) QueryContext(statementContext *S
 		if statementAffectsData(stmt) {
 			return next
 		}
-		dataSource = statementContext.Engine().GetConfiguration().Settings().Get("selectDataSource").String()
+		dataSource = statementContext.Engine().Settings().Get("selectDataSource").String()
 	}
 	if dataSource == "" {
 		return next

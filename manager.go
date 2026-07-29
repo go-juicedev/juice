@@ -78,7 +78,7 @@ type basicTxManager struct {
 }
 
 func newManagerExecutor(engine *Engine, sess session.Session, v any) SQLRowsExecutor {
-	statement, err := engine.GetConfiguration().GetStatement(v)
+	statement, err := engine.resolveStatement(v)
 	if err != nil {
 		return inValidExecutor(err)
 	}

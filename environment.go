@@ -18,110 +18,17 @@ package juice
 
 import (
 	"errors"
-	"fmt"
-	"iter"
-	"maps"
 	"os"
 	"sync"
 )
-
-// Environment defines a environment.
-// It contains a database connection configuration.
-type Environment struct {
-	// DataSource is a string in a driver-specific format.
-	DataSource string
-
-	// Driver is a driver for
-	Driver string
-
-	// MaxIdleConnNum is a maximum number of idle connections.
-	MaxIdleConnNum int
-
-	// MaxOpenConnNum is a maximum number of open connections.
-	MaxOpenConnNum int
-
-	// MaxConnLifetime is a maximum lifetime of a connection.
-	MaxConnLifetime int
-
-	// MaxIdleConnLifetime is a maximum lifetime of an idle connection.
-	MaxIdleConnLifetime int
-
-	// attrs is a map of attributes.
-	attrs map[string]string
-}
-
-// setAttr sets a value of the attribute.
-func (e *Environment) setAttr(key, value string) {
-	if e.attrs == nil {
-		e.attrs = make(map[string]string)
-	}
-	e.attrs[key] = value
-}
-
-// Attr returns a value of the attribute.
-func (e *Environment) Attr(key string) string {
-	return e.attrs[key]
-}
-
-// ID returns an identifier of the environment.
-func (e *Environment) ID() string {
-	return e.Attr("id")
-}
-
-// provider is a environment value provider.
-// It provides a value of the environment variable.
-func (e *Environment) provider() (EnvValueProvider, error) {
-	name := e.Attr("provider")
-	provider, ok := LookupEnvValueProvider(name)
-	if ok {
-		return provider, nil
-	}
-	return nil, fmt.Errorf("%w: %s", errEnvValueProviderNotFound, name)
-}
-
-type EnvironmentProvider interface {
-	// Attribute returns a value of the attribute.
-	Attribute(key string) string
-
-	// Use returns the environment specified by the identifier.
-	Use(id string) (*Environment, error)
-
-	Iter() iter.Seq2[string, *Environment]
-}
-
-// environments is a collection of environments.
-type environments struct {
-	// xml attributes stored as key-value pairs.
-	attr map[string]string
-
-	// envs is a map of environments.
-	// The key is an identifier of the environment.
-	envs map[string]*Environment
-}
-
-// Attribute returns a value of the attribute.
-func (e *environments) Attribute(key string) string {
-	return e.attr[key]
-}
-
-// Use returns the environment specified by the identifier.
-func (e *environments) Use(id string) (*Environment, error) {
-	env, exists := e.envs[id]
-	if !exists {
-		return nil, fmt.Errorf("environment %s not found", id)
-	}
-	return env, nil
-}
-
-// Iter returns a sequence of environments.
-func (e *environments) Iter() iter.Seq2[string, *Environment] {
-	return maps.All(e.envs)
-}
 
 // EnvValueProvider defines a environment value provider.
 type EnvValueProvider interface {
 	Get(key string) (string, error)
 }
+
+// EnvValueProviderLookup resolves a named environment value provider.
+type EnvValueProviderLookup func(name string) (EnvValueProvider, bool)
 
 var (
 	// envValueProviderLibraries is a map of environment value providers.

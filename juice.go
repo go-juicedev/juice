@@ -22,13 +22,15 @@ import (
 	"io/fs"
 
 	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/parser"
 )
 
 // Engine is the implementation of Manager interface and the core of juice.
 type Engine struct {
-	// configuration stores engine configuration and mapped statements.
-	// It initializes the engine and resolves mapper statements.
-	configuration Configuration
+	catalog  StatementCatalog
+	sources  SourceProvider
+	settings SettingProvider
+	backend  parser.Backend
 
 	// driver translates statements and opens database connections.
 	driver driver.Driver
@@ -47,12 +49,20 @@ type Engine struct {
 
 // executor creates an SQLRowsExecutor for the mapped statement.
 func (e *Engine) executor(v any) (SQLRowsExecutor, error) {
-	statement, err := e.GetConfiguration().GetStatement(v)
+	statement, err := e.resolveStatement(v)
 	if err != nil {
 		return nil, err
 	}
 	statementHandler := newBatchStatementHandler(e, e.DB())
 	return NewSQLRowsExecutor(statement, statementHandler, e.Driver()), nil
+}
+
+func (e *Engine) resolveStatement(v any) (Statement, error) {
+	id, err := resolveStatementID(v)
+	if err != nil {
+		return nil, err
+	}
+	return e.catalog.Statement(id)
 }
 
 // Object implements the Manager interface
@@ -80,9 +90,14 @@ func (e *Engine) ContextTx(ctx context.Context, opt *sql.TxOptions) *BasicTxMana
 	}
 }
 
-// GetConfiguration returns the configuration of the engine
-func (e *Engine) GetConfiguration() Configuration {
-	return e.configuration
+// Settings returns the settings used by the engine.
+func (e *Engine) Settings() SettingProvider {
+	return e.settings
+}
+
+// Backend returns the script backend used to compile raw statements.
+func (e *Engine) Backend() parser.Backend {
+	return e.backend
 }
 
 // Use adds a middleware to the engine
@@ -92,9 +107,12 @@ func (e *Engine) Use(middleware Middleware) {
 
 func (e *Engine) clone() *Engine {
 	return &Engine{
-		configuration: e.configuration,
-		manager:       e.manager,
-		middlewares:   e.middlewares,
+		catalog:     e.catalog,
+		sources:     e.sources,
+		settings:    e.settings,
+		backend:     e.backend,
+		manager:     e.manager,
+		middlewares: e.middlewares,
 	}
 }
 
@@ -139,11 +157,11 @@ func (e *Engine) Close() error {
 
 // init initializes the engine
 func (e *Engine) init() (err error) {
-	e.manager, err = NewDBManager(e.configuration)
+	e.manager, err = NewDBManager(e.sources)
 	if err != nil {
 		return
 	}
-	e.using = e.configuration.Environments().Attribute("default")
+	e.using = e.sources.DefaultSource()
 	e.db, e.driver, err = e.manager.Get(e.using)
 	return err
 }
@@ -154,8 +172,22 @@ func (e *Engine) Raw(query string) Runner {
 
 // New is the alias of NewEngine
 func New(configuration Configuration) (*Engine, error) {
+	if configuration == nil {
+		return nil, errConfigurationRequired
+	}
+	backend := configuration.Backend()
+	if backend == nil {
+		return nil, errConfigurationBackendRequired
+	}
+	settings := configuration.Settings()
+	if settings == nil {
+		settings = keyValueSettingProvider{}
+	}
 	engine := &Engine{
-		configuration: configuration,
+		catalog:  configuration,
+		sources:  configuration,
+		settings: settings,
+		backend:  backend,
 	}
 	if err := engine.init(); err != nil {
 		return nil, err

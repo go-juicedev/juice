@@ -4,11 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"iter"
 	"sync/atomic"
 	"testing"
 
 	jdriver "github.com/go-juicedev/juice/driver"
 	configparser "github.com/go-juicedev/juice/parser"
+	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
 
 type dbManagerDriver struct {
@@ -117,22 +119,133 @@ func TestDBManagerGetAfterCloseReturnsClosedError(t *testing.T) {
 	}
 }
 
-type invalidConfiguration struct {
-	envs EnvironmentProvider
-}
-
-func (c invalidConfiguration) Environments() EnvironmentProvider { return c.envs }
+type invalidConfiguration struct{}
 
 func (invalidConfiguration) Settings() SettingProvider { return keyValueSettingProvider{} }
 
-func (invalidConfiguration) Backend() configparser.Backend { return nil }
+func (invalidConfiguration) DefaultSource() string { return "" }
+
+func (invalidConfiguration) Source(string) (Source, bool) { return Source{}, false }
+
+func (invalidConfiguration) Sources() iter.Seq2[string, Source] {
+	return func(func(string, Source) bool) {}
+}
+
+func (invalidConfiguration) Backend() configparser.Backend { return xmlparser.Backend{} }
 
 func (invalidConfiguration) GetStatement(any) (Statement, error) { return nil, nil }
 
-func TestNewDBManagerRejectsNilConfiguration(t *testing.T) {
+func (invalidConfiguration) Statement(StatementID) (Statement, error) { return nil, nil }
+
+func TestNewDBManagerRejectsNilEnvironments(t *testing.T) {
 	_, err := NewDBManager(nil)
-	if !errors.Is(err, errConfigurationRequired) {
-		t.Fatalf("NewDBManager(nil) error = %v, want %v", err, errConfigurationRequired)
+	if !errors.Is(err, errConfigurationEnvironmentsRequired) {
+		t.Fatalf("NewDBManager(nil) error = %v, want %v", err, errConfigurationEnvironmentsRequired)
+	}
+}
+
+type inconsistentSourceProvider struct{}
+
+func (inconsistentSourceProvider) DefaultSource() string { return "missing" }
+
+func (inconsistentSourceProvider) Source(string) (Source, bool) { return Source{}, true }
+
+func (inconsistentSourceProvider) Sources() iter.Seq2[string, Source] {
+	return func(yield func(string, Source) bool) {
+		yield("primary", Source{})
+	}
+}
+
+func TestNewDBManagerValidatesDefaultAgainstSourceSnapshot(t *testing.T) {
+	_, err := NewDBManager(inconsistentSourceProvider{})
+	if !errors.Is(err, errConfigurationDefaultEnvironmentUnknown) {
+		t.Fatalf("NewDBManager() error = %v, want %v", err, errConfigurationDefaultEnvironmentUnknown)
+	}
+}
+
+type facetConfiguration struct {
+	settings   SettingProvider
+	backend    configparser.Backend
+	statement  Statement
+	runtime    *RuntimeConfig
+	setCalls   int
+	backCalls  int
+	getCalls   int
+	stateCalls int
+}
+
+func (c *facetConfiguration) Settings() SettingProvider {
+	c.setCalls++
+	return c.settings
+}
+
+func (c *facetConfiguration) DefaultSource() string {
+	return c.runtime.DefaultSource()
+}
+
+func (c *facetConfiguration) Source(name string) (Source, bool) {
+	return c.runtime.Source(name)
+}
+
+func (c *facetConfiguration) Sources() iter.Seq2[string, Source] {
+	return c.runtime.Sources()
+}
+
+func (c *facetConfiguration) Backend() configparser.Backend {
+	c.backCalls++
+	return c.backend
+}
+
+func (c *facetConfiguration) GetStatement(any) (Statement, error) {
+	c.getCalls++
+	return c.statement, nil
+}
+
+func (c *facetConfiguration) Statement(StatementID) (Statement, error) {
+	c.stateCalls++
+	return c.statement, nil
+}
+
+func TestEngineUsesNarrowConfigurationFacets(t *testing.T) {
+	driverName := registerDBManagerTestDriver(t)
+	settings := keyValueSettingProvider{"debug": "false"}
+	runtime, err := NewRuntimeConfig(
+		"primary",
+		map[string]Source{"primary": {Driver: driverName}},
+		map[string]string{"debug": "false"},
+	)
+	if err != nil {
+		t.Fatalf("NewRuntimeConfig() error = %v", err)
+	}
+	cfg := &facetConfiguration{
+		settings:  settings,
+		backend:   xmlparser.Backend{},
+		statement: statementStub{},
+		runtime:   runtime,
+	}
+
+	engine, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer func() { _ = engine.Close() }()
+
+	if cfg.setCalls != 1 || cfg.backCalls != 1 || cfg.getCalls != 0 || cfg.stateCalls != 0 {
+		t.Fatalf("initial facet calls = settings:%d backend:%d get:%d statement:%d", cfg.setCalls, cfg.backCalls, cfg.getCalls, cfg.stateCalls)
+	}
+
+	if engine.Settings().Get("debug") != "false" {
+		t.Fatal("engine did not retain settings facet")
+	}
+	if engine.Backend() != cfg.backend {
+		t.Fatal("engine did not retain backend facet")
+	}
+	if statement := engine.Object("example.Statement").Statement(); statement == nil {
+		t.Fatal("engine did not resolve statement through statement provider")
+	}
+
+	if cfg.setCalls != 1 || cfg.backCalls != 1 || cfg.getCalls != 0 || cfg.stateCalls != 1 {
+		t.Fatalf("runtime facet calls = settings:%d backend:%d get:%d statement:%d", cfg.setCalls, cfg.backCalls, cfg.getCalls, cfg.stateCalls)
 	}
 }
 

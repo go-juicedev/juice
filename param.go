@@ -8,8 +8,7 @@ import (
 type H = eval.H
 
 // buildStatementParameters builds the statement parameters.
-func buildStatementParameters(param any, statement Statement, driverName string, _ Configuration) eval.Parameter {
-	// Configuration is reserved for future parameter-building options.
+func buildStatementParameters(param any, statement Statement, driverName string) eval.Parameter {
 	parameter := eval.ParamGroup{
 		eval.NewGenericParam(param, statement.Attribute("paramName")),
 

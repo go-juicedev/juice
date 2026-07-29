@@ -80,7 +80,7 @@ func TestParseConfigurationDocument(t *testing.T) {
 
 func TestParseMapperDynamicNodes(t *testing.T) {
 	mapperDocument, err := xmlparser.ParseMapper(strings.NewReader(`
-<mapper namespace="example.UserMapper" timeout="1000">
+<mapper namespace="example.UserMapper">
     <sql id="columns">id, name</sql>
     <select id="Find" dataSource="replica">
         select <include refid="columns"><property name="prefix" value="u"/></include>
@@ -114,6 +114,16 @@ func TestParseMapperDynamicNodes(t *testing.T) {
 
 	if statement.Node == nil {
 		t.Fatal("expected the XML backend to return an executable node")
+	}
+}
+
+func TestParseMapperRejectsDocumentAttributes(t *testing.T) {
+	_, err := xmlparser.ParseMapper(strings.NewReader(`
+<mapper namespace="example.UserMapper" timeout="1000">
+    <select id="Find">select 1</select>
+</mapper>`))
+	if err == nil || !strings.Contains(err.Error(), `attribute "timeout" is not allowed on <mapper>`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

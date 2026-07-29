@@ -22,21 +22,23 @@ import (
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/internal/container"
 	"github.com/go-juicedev/juice/node"
 )
 
 type sqlRegistry struct {
-	nodes map[string]node.Node
+	// Trie shares the dot-delimited mapper namespace prefixes across fragments.
+	nodes *container.Trie[node.Node]
 }
 
 func (r *sqlRegistry) register(id string, n node.Node) error {
 	if r.nodes == nil {
-		r.nodes = make(map[string]node.Node)
+		r.nodes = container.NewTrie[node.Node]()
 	}
-	if _, exists := r.nodes[id]; exists {
+	if _, exists := r.nodes.Get(id); exists {
 		return fmt.Errorf("duplicate SQL node %q", id)
 	}
-	r.nodes[id] = n
+	r.nodes.Insert(id, n)
 	return nil
 }
 
@@ -53,7 +55,10 @@ func (r *includeResolver) resolve(refID string) (node.Node, error) {
 	if !strings.ContainsRune(id, '.') {
 		id = r.namespace + "." + id
 	}
-	n, exists := r.registry.nodes[id]
+	if r.registry.nodes == nil {
+		return nil, fmt.Errorf("SQL node %q not found", id)
+	}
+	n, exists := r.registry.nodes.Get(id)
 	if !exists {
 		return nil, fmt.Errorf("SQL node %q not found", id)
 	}
@@ -66,7 +71,7 @@ func (r *includeResolver) resolve(refID string) (node.Node, error) {
 //
 // Fields:
 //   - sqlNode: The referenced SQL fragment node
-//   - mapper: Reference to the parent Mapper for context
+//   - resolver: Namespace-aware SQL fragment resolver
 //   - refId: ID of the SQL fragment to include
 //
 // Example XML:

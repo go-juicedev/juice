@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"strconv"
-	"strings"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
@@ -30,8 +29,7 @@ import (
 )
 
 type StatementMetadata interface {
-	ID() string
-	Name() string
+	ID() StatementID
 	Attribute(key string) string
 }
 
@@ -48,21 +46,15 @@ type Statement interface {
 
 // mappedStatement represents a SQL statement produced from mapper configuration.
 type mappedStatement struct {
-	mapper *Mapper
 	action sql.Action
 	Nodes  node.Group
 	attrs  map[string]string
-	name   string
-	id     string
+	id     StatementID
 }
 
 // Attribute returns the value of the attribute with the given key.
 func (s *mappedStatement) Attribute(key string) string {
-	value := s.attrs[key]
-	if value == "" {
-		value = s.mapper.Attribute(key)
-	}
-	return value
+	return s.attrs[key]
 }
 
 // setAttribute sets the attribute with the given key and value.
@@ -73,29 +65,9 @@ func (s *mappedStatement) setAttribute(key, value string) {
 	s.attrs[key] = value
 }
 
-// ID returns the statement id within its namespace.
-func (s *mappedStatement) ID() string {
+// ID returns the fully qualified statement identifier.
+func (s *mappedStatement) ID() StatementID {
 	return s.id
-}
-
-func (s *mappedStatement) lazyName() string {
-	var builder strings.Builder
-	if prefix := s.mapper.mappers.Prefix(); prefix != "" {
-		builder.WriteString(prefix)
-		builder.WriteString(".")
-	}
-	builder.WriteString(s.mapper.namespace)
-	builder.WriteString(".")
-	builder.WriteString(s.id)
-	return builder.String()
-}
-
-// Name returns the fully qualified statement name.
-func (s *mappedStatement) Name() string {
-	if s.name == "" {
-		s.name = s.lazyName()
-	}
-	return s.name
 }
 
 // Action returns the SQL action for the statement.
@@ -125,7 +97,7 @@ func (s *mappedStatement) Build(translator driver.Translator, parameter eval.Par
 		return "", nil, err
 	}
 	if len(query) == 0 {
-		return "", nil, fmt.Errorf("statement %q generated empty query after parameter processing: %w", s.Name(), ErrEmptyQuery)
+		return "", nil, fmt.Errorf("statement %q generated empty query after parameter processing: %w", s.ID(), ErrEmptyQuery)
 	}
 	return query, args, nil
 }
@@ -140,7 +112,7 @@ type RawSQLStatement struct {
 }
 
 // hash generates a unique 64-bit FNV-1a hash of the SQL query.
-// This hash is used for both ID and Name generation.
+// This hash is used for ID generation.
 func (s RawSQLStatement) hash() uint64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(s.query))
@@ -149,14 +121,8 @@ func (s RawSQLStatement) hash() uint64 {
 
 // ID returns a unique identifier for the statement.
 // Format: "id:" + hexadecimal hash of the query
-func (s RawSQLStatement) ID() string {
-	return "id:" + strconv.FormatUint(s.hash(), 16)
-}
-
-// Name returns a hexadecimal representation of the query hash.
-// Used for identifying the statement in logs and debugging.
-func (s RawSQLStatement) Name() string {
-	return strconv.FormatUint(s.hash(), 16)
+func (s RawSQLStatement) ID() StatementID {
+	return StatementID("id:" + strconv.FormatUint(s.hash(), 16))
 }
 
 // Attribute returns the statement attribute value for key.
@@ -186,7 +152,7 @@ func (s RawSQLStatement) Build(translator driver.Translator, parameter eval.Para
 		return "", nil, err
 	}
 	if len(query) == 0 {
-		return "", nil, fmt.Errorf("raw SQL statement %q generated empty query after parameter processing: %w", s.Name(), ErrEmptyQuery)
+		return "", nil, fmt.Errorf("raw SQL statement %q generated empty query after parameter processing: %w", s.ID(), ErrEmptyQuery)
 	}
 	return query, args, nil
 }

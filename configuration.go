@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
 	"os"
 	unixpath "path"
 	"path/filepath"
@@ -36,112 +37,150 @@ var (
 	errConfigurationEnvironmentsRequired      = errors.New("environments section is required")
 	errConfigurationDefaultEnvironmentMissing = errors.New("default environment is not specified")
 	errConfigurationDefaultEnvironmentUnknown = errors.New("default environment not found")
+	errConfigurationBackendRequired           = errors.New("script backend is required")
 	errMapperRootElementNotFound              = xmlparser.ErrMapperRootElementNotFound
 )
 
-// Configuration provides access to environments, settings, and mapped statements.
-type Configuration interface {
-	// Environments returns the environments.
-	Environments() EnvironmentProvider
+// RuntimeConfiguration provides the settings and sources needed to start
+// an Engine. It contains configuration data only and owns no live resources.
+type RuntimeConfiguration interface {
+	SourceProvider
 
 	// Settings returns the settings.
 	Settings() SettingProvider
-
-	// Backend returns the syntax backend used by the configuration.
-	Backend() configparser.Backend
-
-	// GetStatement returns the statement associated with the given value.
-	GetStatement(v any) (Statement, error)
 }
 
-// configuration is the syntax-independent runtime implementation of Configuration.
-type configuration struct {
+// BackendProvider provides the script backend used to compile raw statements.
+type BackendProvider interface {
+	// Backend returns the syntax backend used by the configuration.
+	Backend() configparser.Backend
+}
+
+// Configuration is the compiled configuration consumed when an Engine starts.
+// Its smaller component interfaces let runtime consumers depend only on the
+// configuration facet they actually use.
+type Configuration interface {
+	StatementCatalog
+	RuntimeConfiguration
+	BackendProvider
+}
+
+// CompiledConfig is an immutable configuration artifact produced by Compile.
+// It contains no open database connections or other live runtime resources.
+type CompiledConfig struct {
 	// backend provides the syntax-specific script behavior.
 	backend configparser.Backend
 
-	// environments is a map of environments.
-	environments *environments
+	// catalog contains compiled statements indexed by canonical ID.
+	catalog *statementCatalog
 
-	// mappers is a map of mappers.
-	mappers *Mappers
-
-	// settings is a map of settings.
-	settings keyValueSettingProvider
+	// runtime contains compiled settings and database source definitions.
+	runtime *RuntimeConfig
 }
 
-func (c *configuration) validate(ignoreEnv bool) error {
+func (c *CompiledConfig) validate(ignoreEnv bool) error {
+	if c.backend == nil {
+		return errConfigurationBackendRequired
+	}
 	if !ignoreEnv {
-		if c.environments == nil {
+		if c.runtime == nil || len(c.runtime.sources) == 0 {
 			return errConfigurationEnvironmentsRequired
 		}
-		defaultEnv := c.environments.Attribute("default")
-		if defaultEnv == "" {
+		defaultSource := c.runtime.DefaultSource()
+		if defaultSource == "" {
 			return errConfigurationDefaultEnvironmentMissing
 		}
-		if _, err := c.environments.Use(defaultEnv); err != nil {
-			return fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultEnv)
+		if _, exists := c.runtime.Source(defaultSource); !exists {
+			return fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultSource)
 		}
 	}
 
 	return nil
 }
 
-// Environments returns the environments.
-func (c configuration) Environments() EnvironmentProvider {
-	return c.environments
+// Settings returns the settings.
+func (c CompiledConfig) Settings() SettingProvider {
+	return c.runtime.Settings()
 }
 
-// Settings returns the settings.
-func (c configuration) Settings() SettingProvider {
-	return &c.settings
+// DefaultSource returns the configured default database source.
+func (c CompiledConfig) DefaultSource() string {
+	return c.runtime.DefaultSource()
+}
+
+// Source returns a compiled database source by name.
+func (c CompiledConfig) Source(name string) (Source, bool) {
+	return c.runtime.Source(name)
+}
+
+// Sources iterates over compiled database sources.
+func (c CompiledConfig) Sources() iter.Seq2[string, Source] {
+	return c.runtime.Sources()
 }
 
 // Backend returns the syntax backend associated with the configuration.
-func (c configuration) Backend() configparser.Backend {
+func (c CompiledConfig) Backend() configparser.Backend {
 	return c.backend
 }
 
-// GetStatement returns the statement associated with the given value.
-func (c configuration) GetStatement(v any) (Statement, error) {
+// resolveStatementID derives a canonical statement ID from a lookup value.
+func resolveStatementID(v any) (StatementID, error) {
 	if v == nil {
-		return nil, errors.New("nil statement query")
+		return "", errors.New("nil statement query")
 	}
 
-	var id string
+	var id StatementID
 	// If v implements StatementID(), use it directly.
 	// If v is a string, treat it as the statement ID.
 	// Otherwise, derive the statement ID via reflection.
 	switch t := v.(type) {
 	case interface{ StatementID() string }:
-		id = t.StatementID()
-	case string:
+		id = StatementID(t.StatementID())
+	case StatementID:
 		id = t
+	case string:
+		id = StatementID(t)
 	default:
 		// Derive the statement ID from the reflected value.
 		rv := reflect.Indirect(reflect.ValueOf(v))
 		switch rv.Kind() {
 		case reflect.Func:
-			id = cachedRuntimeFuncName(rv.Pointer())
+			id = StatementID(cachedRuntimeFuncName(rv.Pointer()))
 		case reflect.Struct:
-			id = rv.Type().PkgPath() + "." + rv.Type().Name()
+			id = StatementID(rv.Type().PkgPath() + "." + rv.Type().Name())
 		default:
-			return nil, fmt.Errorf("cannot extract statement ID from value of type %T: must be string, StatementID() string interface, or struct/func", v)
+			return "", fmt.Errorf("cannot extract statement ID from value of type %T: must be string, StatementID() string interface, or struct/func", v)
 		}
 	}
 
 	if len(id) == 0 {
-		return nil, fmt.Errorf("cannot extract statement ID from value of type %T", v)
+		return "", fmt.Errorf("cannot extract statement ID from value of type %T", v)
 	}
-
-	return c.mappers.GetStatementByID(id)
+	return id, nil
 }
 
-func NewXMLConfiguration(filename string) (Configuration, error) {
+// Statement returns a compiled statement by canonical ID.
+func (c CompiledConfig) Statement(id StatementID) (Statement, error) {
+	return c.catalog.Statement(id)
+}
+
+// GetStatement resolves legacy string, function, and struct lookup values.
+// New code should prefer Statement with an explicit StatementID.
+func (c CompiledConfig) GetStatement(v any) (Statement, error) {
+	id, err := resolveStatementID(v)
+	if err != nil {
+		return nil, err
+	}
+	return c.Statement(id)
+}
+
+// NewXMLConfiguration parses and compiles an XML configuration file.
+func NewXMLConfiguration(filename string) (*CompiledConfig, error) {
 	return newLocalXMLConfiguration(filename, false)
 }
 
 // Used by go:linkname.
-func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, error) {
+func newLocalXMLConfiguration(filename string, ignoreEnv bool) (*CompiledConfig, error) {
 	if filename == "" {
 		return nil, errConfigurationPathRequired
 	}
@@ -152,25 +191,25 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, e
 		return nil, err
 	}
 	defer func() { _ = root.Close() }()
-	return newXMLConfigurationParser(root.FS(), filename, ignoreEnv)
+	return compileXMLConfiguration(root.FS(), filename, ignoreEnv)
 }
 
-// NewXMLConfigurationWithFS creates a new XML configuration parser with a given fs.FS and filename.
+// NewXMLConfigurationWithFS parses and compiles an XML configuration from fs.
 // The filepath parameter must be a Unix-style path (using forward slashes '/'),
 // because it is processed with path.Dir and path.Base.
-func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error) {
+func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (*CompiledConfig, error) {
 	if filepath == "" {
 		return nil, errConfigurationPathRequired
 	}
 	root := unixpath.Dir(filepath)
 	filename := unixpath.Base(filepath)
-	return newXMLConfigurationParser(rootfs.New(fs, root), filename, false)
+	return compileXMLConfiguration(rootfs.New(fs, root), filename, false)
 }
 
-// newXMLConfigurationParser creates a configuration parser for an XML file.
+// compileXMLConfiguration parses and compiles an XML file.
 // When ignoreEnv is true, the <environments> section is skipped.
 // For internal use only.
-func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
+func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (*CompiledConfig, error) {
 	parser := &xmlparser.Parser{
 		FS:                fs,
 		IgnoreEnvironment: ignoreEnv,
@@ -182,5 +221,10 @@ func newXMLConfigurationParser(fs fs.FS, filepath string, ignoreEnv bool) (Confi
 		}
 		return nil, err
 	}
-	return adaptConfigurationDocument(document, xmlparser.Backend{}, ignoreEnv)
+	return Compile(document, CompileOptions{
+		Backend:           xmlparser.Backend{},
+		IgnoreEnvironment: ignoreEnv,
+	})
 }
+
+var _ Configuration = (*CompiledConfig)(nil)

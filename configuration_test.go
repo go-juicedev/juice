@@ -279,32 +279,25 @@ type emptyStatementID struct{}
 func (emptyStatementID) StatementID() string { return "" }
 
 func TestConfigurationMethods_configuration_test(t *testing.T) {
-	mapper := &Mapper{
-		namespace: "pkg.Mapper",
-		statements: map[string]*mappedStatement{
-			"Statement": {
-				id: "Statement",
-				mapper: &Mapper{
-					namespace: "pkg.Mapper",
-					mappers:   &Mappers{attrs: map[string]string{}},
-				},
-				action: jsql.Select,
-			},
+	statement := &mappedStatement{
+		id:     "pkg.Mapper.Statement",
+		action: jsql.Select,
+	}
+	catalog := newStatementCatalog()
+	if err := catalog.add(statement); err != nil {
+		t.Fatalf("failed to add statement: %v", err)
+	}
+
+	settings := keyValueSettingProvider{"s": "v"}
+	conf := CompiledConfig{
+		catalog: catalog,
+		runtime: &RuntimeConfig{
+			defaultSource: "default",
+			sources:       map[string]Source{"default": {DSN: "dsn", Driver: "sqlite3"}},
+			settings:      settings,
 		},
 	}
 
-	mappers := &Mappers{mappers: nil, attrs: map[string]string{}}
-	if err := mappers.setMapper("pkg.Mapper", mapper); err != nil {
-		t.Fatalf("failed to set mapper: %v", err)
-	}
-
-	envs := &environments{envs: map[string]*Environment{"default": {DataSource: "dsn", Driver: "sqlite3"}}}
-	settings := keyValueSettingProvider{"s": "v"}
-	conf := configuration{environments: envs, mappers: mappers, settings: settings}
-
-	if conf.Environments() != envs {
-		t.Fatalf("expected Environments passthrough")
-	}
 	if got := conf.Settings().Get("s"); got != "v" {
 		t.Fatalf("expected settings value v, got %q", got)
 	}
@@ -320,13 +313,19 @@ func TestConfigurationMethods_configuration_test(t *testing.T) {
 	if _, err := conf.GetStatement("pkg.Mapper.Statement"); err != nil {
 		t.Fatalf("expected string lookup success, got %v", err)
 	}
+	if _, err := conf.GetStatement(StatementID("pkg.Mapper.Statement")); err != nil {
+		t.Fatalf("expected typed StatementID lookup success, got %v", err)
+	}
+	if _, err := conf.Statement(StatementID("pkg.Mapper.Statement")); err != nil {
+		t.Fatalf("expected catalog lookup success, got %v", err)
+	}
 
 	if _, err := conf.GetStatement(sampleStatementFunc); err == nil {
 		t.Fatalf("expected function lookup fail because id mismatch")
 	}
 
 	type localStruct struct{}
-	if _, err := conf.GetStatement(localStruct{}); err == nil || !strings.Contains(err.Error(), "mapper") {
+	if _, err := conf.GetStatement(localStruct{}); !errors.Is(err, ErrNoStatementFound) {
 		t.Fatalf("expected struct lookup fail, got %v", err)
 	}
 

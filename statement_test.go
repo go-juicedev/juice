@@ -13,37 +13,18 @@ import (
 )
 
 func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
-	mappers := &Mappers{}
-	mappers.setAttribute("prefix", "app")
-
-	mapper := &Mapper{
-		namespace: "user",
-		mappers:   mappers,
-		attrs: map[string]string{
-			"timeout": "3s",
-		},
-	}
-
 	stmt := &mappedStatement{
-		mapper: mapper,
 		action: jsql.Select,
 		Nodes: node.Group{
 			xmlparser.NewTextNode("SELECT 1"),
 		},
-		id: "SelectOne",
+		attrs: map[string]string{"timeout": "3s"},
+		id:    "app.user.SelectOne",
 	}
 	stmt.setAttribute("local", "enabled")
 
-	if got := stmt.ID(); got != "SelectOne" {
-		t.Fatalf("expected id SelectOne, got %q", got)
-	}
-
-	if got := stmt.Name(); got != "app.user.SelectOne" {
-		t.Fatalf("unexpected statement name: %q", got)
-	}
-
-	if got := stmt.Name(); got != "app.user.SelectOne" {
-		t.Fatalf("name should be stable after lazy cache, got %q", got)
+	if got := stmt.ID(); got != "app.user.SelectOne" {
+		t.Fatalf("unexpected statement id: %q", got)
 	}
 
 	if got := stmt.Attribute("local"); got != "enabled" {
@@ -82,8 +63,7 @@ func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 
 func TestMappedStatement_BuildEmptyQuery_statement_test(t *testing.T) {
 	stmt := &mappedStatement{
-		mapper: &Mapper{namespace: "ns", mappers: &Mappers{}},
-		id:     "Empty",
+		id: "ns.Empty",
 	}
 
 	_, _, err := stmt.Build(driver.TranslateFunc(func(_ string) string { return "?" }), eval.H{})
@@ -105,12 +85,8 @@ func TestRawSQLStatement_MetadataAndBuild_statement_test(t *testing.T) {
 	}
 
 	id := stmt.ID()
-	if !strings.HasPrefix(id, "id:") {
+	if !strings.HasPrefix(id.String(), "id:") {
 		t.Fatalf("expected id prefix id:, got %q", id)
-	}
-
-	if got := stmt.Name(); got != strings.TrimPrefix(id, "id:") {
-		t.Fatalf("expected name to be hash part of id, got %q", got)
 	}
 
 	if got := stmt.Action(); got != jsql.Select {

@@ -25,14 +25,14 @@ import (
 )
 
 func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement, registry *sqlRegistry) (parser.Mapper, error) {
+	if err := validateAttributes(start, "namespace"); err != nil {
+		return parser.Mapper{}, wrap("mapper", err)
+	}
 	namespace, err := requiredAttribute(start, "namespace")
 	if err != nil {
 		return parser.Mapper{}, wrap("mapper", err)
 	}
-	mapperDocument := parser.Mapper{
-		Namespace:  namespace,
-		Attributes: attributes(start),
-	}
+	mapperDocument := parser.Mapper{Namespace: namespace}
 	resolver := &includeResolver{namespace: namespace, registry: registry}
 	statementIDs := make(map[string]struct{})
 	sqlIDs := make(map[string]struct{})
