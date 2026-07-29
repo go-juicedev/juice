@@ -78,6 +78,16 @@ func TestParseConfigurationDocument(t *testing.T) {
 	}
 }
 
+func TestParseConfigurationRejectsMappersPrefix(t *testing.T) {
+	_, err := xmlparser.New(strings.NewReader(`
+<configuration>
+    <mappers prefix="app"/>
+</configuration>`))
+	if err == nil || !strings.Contains(err.Error(), `attribute "prefix" is not allowed on <mappers>`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseMapperDynamicNodes(t *testing.T) {
 	mapperDocument, err := xmlparser.ParseMapper(strings.NewReader(`
 <mapper namespace="example.UserMapper">

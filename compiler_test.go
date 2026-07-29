@@ -180,7 +180,7 @@ func TestXMLConfigurationCompilesCanonicalStatementCatalog(t *testing.T) {
     <environments default="prod">
         <environment id="prod"><driver>mysql</driver><dataSource>dsn</dataSource></environment>
     </environments>
-    <mappers prefix="app">
+	<mappers>
 		<mapper namespace="example.Mapper">
 			<select id="One" timeout="1000">select 1</select>
         </mapper>
@@ -193,7 +193,7 @@ func TestXMLConfigurationCompilesCanonicalStatementCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id := StatementID("app.example.Mapper.One")
+	id := StatementID("example.Mapper.One")
 	statement, err := configuration.Statement(id)
 	if err != nil {
 		t.Fatal(err)
@@ -203,9 +203,6 @@ func TestXMLConfigurationCompilesCanonicalStatementCatalog(t *testing.T) {
 	}
 	if statement.Attribute("timeout") != "1000" {
 		t.Fatalf("statement timeout = %q, want 1000", statement.Attribute("timeout"))
-	}
-	if _, err := configuration.Statement("example.Mapper.One"); !errors.Is(err, ErrNoStatementFound) {
-		t.Fatalf("unprefixed lookup error = %v, want %v", err, ErrNoStatementFound)
 	}
 }
 

@@ -22,7 +22,6 @@ import "github.com/go-juicedev/juice/node"
 type Document struct {
 	Settings     map[string]string
 	Environments Environments
-	MapperPrefix string
 	Mappers      []Mapper
 }
 
