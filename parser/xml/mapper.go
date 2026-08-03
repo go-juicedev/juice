@@ -32,51 +32,78 @@ func parseMapper(decoder *stdxml.Decoder, start stdxml.StartElement, registry *s
 	if err != nil {
 		return parser.Mapper{}, wrap("mapper", err)
 	}
-	mapperDocument := parser.Mapper{Namespace: namespace}
-	resolver := &includeResolver{namespace: namespace, registry: registry}
-	statementIDs := make(map[string]struct{})
-	sqlIDs := make(map[string]struct{})
 
+	state := mapperParseState{
+		decoder:      decoder,
+		document:     parser.Mapper{Namespace: namespace},
+		resolver:     &includeResolver{namespace: namespace, registry: registry},
+		registry:     registry,
+		statementIDs: make(map[string]struct{}),
+	}
+	return state.parse()
+}
+
+type mapperParseState struct {
+	decoder      *stdxml.Decoder
+	document     parser.Mapper
+	resolver     *includeResolver
+	registry     *sqlRegistry
+	statementIDs map[string]struct{}
+}
+
+func (s *mapperParseState) parse() (parser.Mapper, error) {
 	for {
-		token, err := decoder.Token()
+		token, err := s.decoder.Token()
 		if err != nil {
 			return parser.Mapper{}, elementReadError("mapper", err)
 		}
 		switch token := token.(type) {
 		case stdxml.StartElement:
-			action := parser.Action(token.Name.Local)
-			switch action {
-			case parser.Select, parser.Insert, parser.Update, parser.Delete:
-				statement, err := parseStatement(decoder, token, action, resolver)
-				if err != nil {
-					return parser.Mapper{}, err
-				}
-				if _, exists := statementIDs[statement.ID]; exists {
-					return parser.Mapper{}, wrap(token.Name.Local, fmt.Errorf("duplicate statement id %q", statement.ID))
-				}
-				statementIDs[statement.ID] = struct{}{}
-				mapperDocument.Statements = append(mapperDocument.Statements, statement)
-			case "sql":
-				sql, err := parseSQL(decoder, token, resolver)
-				if err != nil {
-					return parser.Mapper{}, err
-				}
-				if _, exists := sqlIDs[sql.ID()]; exists {
-					return parser.Mapper{}, wrap("sql", fmt.Errorf("duplicate sql id %q", sql.ID()))
-				}
-				sqlIDs[sql.ID()] = struct{}{}
-				if err := registry.register(namespace+"."+sql.ID(), sql); err != nil {
-					return parser.Mapper{}, wrap("sql", err)
-				}
-			default:
-				return parser.Mapper{}, wrap(token.Name.Local, fmt.Errorf("unknown mapper element"))
+			if err := s.parseElement(token); err != nil {
+				return parser.Mapper{}, err
 			}
 		case stdxml.EndElement:
 			if token.Name.Local == "mapper" {
-				return mapperDocument, nil
+				return s.document, nil
 			}
 		}
 	}
+}
+
+func (s *mapperParseState) parseElement(start stdxml.StartElement) error {
+	action := parser.Action(start.Name.Local)
+	switch action {
+	case parser.Select, parser.Insert, parser.Update, parser.Delete:
+		return s.parseStatementElement(start, action)
+	case "sql":
+		return s.parseSQLElement(start)
+	default:
+		return wrap(start.Name.Local, fmt.Errorf("unknown mapper element"))
+	}
+}
+
+func (s *mapperParseState) parseStatementElement(start stdxml.StartElement, action parser.Action) error {
+	statement, err := parseStatement(s.decoder, start, action, s.resolver)
+	if err != nil {
+		return err
+	}
+	if _, exists := s.statementIDs[statement.ID]; exists {
+		return wrap(start.Name.Local, fmt.Errorf("duplicate statement id %q", statement.ID))
+	}
+	s.statementIDs[statement.ID] = struct{}{}
+	s.document.Statements = append(s.document.Statements, statement)
+	return nil
+}
+
+func (s *mapperParseState) parseSQLElement(start stdxml.StartElement) error {
+	sql, err := parseSQL(s.decoder, start, s.resolver)
+	if err != nil {
+		return err
+	}
+	if err := s.registry.register(s.document.Namespace+"."+sql.ID(), sql); err != nil {
+		return wrap("sql", err)
+	}
+	return nil
 }
 
 func parseStatement(decoder *stdxml.Decoder, start stdxml.StartElement, action parser.Action, resolver *includeResolver) (parser.Statement, error) {

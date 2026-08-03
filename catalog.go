@@ -18,8 +18,6 @@ package juice
 
 import (
 	"fmt"
-
-	"github.com/go-juicedev/juice/internal/container"
 )
 
 // StatementID is the fully qualified identifier of a mapped statement.
@@ -36,12 +34,11 @@ type StatementCatalog interface {
 }
 
 type statementCatalog struct {
-	// Trie shares the dot-delimited namespace prefixes across statement IDs.
-	statements *container.Trie[Statement]
+	statements map[StatementID]Statement
 }
 
 func newStatementCatalog() *statementCatalog {
-	return &statementCatalog{statements: container.NewTrie[Statement]()}
+	return &statementCatalog{statements: make(map[StatementID]Statement)}
 }
 
 func (c *statementCatalog) add(statement Statement) error {
@@ -49,11 +46,13 @@ func (c *statementCatalog) add(statement Statement) error {
 	if id == "" {
 		return fmt.Errorf("%w: empty statement id", ErrNoStatementFound)
 	}
-	key := id.String()
-	if _, exists := c.statements.Get(key); exists {
+	if c.statements == nil {
+		c.statements = make(map[StatementID]Statement)
+	}
+	if _, exists := c.statements[id]; exists {
 		return fmt.Errorf("duplicate statement id: %s", id)
 	}
-	c.statements.Insert(key, statement)
+	c.statements[id] = statement
 	return nil
 }
 
@@ -61,7 +60,7 @@ func (c *statementCatalog) Statement(id StatementID) (Statement, error) {
 	if c == nil || c.statements == nil {
 		return nil, fmt.Errorf("%w: %s", ErrNoStatementFound, id)
 	}
-	statement, exists := c.statements.Get(id.String())
+	statement, exists := c.statements[id]
 	if !exists {
 		return nil, fmt.Errorf("%w: %s", ErrNoStatementFound, id)
 	}
