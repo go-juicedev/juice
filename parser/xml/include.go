@@ -22,23 +22,21 @@ import (
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
-	"github.com/go-juicedev/juice/internal/container"
 	"github.com/go-juicedev/juice/node"
 )
 
 type sqlRegistry struct {
-	// Trie shares the dot-delimited mapper namespace prefixes across fragments.
-	nodes *container.Trie[node.Node]
+	nodes map[string]node.Node
 }
 
 func (r *sqlRegistry) register(id string, n node.Node) error {
 	if r.nodes == nil {
-		r.nodes = container.NewTrie[node.Node]()
+		r.nodes = make(map[string]node.Node)
 	}
-	if _, exists := r.nodes.Get(id); exists {
+	if _, exists := r.nodes[id]; exists {
 		return fmt.Errorf("duplicate SQL node %q", id)
 	}
-	r.nodes.Insert(id, n)
+	r.nodes[id] = n
 	return nil
 }
 
@@ -58,7 +56,7 @@ func (r *includeResolver) resolve(refID string) (node.Node, error) {
 	if r.registry.nodes == nil {
 		return nil, fmt.Errorf("SQL node %q not found", id)
 	}
-	n, exists := r.registry.nodes.Get(id)
+	n, exists := r.registry.nodes[id]
 	if !exists {
 		return nil, fmt.Errorf("SQL node %q not found", id)
 	}

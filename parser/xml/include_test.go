@@ -43,6 +43,38 @@ func (m *mockNodeManager) GetSQLNodeByID(id string) (Node, error) {
 	return node, nil
 }
 
+func TestIncludeResolverNamespaceLookup(t *testing.T) {
+	registry := &sqlRegistry{}
+	local := NewTextNode("local")
+	remote := NewTextNode("remote")
+	if err := registry.register("current.Mapper.local", local); err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.register("other.Mapper.remote", remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := registry.register("other.Mapper.remote", remote); err == nil {
+		t.Fatal("duplicate SQL node was accepted")
+	}
+
+	resolver := &includeResolver{namespace: "current.Mapper", registry: registry}
+	for _, tc := range []struct {
+		refID string
+		want  Node
+	}{
+		{refID: "local", want: local},
+		{refID: "other.Mapper.remote", want: remote},
+	} {
+		got, err := resolver.resolve(tc.refID)
+		if err != nil {
+			t.Fatalf("resolve(%q): %v", tc.refID, err)
+		}
+		if got != tc.want {
+			t.Fatalf("resolve(%q) returned the wrong node", tc.refID)
+		}
+	}
+}
+
 func TestIncludeNode_Accept_include_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	translator := drv.Translator()
