@@ -28,9 +28,6 @@ type StatementID string
 func (id StatementID) String() string { return string(id) }
 
 func newStatementID(namespace, statement string) StatementID {
-	if namespace == "" {
-		return StatementID(statement)
-	}
 	return StatementID(namespace + "." + statement)
 }
 
