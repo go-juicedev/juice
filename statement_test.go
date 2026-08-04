@@ -15,7 +15,7 @@ import (
 func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 	stmt := &mappedStatement{
 		action: jsql.Select,
-		Nodes: node.Group{
+		script: node.Group{
 			xmlparser.NewTextNode("SELECT 1"),
 		},
 		attrs: map[string]string{"timeout": "3s"},

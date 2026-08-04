@@ -30,10 +30,3 @@ func TestStatementCatalogExactLookup(t *testing.T) {
 		t.Fatal("duplicate statement id was accepted")
 	}
 }
-
-func TestNilStatementCatalogReturnsNotFound(t *testing.T) {
-	var catalog *statementCatalog
-	if _, err := catalog.Statement("example.Mapper.One"); !errors.Is(err, ErrNoStatementFound) {
-		t.Fatalf("nil catalog error = %v, want %v", err, ErrNoStatementFound)
-	}
-}

@@ -20,12 +20,11 @@ import (
 	"fmt"
 	gotoken "go/token"
 	"maps"
+	"slices"
 	"strconv"
 	"time"
 
-	"github.com/go-juicedev/juice/node"
 	configparser "github.com/go-juicedev/juice/parser"
-	juicesql "github.com/go-juicedev/juice/sql"
 )
 
 func adaptSettings(source map[string]string) keyValueSettingProvider {
@@ -106,33 +105,43 @@ func adaptRuntimeConfig(document *configparser.Document, lookup EnvValueProvider
 	return compiled, nil
 }
 
-func adaptMappers(document *configparser.Document) (*statementCatalog, error) {
+func compileMappedStatement(namespace string, source configparser.Statement) (*mappedStatement, error) {
+	if source.ID == "" {
+		return nil, fmt.Errorf("statement id is required in mapper %s", namespace)
+	}
+
+	var actions = []configparser.Action{
+		configparser.Delete,
+		configparser.Insert,
+		configparser.Update,
+		configparser.Select,
+	}
+
+	if !slices.Contains(actions, source.Action) {
+		return nil, fmt.Errorf("invalid action %q for statement %s.%s", source.Action, namespace, source.ID)
+	}
+
+	return &mappedStatement{
+		action: source.Action,
+		script: source.Node,
+		attrs:  maps.Clone(source.Attributes),
+		id:     newStatementID(namespace, source.ID),
+	}, nil
+}
+
+func compileStatementCatalog(mappers []configparser.Mapper) (*statementCatalog, error) {
 	compiled := newStatementCatalog()
 
-	for _, mapperDocument := range document.Mappers {
+	for _, mapperDocument := range mappers {
 		if mapperDocument.Namespace == "" {
 			return nil, fmt.Errorf("mapper namespace is required")
 		}
 		namespace := mapperDocument.Namespace
 
 		for _, statementDocument := range mapperDocument.Statements {
-			if statementDocument.ID == "" {
-				return nil, fmt.Errorf("statement id is required in mapper %s", namespace)
-			}
-			switch statementDocument.Action {
-			case configparser.Select, configparser.Insert, configparser.Update, configparser.Delete:
-			default:
-				return nil, fmt.Errorf("invalid action %q for statement %s.%s", statementDocument.Action, namespace, statementDocument.ID)
-			}
-			if statementDocument.Node == nil {
-				return nil, fmt.Errorf("statement node is required for %s.%s", namespace, statementDocument.ID)
-			}
-			id := StatementID(namespace + "." + statementDocument.ID)
-			statement := &mappedStatement{
-				action: juicesql.Action(statementDocument.Action),
-				Nodes:  node.Group{statementDocument.Node},
-				attrs:  maps.Clone(statementDocument.Attributes),
-				id:     id,
+			statement, err := compileMappedStatement(namespace, statementDocument)
+			if err != nil {
+				return nil, err
 			}
 			if err := compiled.add(statement); err != nil {
 				return nil, err
@@ -156,7 +165,8 @@ type CompileOptions struct {
 }
 
 // Compile validates and compiles a parsed document into an immutable artifact.
-// It does not open database connections.
+// The caller must not mutate Nodes retained by the document after calling Compile.
+// Compile does not open database connections.
 func Compile(document *configparser.Document, options CompileOptions) (*CompiledConfig, error) {
 	if document == nil {
 		return nil, errConfigurationRequired
@@ -183,7 +193,7 @@ func Compile(document *configparser.Document, options CompileOptions) (*Compiled
 	}
 	compiled.runtime = runtime
 
-	catalog, err := adaptMappers(document)
+	catalog, err := compileStatementCatalog(document.Mappers)
 	if err != nil {
 		return nil, err
 	}

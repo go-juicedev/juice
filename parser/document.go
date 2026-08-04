@@ -16,7 +16,10 @@ limitations under the License.
 
 package parser
 
-import "github.com/go-juicedev/juice/node"
+import (
+	"github.com/go-juicedev/juice/node"
+	juicesql "github.com/go-juicedev/juice/sql"
+)
 
 // Document is the format-independent representation of a Juice configuration.
 type Document struct {
@@ -50,13 +53,13 @@ type Mapper struct {
 }
 
 // Action identifies the operation represented by a statement.
-type Action string
+type Action = juicesql.Action
 
 const (
-	Select Action = "select"
-	Insert Action = "insert"
-	Update Action = "update"
-	Delete Action = "delete"
+	Select = juicesql.Select
+	Insert = juicesql.Insert
+	Update = juicesql.Update
+	Delete = juicesql.Delete
 )
 
 // Statement is a mapped SQL statement before it is compiled for execution.
