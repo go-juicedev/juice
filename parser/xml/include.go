@@ -18,6 +18,8 @@ package xml
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/go-juicedev/juice/driver"
@@ -26,7 +28,9 @@ import (
 )
 
 type sqlRegistry struct {
-	nodes map[string]node.Node
+	nodes        map[string]node.Node
+	pending      map[string][]*IncludeNode
+	dependencies map[string][]string
 }
 
 func (r *sqlRegistry) register(id string, n node.Node) error {
@@ -37,40 +41,98 @@ func (r *sqlRegistry) register(id string, n node.Node) error {
 		return fmt.Errorf("duplicate SQL node %q", id)
 	}
 	r.nodes[id] = n
+	for _, include := range r.pending[id] {
+		include.sqlNode = n
+	}
+	delete(r.pending, id)
+	return nil
+}
+
+func (r *sqlRegistry) bind(owner, id string, include *IncludeNode) {
+	if owner != "" {
+		if r.dependencies == nil {
+			r.dependencies = make(map[string][]string)
+		}
+		r.dependencies[owner] = append(r.dependencies[owner], id)
+	}
+	if n, exists := r.nodes[id]; exists {
+		include.sqlNode = n
+		return
+	}
+	if r.pending == nil {
+		r.pending = make(map[string][]*IncludeNode)
+	}
+	r.pending[id] = append(r.pending[id], include)
+}
+
+func (r *sqlRegistry) seal() error {
+	if len(r.pending) > 0 {
+		ids := slices.Sorted(maps.Keys(r.pending))
+		return fmt.Errorf("SQL node %q not found", ids[0])
+	}
+	if cycle := r.findCycle(); len(cycle) > 0 {
+		return fmt.Errorf("cyclic SQL include: %s", strings.Join(cycle, " -> "))
+	}
+	return nil
+}
+
+func (r *sqlRegistry) findCycle() []string {
+	const (
+		visiting = iota + 1
+		visited
+	)
+	states := make(map[string]int, len(r.dependencies))
+	stack := make([]string, 0, len(r.dependencies))
+
+	var visit func(string) []string
+	visit = func(id string) []string {
+		switch states[id] {
+		case visiting:
+			start := slices.Index(stack, id)
+			return append(slices.Clone(stack[start:]), id)
+		case visited:
+			return nil
+		}
+
+		states[id] = visiting
+		stack = append(stack, id)
+		dependencies := slices.Clone(r.dependencies[id])
+		slices.Sort(dependencies)
+		for _, dependency := range dependencies {
+			if cycle := visit(dependency); len(cycle) > 0 {
+				return cycle
+			}
+		}
+		stack = stack[:len(stack)-1]
+		states[id] = visited
+		return nil
+	}
+
+	for _, id := range slices.Sorted(maps.Keys(r.dependencies)) {
+		if cycle := visit(id); len(cycle) > 0 {
+			return cycle
+		}
+	}
 	return nil
 }
 
 type includeResolver struct {
 	namespace string
+	owner     string
 	registry  *sqlRegistry
 }
 
-func (r *includeResolver) resolve(refID string) (node.Node, error) {
-	if r == nil || r.registry == nil {
-		return nil, fmt.Errorf("XML include %q has no SQL registry", refID)
-	}
+func (r *includeResolver) bind(refID string, include *IncludeNode) {
 	id := refID
 	if !strings.ContainsRune(id, '.') {
 		id = r.namespace + "." + id
 	}
-	if r.registry.nodes == nil {
-		return nil, fmt.Errorf("SQL node %q not found", id)
-	}
-	n, exists := r.registry.nodes[id]
-	if !exists {
-		return nil, fmt.Errorf("SQL node %q not found", id)
-	}
-	return n, nil
+	r.registry.bind(r.owner, id, include)
 }
 
 // IncludeNode represents a reference to another SQL fragment, enabling SQL reuse.
 // It allows common SQL fragments to be defined once and included in multiple places,
 // promoting code reuse and maintainability.
-//
-// Fields:
-//   - sqlNode: The referenced SQL fragment node
-//   - resolver: Namespace-aware SQL fragment resolver
-//   - refId: ID of the SQL fragment to include
 //
 // Example XML:
 //
@@ -99,26 +161,17 @@ func (r *includeResolver) resolve(refID string) (node.Node, error) {
 //  3. Reusable JOIN clauses
 //  4. Standard filtering conditions
 //
-// Note: The refId must reference an existing SQL fragment defined with
-// the <sql> tag. The reference can be within the same mapper or from
-// another mapper if properly configured.
+// The referenced SQL fragment is linked after all mapper sources have been
+// parsed. References may point forward or across mapper namespaces, but every
+// reference must be resolved before parsing completes. Cyclic fragment
+// dependencies are rejected during the same linking phase.
 type IncludeNode struct {
 	sqlNode    node.Node
-	resolver   *includeResolver
-	refId      string
 	properties eval.Parameter
 }
 
 // Accept accepts parameters and returns query and arguments.
 func (i *IncludeNode) Accept(translator driver.Translator, p eval.Parameter) (query string, args []any, err error) {
-	if i.sqlNode == nil {
-		sqlNode, err := i.resolver.resolve(i.refId)
-		if err != nil {
-			return "", nil, err
-		}
-		i.sqlNode = sqlNode
-	}
-
 	if i.properties != nil {
 		p = eval.ParamGroup{i.properties, p}
 	}
@@ -132,8 +185,7 @@ func (i *IncludeNode) WithProperties(properties eval.Parameter) *IncludeNode {
 }
 
 func newIncludeNode(refID string, resolver *includeResolver) *IncludeNode {
-	return &IncludeNode{
-		refId:    refID,
-		resolver: resolver,
-	}
+	include := &IncludeNode{}
+	resolver.bind(refID, include)
+	return include
 }
