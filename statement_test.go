@@ -21,14 +21,9 @@ func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 		attrs: map[string]string{"timeout": "3s"},
 		id:    "app.user.SelectOne",
 	}
-	stmt.setAttribute("local", "enabled")
 
 	if got := stmt.ID(); got != "app.user.SelectOne" {
 		t.Fatalf("unexpected statement id: %q", got)
-	}
-
-	if got := stmt.Attribute("local"); got != "enabled" {
-		t.Fatalf("expected local attr from statement, got %q", got)
 	}
 
 	if got := stmt.Attribute("timeout"); got != "3s" {
@@ -63,7 +58,8 @@ func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 
 func TestMappedStatement_BuildEmptyQuery_statement_test(t *testing.T) {
 	stmt := &mappedStatement{
-		id: "ns.Empty",
+		id:     "ns.Empty",
+		script: node.Group{},
 	}
 
 	_, _, err := stmt.Build(driver.TranslateFunc(func(_ string) string { return "?" }), eval.H{})

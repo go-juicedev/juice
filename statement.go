@@ -57,14 +57,6 @@ func (s *mappedStatement) Attribute(key string) string {
 	return s.attrs[key]
 }
 
-// setAttribute sets the attribute with the given key and value.
-func (s *mappedStatement) setAttribute(key, value string) {
-	if s.attrs == nil {
-		s.attrs = make(map[string]string)
-	}
-	s.attrs[key] = value
-}
-
 // ID returns the fully qualified statement identifier.
 func (s *mappedStatement) ID() StatementID {
 	return s.id
@@ -92,9 +84,6 @@ func (s *mappedStatement) ResultMap() (sql.ResultMap, error) {
 
 // Build renders the mapped statement with the provided parameters.
 func (s *mappedStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
-	if s.script == nil {
-		return "", nil, fmt.Errorf("statement %q generated empty query after parameter processing: %w", s.ID(), ErrEmptyQuery)
-	}
 	query, args, err = s.script.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
