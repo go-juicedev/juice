@@ -47,7 +47,7 @@ type Statement interface {
 // mappedStatement represents a SQL statement produced from mapper configuration.
 type mappedStatement struct {
 	action sql.Action
-	Nodes  node.Group
+	script node.Node
 	attrs  map[string]string
 	id     StatementID
 }
@@ -92,7 +92,10 @@ func (s *mappedStatement) ResultMap() (sql.ResultMap, error) {
 
 // Build renders the mapped statement with the provided parameters.
 func (s *mappedStatement) Build(translator driver.Translator, parameter eval.Parameter) (query string, args []any, err error) {
-	query, args, err = s.Nodes.Accept(translator, parameter)
+	if s.script == nil {
+		return "", nil, fmt.Errorf("statement %q generated empty query after parameter processing: %w", s.ID(), ErrEmptyQuery)
+	}
+	query, args, err = s.script.Accept(translator, parameter)
 	if err != nil {
 		return "", nil, err
 	}

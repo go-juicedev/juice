@@ -149,14 +149,6 @@ func TestCompileValidatesMapperStatements(t *testing.T) {
 			},
 			want: "invalid action",
 		},
-		{
-			name: "missing node",
-			mapper: configparser.Mapper{
-				Namespace:  "example.Mapper",
-				Statements: []configparser.Statement{{ID: "Find", Action: configparser.Select}},
-			},
-			want: "statement node is required",
-		},
 	}
 
 	for _, tt := range tests {

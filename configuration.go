@@ -66,6 +66,7 @@ type Configuration interface {
 }
 
 // CompiledConfig is an immutable configuration artifact produced by Compile.
+// Its parsed Nodes are retained by reference and must not be mutated after compilation.
 // It contains no open database connections or other live runtime resources.
 type CompiledConfig struct {
 	// backend provides the syntax-specific script behavior.

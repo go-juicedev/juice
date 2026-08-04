@@ -27,6 +27,13 @@ type StatementID string
 // String returns the canonical statement ID.
 func (id StatementID) String() string { return string(id) }
 
+func newStatementID(namespace, statement string) StatementID {
+	if namespace == "" {
+		return StatementID(statement)
+	}
+	return StatementID(namespace + "." + statement)
+}
+
 // StatementCatalog provides immutable statement lookup by canonical ID.
 type StatementCatalog interface {
 	// Statement returns the statement with the given canonical ID.
@@ -38,7 +45,7 @@ type statementCatalog struct {
 }
 
 func newStatementCatalog() *statementCatalog {
-	return &statementCatalog{statements: make(map[StatementID]Statement)}
+	return &statementCatalog{}
 }
 
 func (c *statementCatalog) add(statement Statement) error {
@@ -57,9 +64,6 @@ func (c *statementCatalog) add(statement Statement) error {
 }
 
 func (c *statementCatalog) Statement(id StatementID) (Statement, error) {
-	if c == nil || c.statements == nil {
-		return nil, fmt.Errorf("%w: %s", ErrNoStatementFound, id)
-	}
 	statement, exists := c.statements[id]
 	if !exists {
 		return nil, fmt.Errorf("%w: %s", ErrNoStatementFound, id)
