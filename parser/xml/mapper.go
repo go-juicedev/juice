@@ -155,6 +155,8 @@ func parseSQL(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *incl
 	if err != nil {
 		return nil, wrap("sql", err)
 	}
+	sqlResolver := *resolver
+	sqlResolver.owner = resolver.namespace + "." + id
 	var nodes group
 	for {
 		token, err := decoder.Token()
@@ -176,7 +178,7 @@ func parseSQL(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *incl
 				nodes.binds = append(nodes.binds, binding)
 				continue
 			}
-			n, err := parseNode(decoder, token, resolver)
+			n, err := parseNode(decoder, token, &sqlResolver)
 			if err != nil {
 				return nil, err
 			}

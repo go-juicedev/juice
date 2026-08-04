@@ -38,8 +38,14 @@ type Parser struct {
 var _ parser.Parser = (*Parser)(nil)
 
 func (p *Parser) Parse(reader io.Reader) (*parser.Document, error) {
-	document, _, _, err := p.parse(reader)
-	return document, err
+	document, _, registry, err := p.parse(reader)
+	if err != nil {
+		return nil, err
+	}
+	if err := registry.seal(); err != nil {
+		return nil, err
+	}
+	return document, nil
 }
 
 func (p *Parser) parse(reader io.Reader) (*parser.Document, []mapperEntry, *sqlRegistry, error) {
@@ -70,7 +76,15 @@ func New(reader io.Reader) (*parser.Document, error) {
 }
 
 func ParseMapper(reader io.Reader) (*parser.Mapper, error) {
-	return parseMapperDocument(reader, &sqlRegistry{})
+	registry := &sqlRegistry{}
+	document, err := parseMapperDocument(reader, registry)
+	if err != nil {
+		return nil, err
+	}
+	if err := registry.seal(); err != nil {
+		return nil, err
+	}
+	return document, nil
 }
 
 func parseMapperDocument(reader io.Reader, registry *sqlRegistry) (*parser.Mapper, error) {

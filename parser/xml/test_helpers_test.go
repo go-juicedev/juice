@@ -31,35 +31,3 @@ func parseExprNoError(t *testing.T, expression string) eval.Expression {
 	}
 	return compiled
 }
-
-type testNodeResolver interface {
-	GetSQLNodeByID(string) (node.Node, error)
-}
-
-type deferredTestNode struct {
-	resolver testNodeResolver
-	refID    string
-	node     node.Node
-}
-
-func (n *deferredTestNode) Accept(translator driver.Translator, p eval.Parameter) (string, []any, error) {
-	if n.node == nil {
-		resolved, err := n.resolver.GetSQLNodeByID(n.refID)
-		if err != nil {
-			return "", nil, err
-		}
-		n.node = resolved
-	}
-	return n.node.Accept(translator, p)
-}
-
-func NewIncludeNode(sqlNode node.Node, resolver testNodeResolver, refID string) *IncludeNode {
-	registry := &sqlRegistry{}
-	linked := &includeResolver{namespace: "test", registry: registry}
-	include := newIncludeNode(refID, linked)
-	include.sqlNode = sqlNode
-	if sqlNode == nil {
-		_ = registry.register("test."+refID, &deferredTestNode{resolver: resolver, refID: refID})
-	}
-	return include
-}

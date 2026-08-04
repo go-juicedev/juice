@@ -48,6 +48,9 @@ func (p *Parser) ParseFile(path string) (*parser.Document, error) {
 	if err := p.loadMapperEntries(document, entries, registry); err != nil {
 		return nil, err
 	}
+	if err := registry.seal(); err != nil {
+		return nil, err
+	}
 	return document, nil
 }
 

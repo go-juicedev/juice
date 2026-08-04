@@ -8,6 +8,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/go-juicedev/juice/driver"
+	"github.com/go-juicedev/juice/eval"
 	"github.com/go-juicedev/juice/parser"
 	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
@@ -35,6 +37,24 @@ func TestParserParseFileLoadsMapperSources(t *testing.T) {
 	}
 	if document.Mappers[0].Namespace != "first" || document.Mappers[2].Namespace != "single" || document.Mappers[3].Namespace != "inline" {
 		t.Fatalf("unexpected mapper order: %#v", document.Mappers)
+	}
+}
+
+func TestParserParseFileRejectsMissingInclude(t *testing.T) {
+	fsys := fstest.MapFS{
+		"juice.xml": {Data: []byte(`
+<configuration>
+    <mappers>
+        <mapper namespace="example.Mapper">
+            <select id="Find">SELECT <include refid="missing"/> FROM users</select>
+        </mapper>
+    </mappers>
+</configuration>`)},
+	}
+
+	_, err := (&xmlparser.Parser{FS: fsys}).ParseFile("juice.xml")
+	if err == nil || !strings.Contains(err.Error(), `SQL node "example.Mapper.missing" not found`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -124,6 +144,90 @@ func TestParseMapperDynamicNodes(t *testing.T) {
 
 	if statement.Node == nil {
 		t.Fatal("expected the XML backend to return an executable node")
+	}
+}
+
+func TestParseMapperLinksForwardInclude(t *testing.T) {
+	mapperDocument, err := xmlparser.ParseMapper(strings.NewReader(`
+<mapper namespace="example.Mapper">
+    <select id="Find">SELECT <include refid="projection"/> FROM users</select>
+    <sql id="projection"><include refid="columns"/></sql>
+    <sql id="columns">id, name</sql>
+</mapper>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query, _, err := mapperDocument.Statements[0].Node.Accept(
+		driver.MySQLDriver{}.Translator(),
+		eval.NewGenericParam(nil, ""),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if normalized := strings.Join(strings.Fields(query), " "); normalized != "SELECT id, name FROM users" {
+		t.Fatalf("unexpected query: %q", normalized)
+	}
+}
+
+func TestParseMapperRejectsMissingInclude(t *testing.T) {
+	_, err := xmlparser.ParseMapper(strings.NewReader(`
+<mapper namespace="example.Mapper">
+    <select id="Find">SELECT <include refid="missing"/> FROM users</select>
+</mapper>`))
+	if err == nil || !strings.Contains(err.Error(), `SQL node "example.Mapper.missing" not found`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseMapperRejectsCyclicIncludes(t *testing.T) {
+	tests := []struct {
+		name  string
+		body  string
+		cycle string
+	}{
+		{
+			name:  "self reference",
+			body:  `<sql id="a"><include refid="a"/></sql>`,
+			cycle: "example.Mapper.a -> example.Mapper.a",
+		},
+		{
+			name: "indirect cycle",
+			body: `
+<sql id="a"><include refid="b"/></sql>
+<sql id="b"><include refid="c"/></sql>
+<sql id="c"><include refid="a"/></sql>`,
+			cycle: "example.Mapper.a -> example.Mapper.b -> example.Mapper.c -> example.Mapper.a",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := xmlparser.ParseMapper(strings.NewReader(
+				`<mapper namespace="example.Mapper">` + tt.body + `</mapper>`,
+			))
+			if err == nil || !strings.Contains(err.Error(), "cyclic SQL include: "+tt.cycle) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseConfigurationRejectsCrossNamespaceCyclicIncludes(t *testing.T) {
+	_, err := xmlparser.New(strings.NewReader(`
+<configuration>
+    <mappers>
+        <mapper namespace="example.First">
+            <sql id="a"><include refid="example.Second.b"/></sql>
+        </mapper>
+        <mapper namespace="example.Second">
+            <sql id="b"><include refid="example.First.a"/></sql>
+        </mapper>
+    </mappers>
+</configuration>`))
+	cycle := "example.First.a -> example.Second.b -> example.First.a"
+	if err == nil || !strings.Contains(err.Error(), "cyclic SQL include: "+cycle) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

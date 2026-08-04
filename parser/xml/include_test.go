@@ -17,61 +17,50 @@ limitations under the License.
 package xml
 
 import (
-	"errors"
-	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
 )
 
-type mockNodeManager struct {
-	nodes map[string]Node
-	err   error
-	calls int
-}
-
-func (m *mockNodeManager) GetSQLNodeByID(id string) (Node, error) {
-	m.calls++
-	if m.err != nil {
-		return nil, m.err
-	}
-	node, ok := m.nodes[id]
-	if !ok {
-		return nil, fmt.Errorf("node not found: %s", id)
-	}
-	return node, nil
-}
-
-func TestIncludeResolverNamespaceLookup(t *testing.T) {
+func TestSQLRegistryLinksIncludes(t *testing.T) {
 	registry := &sqlRegistry{}
 	local := NewTextNode("local")
 	remote := NewTextNode("remote")
+	resolver := &includeResolver{namespace: "current.Mapper", registry: registry}
+
+	localInclude := newIncludeNode("local", resolver)
 	if err := registry.register("current.Mapper.local", local); err != nil {
 		t.Fatal(err)
 	}
 	if err := registry.register("other.Mapper.remote", remote); err != nil {
 		t.Fatal(err)
 	}
+	remoteInclude := newIncludeNode("other.Mapper.remote", resolver)
+
 	if err := registry.register("other.Mapper.remote", remote); err == nil {
 		t.Fatal("duplicate SQL node was accepted")
 	}
+	if err := registry.seal(); err != nil {
+		t.Fatal(err)
+	}
+	if localInclude.sqlNode != local {
+		t.Fatal("local include was not linked")
+	}
+	if remoteInclude.sqlNode != remote {
+		t.Fatal("cross-namespace include was not linked")
+	}
+}
 
+func TestSQLRegistrySealRejectsMissingInclude(t *testing.T) {
+	registry := &sqlRegistry{}
 	resolver := &includeResolver{namespace: "current.Mapper", registry: registry}
-	for _, tc := range []struct {
-		refID string
-		want  Node
-	}{
-		{refID: "local", want: local},
-		{refID: "other.Mapper.remote", want: remote},
-	} {
-		got, err := resolver.resolve(tc.refID)
-		if err != nil {
-			t.Fatalf("resolve(%q): %v", tc.refID, err)
-		}
-		if got != tc.want {
-			t.Fatalf("resolve(%q) returned the wrong node", tc.refID)
-		}
+	newIncludeNode("missing", resolver)
+
+	err := registry.seal()
+	if err == nil || !strings.Contains(err.Error(), `SQL node "current.Mapper.missing" not found`) {
+		t.Fatalf("seal() error = %v", err)
 	}
 }
 
@@ -82,8 +71,7 @@ func TestIncludeNode_Accept_include_test(t *testing.T) {
 
 	t.Run("PreLoadedNode", func(t *testing.T) {
 		innerNode := NewTextNode("SELECT * FROM table WHERE ID = #{ID}")
-		manager := &mockNodeManager{}
-		node := NewIncludeNode(innerNode, manager, "ref")
+		node := &IncludeNode{sqlNode: innerNode}
 
 		query, args, err := node.Accept(translator, params)
 		if err != nil {
@@ -94,77 +82,12 @@ func TestIncludeNode_Accept_include_test(t *testing.T) {
 		}
 		if len(args) != 1 || args[0] != 1 {
 			t.Errorf("args = %v", args)
-		}
-		if manager.calls != 0 {
-			t.Errorf("manager calls = %d, want 0", manager.calls)
-		}
-	})
-
-	t.Run("LazyLoadingSuccess", func(t *testing.T) {
-		innerNode := NewTextNode("SELECT * FROM table WHERE ID = #{ID}")
-		manager := &mockNodeManager{
-			nodes: map[string]Node{
-				"ref1": innerNode,
-			},
-		}
-		node := NewIncludeNode(nil, manager, "ref1")
-
-		query, args, err := node.Accept(translator, params)
-		if err != nil {
-			t.Fatalf("Accept() error = %v", err)
-		}
-		if query != "SELECT * FROM table WHERE ID = ?" {
-			t.Errorf("query = %s", query)
-		}
-		if len(args) != 1 || args[0] != 1 {
-			t.Errorf("args = %v", args)
-		}
-		if manager.calls != 1 {
-			t.Errorf("manager calls = %d, want 1", manager.calls)
-		}
-
-		// Second call should use cached node
-		_, _, _ = node.Accept(translator, params)
-		if manager.calls != 1 {
-			t.Errorf("manager calls = %d, want 1 after second call", manager.calls)
-		}
-	})
-
-	t.Run("LazyLoadingError", func(t *testing.T) {
-		mockErr := errors.New("manager error")
-		manager := &mockNodeManager{
-			err: mockErr,
-		}
-		node := NewIncludeNode(nil, manager, "ref_err")
-
-		_, _, err := node.Accept(translator, params)
-		if !errors.Is(err, mockErr) {
-			t.Errorf("err = %v, want %v", err, mockErr)
-		}
-		if manager.calls != 1 {
-			t.Errorf("manager calls = %d, want 1", manager.calls)
-		}
-	})
-
-	t.Run("LazyLoadingNotFound", func(t *testing.T) {
-		manager := &mockNodeManager{
-			nodes: make(map[string]Node),
-		}
-		node := NewIncludeNode(nil, manager, "missing")
-
-		_, _, err := node.Accept(translator, params)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if manager.calls != 1 {
-			t.Errorf("manager calls = %d, want 1", manager.calls)
 		}
 	})
 
 	t.Run("PropertiesOverrideParentParameter", func(t *testing.T) {
 		innerNode := NewTextNode("SELECT ${columns} FROM ${table} WHERE ID = #{ID}")
-		manager := &mockNodeManager{}
-		node := NewIncludeNode(innerNode, manager, "ref").WithProperties(eval.H{
+		node := (&IncludeNode{sqlNode: innerNode}).WithProperties(eval.H{
 			"columns": "ID, name",
 			"table":   "users",
 		})
@@ -185,9 +108,6 @@ func TestIncludeNode_Accept_include_test(t *testing.T) {
 		}
 		if len(args) != 1 || args[0] != 1 {
 			t.Errorf("args = %v", args)
-		}
-		if manager.calls != 0 {
-			t.Errorf("manager calls = %d, want 0", manager.calls)
 		}
 	})
 }
