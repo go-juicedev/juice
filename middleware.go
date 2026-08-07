@@ -237,57 +237,6 @@ func (m *DebugMiddleware) isDeBugMode(stmt Statement, settings SettingProvider) 
 	return true
 }
 
-// ensure TimeoutMiddleware implements Middleware.
-var _ Middleware = (*TimeoutMiddleware)(nil) // compile time check
-
-// TimeoutMiddleware is a middleware that manages query execution timeouts.
-// It sets context timeouts for SQL statements to prevent long-running queries from hanging.
-// The timeout value is obtained from the statement's "timeout" attribute and is specified in milliseconds.
-type TimeoutMiddleware struct{}
-
-// QueryContext implements Middleware.
-// QueryContext sets a context timeout for SELECT queries to prevent long-running operations.
-// The timeout value is obtained from the statement's "timeout" attribute.
-// If timeout is <= 0, no timeout is applied and the original handler is returned unchanged.
-func (t TimeoutMiddleware) QueryContext(ctx *StatementContext, next QueryHandler) QueryHandler {
-	timeout := t.getTimeout(ctx.Statement())
-	if timeout <= 0 {
-		return next
-	}
-	return func(ctx context.Context, query string, args ...any) (sql.Rows, error) {
-		ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
-		defer cancel()
-		return next(ctx, query, args...)
-	}
-}
-
-// ExecContext implements Middleware.
-// ExecContext sets a context timeout for INSERT/UPDATE/DELETE operations to prevent long-running operations.
-// The timeout value is obtained from the statement's "timeout" attribute.
-// If timeout is <= 0, no timeout is applied and the original handler is returned unchanged.
-func (t TimeoutMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
-	timeout := t.getTimeout(ctx.Statement())
-	if timeout <= 0 {
-		return next
-	}
-	return func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-		ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
-		defer cancel()
-		return next(ctx, query, args...)
-	}
-}
-
-// getTimeout retrieves the timeout value from the statement's "timeout" attribute.
-// Returns the timeout value in milliseconds, or 0 if not set or invalid.
-func (t TimeoutMiddleware) getTimeout(stmt Statement) (timeout int64) {
-	timeoutAttr := stmt.Attribute("timeout")
-	if timeoutAttr == "" {
-		return
-	}
-	timeout, _ = strconv.ParseInt(timeoutAttr, 10, 64)
-	return
-}
-
 // ensure useGeneratedKeysMiddleware implements Middleware
 var _ Middleware = (*useGeneratedKeysMiddleware)(nil) // compile time check
 

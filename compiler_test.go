@@ -174,7 +174,7 @@ func TestXMLConfigurationCompilesCanonicalStatementCatalog(t *testing.T) {
     </environments>
 	<mappers>
 		<mapper namespace="example.Mapper">
-			<select id="One" timeout="1000">select 1</select>
+			<select id="One" custom="value">select 1</select>
         </mapper>
     </mappers>
 </configuration>`)},
@@ -193,8 +193,8 @@ func TestXMLConfigurationCompilesCanonicalStatementCatalog(t *testing.T) {
 	if statement.ID() != id {
 		t.Fatalf("statement id = %q, want %q", statement.ID(), id)
 	}
-	if statement.Attribute("timeout") != "1000" {
-		t.Fatalf("statement timeout = %q, want 1000", statement.Attribute("timeout"))
+	if statement.Attribute("custom") != "value" {
+		t.Fatalf("statement custom attribute = %q, want value", statement.Attribute("custom"))
 	}
 }
 

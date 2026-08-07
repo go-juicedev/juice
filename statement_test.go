@@ -18,7 +18,7 @@ func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 		script: node.Group{
 			xmlparser.NewTextNode("SELECT 1"),
 		},
-		attrs: map[string]string{"timeout": "3s"},
+		attrs: map[string]string{"custom": "value"},
 		id:    "app.user.SelectOne",
 	}
 
@@ -26,7 +26,7 @@ func TestMappedStatement_MetadataAndBuild_statement_test(t *testing.T) {
 		t.Fatalf("unexpected statement id: %q", got)
 	}
 
-	if got := stmt.Attribute("timeout"); got != "3s" {
+	if got := stmt.Attribute("custom"); got != "value" {
 		t.Fatalf("expected fallback attr from mapper, got %q", got)
 	}
 

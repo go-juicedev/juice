@@ -233,10 +233,10 @@ func TestParseConfigurationRejectsCrossNamespaceCyclicIncludes(t *testing.T) {
 
 func TestParseMapperRejectsDocumentAttributes(t *testing.T) {
 	_, err := xmlparser.ParseMapper(strings.NewReader(`
-<mapper namespace="example.UserMapper" timeout="1000">
+<mapper namespace="example.UserMapper" unknown="value">
     <select id="Find">select 1</select>
 </mapper>`))
-	if err == nil || !strings.Contains(err.Error(), `attribute "timeout" is not allowed on <mapper>`) {
+	if err == nil || !strings.Contains(err.Error(), `attribute "unknown" is not allowed on <mapper>`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -224,7 +224,6 @@ func Default(configuration Configuration) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	engine.Use(&TimeoutMiddleware{})
 	engine.Use(&DebugMiddleware{})
 	return engine, nil
 }
