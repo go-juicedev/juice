@@ -71,6 +71,27 @@ type RowScannerStruct struct {
 	scanned bool
 }
 
+type secondNextErrorRows struct {
+	*RowsBuffer
+	err       error
+	nextCalls int
+}
+
+func (r *secondNextErrorRows) Next() bool {
+	r.nextCalls++
+	if r.nextCalls == 2 {
+		return false
+	}
+	return r.RowsBuffer.Next()
+}
+
+func (r *secondNextErrorRows) Err() error {
+	if r.nextCalls >= 2 {
+		return r.err
+	}
+	return nil
+}
+
 // ScanRow implements the RowScanner interface.
 func (rs *RowScannerStruct) ScanRow(row Row) error {
 	rs.scanned = true
@@ -179,6 +200,34 @@ func TestSingleRowResultMap_MapTo_TooManyRows_result_map_test(t *testing.T) {
 	err := mapper.MapTo(reflect.ValueOf(&result), rows)
 	if !errors.Is(err, ErrTooManyRows) {
 		t.Errorf("Expected ErrTooManyRows, got %v", err)
+	}
+}
+
+func TestSingleRowResultMap_MapTo_ErrorWhileCheckingSecondRow_result_map_test(t *testing.T) {
+	wantErr := errors.New("fetch second row")
+	rows := &secondNextErrorRows{
+		RowsBuffer: NewRowsBuffer([]string{"id"}, [][]any{{1}}),
+		err:        wantErr,
+	}
+
+	var result SimpleStruct
+	err := (SingleRowResultMap{}).MapTo(reflect.ValueOf(&result), rows)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected second-row error, got %v", err)
+	}
+}
+
+func TestSingleRowResultMap_MapTo_RowScannerErrorWhileCheckingSecondRow_result_map_test(t *testing.T) {
+	wantErr := errors.New("fetch second row")
+	rows := &secondNextErrorRows{
+		RowsBuffer: NewRowsBuffer([]string{"id", "content"}, [][]any{{1, "one"}}),
+		err:        wantErr,
+	}
+
+	var result RowScannerStruct
+	err := (SingleRowResultMap{}).MapTo(reflect.ValueOf(&result), rows)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected second-row error, got %v", err)
 	}
 }
 

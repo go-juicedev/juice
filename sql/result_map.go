@@ -68,6 +68,9 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 		if rows.Next() {
 			return ErrTooManyRows
 		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("error occurred while checking for additional rows: %w", err)
+		}
 		return nil
 	}
 
@@ -99,6 +102,9 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	// Ensure there is only one row
 	if rows.Next() {
 		return ErrTooManyRows
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error occurred while checking for additional rows: %w", err)
 	}
 
 	return nil
