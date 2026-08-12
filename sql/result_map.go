@@ -149,10 +149,6 @@ func (m MultiRowsResultMap) MapTo(rv reflect.Value, rows Rows) error {
 	}
 
 	if len(values) > 0 {
-		// Since we've already verified the type compatibility above,
-		// we can safely grow the slice without additional type checks.
-		target.Grow(len(values))
-
 		target.Set(reflect.Append(target, values...))
 	} else {
 		// https://github.com/go-juicedev/juice/issues/437
