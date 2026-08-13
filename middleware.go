@@ -17,20 +17,14 @@ limitations under the License.
 package juice
 
 import (
-	"cmp"
 	"context"
-	"errors"
-	"fmt"
 	"log"
 	"math/rand"
-	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-juicedev/juice/eval"
-	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/session"
 	"github.com/go-juicedev/juice/sql"
 )
@@ -235,112 +229,6 @@ func (m *DebugMiddleware) isDeBugMode(stmt Statement, settings SettingProvider) 
 		return false
 	}
 	return true
-}
-
-// ensure useGeneratedKeysMiddleware implements Middleware
-var _ Middleware = (*useGeneratedKeysMiddleware)(nil) // compile time check
-
-// errStructPointerOrSliceArrayRequired is an error that the param is not a struct pointer or a slice array type.
-var errStructPointerOrSliceArrayRequired = errors.New(
-	"useGeneratedKeys is true, but the param is not a struct pointer or a slice array type",
-)
-
-// useGeneratedKeysMiddleware is a middleware that handles auto-generated primary keys for INSERT operations.
-// It retrieves the last insert ID from the database result and sets it to the appropriate field in the parameter object.
-// This middleware supports both single record and batch insert operations, with configurable key properties and increment strategies.
-type useGeneratedKeysMiddleware struct {
-	NoopMiddleware
-}
-
-// ExecContext implements Middleware.
-// ExecContext processes INSERT operations to handle auto-generated primary keys.
-// It retrieves the last insert ID from the database result and sets it to the appropriate field
-// in the parameter object. Supports both single record and batch operations with configurable
-// key properties and increment strategies.
-func (m *useGeneratedKeysMiddleware) ExecContext(ctx *StatementContext, next ExecHandler) ExecHandler {
-	stmt := ctx.Statement()
-
-	if stmt.Action() != sql.Insert {
-		return next
-	}
-	const _useGeneratedKeys = "useGeneratedKeys"
-	// If the useGeneratedKeys is not set or false, return the result directly.
-	// If the useGeneratedKeys is not set, but the global useGeneratedKeys is set and true.
-	useGeneratedKeys := stmt.Attribute(_useGeneratedKeys) == "true" || ctx.Engine().Settings().Get(_useGeneratedKeys) == "true"
-
-	if !useGeneratedKeys {
-		return next
-	}
-
-	param := ctx.Param()
-
-	return func(ctx context.Context, query string, args ...any) (sql.Result, error) {
-		result, err := next(ctx, query, args...)
-		if err != nil {
-			return nil, err
-		}
-
-		id, err := result.LastInsertId()
-		if err != nil {
-			return nil, err
-		}
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return nil, err
-		}
-		// on most databases, the last insert ID is the first row affected.
-		// calculate the last insert ID by the number of rows affected.
-		if rowsAffected > 1 {
-			id = id + rowsAffected - 1
-		}
-
-		// Support parameters wrapped in a single-entry map.
-		rv := reflect.ValueOf(param)
-
-		// A map wrapper must be unambiguous.
-		if rv.Kind() == reflect.Map {
-			if rv.Len() != 1 {
-				return nil, fmt.Errorf("useGeneratedKeys is true, map must contain exactly one key-value pair, got %d", rv.Len())
-			}
-			// Extract the wrapped value.
-			key := rv.MapKeys()[0]
-			rv = rv.MapIndex(key)
-		}
-
-		// Unpack interface values before selecting a key generator.
-		rv = reflectlite.Unpack(rv)
-
-		keyProperty := stmt.Attribute("keyProperty")
-
-		var keyGenerator selectKeyGenerator
-
-		switch reflectlite.Unwrap(rv).Kind() {
-		case reflect.Struct:
-			keyGenerator = &singleKeyGenerator{
-				keyProperty: keyProperty,
-				id:          id,
-			}
-		case reflect.Array, reflect.Slice:
-			// Use the configured key increment, or 1 when it is absent or invalid.
-			keyIncrementValue := stmt.Attribute("keyIncrement")
-			keyIncrement, _ := strconv.ParseInt(keyIncrementValue, 10, 64)
-			keyIncrement = cmp.Or(keyIncrement, 1)
-			// batchInsertIDGenerateStrategy is the strategy to generate the key in batch insert
-			batchInsertIDStrategy := stmt.Attribute("batchInsertIDGenerateStrategy")
-			keyGenerator = &batchKeyGenerator{
-				keyProperty:                   keyProperty,
-				id:                            id,
-				keyIncrement:                  keyIncrement,
-				batchInsertIDGenerateStrategy: batchInsertIDStrategy,
-			}
-		default:
-			return nil, errStructPointerOrSliceArrayRequired
-		}
-		if err = keyGenerator.GenerateKeyTo(rv); err != nil {
-			return nil, err
-		}
-		return result, nil
-	}
 }
 
 // isInTransaction checks whether the active execution session is transactional.

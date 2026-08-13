@@ -78,12 +78,9 @@
         <!ELEMENT insert (#PCDATA | include | trim | where | set | foreach | choose | if | bind )*>
         <!ATTLIST insert
                 id CDATA #REQUIRED
-                useGeneratedKeys CDATA #IMPLIED
-                keyProperty CDATA #IMPLIED
                 flushCache CDATA #IMPLIED
                 paramName CDATA #IMPLIED
                 batchSize CDATA #IMPLIED
-                batchInsertIDGenerateStrategy CDATA #IMPLIED
                 >
 
         <!ELEMENT id EMPTY>
