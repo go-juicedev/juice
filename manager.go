@@ -32,19 +32,19 @@ type Manager interface {
 }
 
 // NewGenericManager returns a new GenericManager.
-func NewGenericManager[T any](manager Manager) *GenericManager[T] {
-	return &GenericManager[T]{Manager: manager}
+func NewGenericManager(manager Manager) *GenericManager {
+	return &GenericManager{Manager: manager}
 }
 
 // GenericManager is a generic manager for a specific type T
 // that provides type-safe database operations.
-type GenericManager[T any] struct {
+type GenericManager struct {
 	Manager
 }
 
 // Object implements the GenericManager interface.
-func (s *GenericManager[T]) Object(v any) Executor[T] {
-	exe := &GenericExecutor[T]{SQLRowsExecutor: s.Manager.Object(v)}
+func (s *GenericManager) Object(v any) *GenericExecutor {
+	exe := &GenericExecutor{SQLRowsExecutor: s.Manager.Object(v)}
 	return exe
 }
 

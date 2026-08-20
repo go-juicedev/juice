@@ -97,7 +97,7 @@ type SQLRunner struct {
 
 // BuildExecutor creates a new SQL executor based on the given action.
 // It configures the statement handler with the necessary driver and middleware.
-func (r *SQLRunner) BuildExecutor(action sql.Action) Executor[sql.Rows] {
+func (r *SQLRunner) BuildExecutor(action sql.Action) Executor {
 	driver := r.engine.Driver()
 	statement := NewRawSQLStatement(r.engine.Backend(), r.query, action)
 	statementHandler := newQueryBuildStatementHandler(r.engine, r.session)
@@ -150,13 +150,13 @@ func NewRunner(query string, engine *Engine, session session.Session) *SQLRunner
 var _ Runner = (*SQLRunner)(nil) // Ensure SQLRunner implements the Runner interface.
 
 // GenericRunner is a generic Runner implementation that binds the result of a SELECT query to a value of type T.
-type GenericRunner[T any] struct {
+type GenericRunner struct {
 	Runner
 }
 
 // Bind binds the result of a SELECT query to a single value of type T.
 // It executes the query and binds the result.
-func (r *GenericRunner[T]) Bind(ctx context.Context, param eval.Param) (result T, err error) {
+func (r *GenericRunner) Bind[T any](ctx context.Context, param eval.Param) (result T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
@@ -167,7 +167,7 @@ func (r *GenericRunner[T]) Bind(ctx context.Context, param eval.Param) (result T
 
 // List binds the result of a SELECT query to a list of values of type T.
 // It executes the query and binds the result.
-func (r *GenericRunner[T]) List(ctx context.Context, param eval.Param) (result []T, err error) {
+func (r *GenericRunner) List[T any](ctx context.Context, param eval.Param) (result []T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
@@ -178,7 +178,7 @@ func (r *GenericRunner[T]) List(ctx context.Context, param eval.Param) (result [
 
 // List2 binds the result of a SELECT query to a list of pointers to values of type T.
 // It executes the query and binds the result.
-func (r *GenericRunner[T]) List2(ctx context.Context, param eval.Param) (result []*T, err error) {
+func (r *GenericRunner) List2[T any](ctx context.Context, param eval.Param) (result []*T, err error) {
 	rows, err := r.Select(ctx, param)
 	if err != nil {
 		return result, err
@@ -188,10 +188,10 @@ func (r *GenericRunner[T]) List2(ctx context.Context, param eval.Param) (result 
 }
 
 // NewGenericRunner creates a new GenericRunner instance with the specified Runner.
-func NewGenericRunner[T any](runner Runner) *GenericRunner[T] {
-	return &GenericRunner[T]{
+func NewGenericRunner(runner Runner) *GenericRunner {
+	return &GenericRunner{
 		Runner: runner,
 	}
 }
 
-var _ Runner = (*GenericRunner[any])(nil) // Ensure GenericRunner implements Runner interface.
+var _ Runner = (*GenericRunner)(nil) // Ensure GenericRunner implements Runner interface.

@@ -68,14 +68,14 @@ func TestErrorRunner_AllMethodsReturnSameError_runner_test(t *testing.T) {
 
 func TestGenericRunner_BindListList2_runner_test(t *testing.T) {
 	rows := jsql.NewRowsBuffer([]string{"value"}, [][]any{{"a"}, {"b"}})
-	r := &GenericRunner[string]{
+	r := &GenericRunner{
 		Runner: &ErrorRunner{error: errors.New("unused")},
 	}
 	r.Runner = runnerFunc(func(_ context.Context, _ eval.Param) (jsql.Rows, error) {
 		return rows, nil
 	})
 
-	items, err := r.List(context.Background(), nil)
+	items, err := r.List[string](context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected list error: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestGenericRunner_BindListList2_runner_test(t *testing.T) {
 		return rows2, nil
 	})
 
-	value, err := r.Bind(context.Background(), nil)
+	value, err := r.Bind[string](context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected bind error: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestGenericRunner_BindListList2_runner_test(t *testing.T) {
 		return rows3, nil
 	})
 
-	ptrItems, err := r.List2(context.Background(), nil)
+	ptrItems, err := r.List2[string](context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected list2 error: %v", err)
 	}
