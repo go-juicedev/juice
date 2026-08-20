@@ -27,8 +27,8 @@ import (
 
 // QueryContext executes a query with the provided manager and context and scans a single result into T.
 func QueryContext[T any](ctx context.Context, manager Manager, statement, param any) (result T, err error) {
-	executor := NewGenericManager[T](manager).Object(statement)
-	return executor.QueryContext(ctx, param)
+	executor := NewGenericManager(manager).Object(statement)
+	return executor.QueryContext[T](ctx, param)
 }
 
 // ExecContext executes a statement with the provided manager and context that does not return rows and returns a sql.Result.

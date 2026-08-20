@@ -29,7 +29,7 @@ func TestIsTxManager_manager_test(t *testing.T) {
 func TestNewGenericManager_Object_manager_test(t *testing.T) {
 	baseManager := &managerStub{object: &sqlRowsExecutorStub{}}
 
-	gm := NewGenericManager[int](baseManager)
+	gm := NewGenericManager(baseManager)
 	executor := gm.Object("user")
 
 	if baseManager.lastV != "user" {

@@ -1,3 +1,3 @@
 module github.com/go-juicedev/juice
 
-go 1.26
+go 1.27
