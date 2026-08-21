@@ -90,8 +90,8 @@ type RepositoryImpl struct {
 }
 
 func (r RepositoryImpl) HelloWorld(ctx context.Context) (string, error) {
-	executor := juice.NewGenericManager[string](r.manager).Object(Repository(r).HelloWorld)
-	return executor.QueryContext(ctx, nil)
+	executor := juice.NewGenericManager(r.manager).Object(Repository(r).HelloWorld)
+	return executor.QueryContext[string](ctx, nil)
 }
 
 func main() {
