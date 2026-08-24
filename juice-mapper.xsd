@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="http://github.com/go-juciedev/juice/schema"
-           xmlns="http://github.com/go-juciedev/juice/schema"
+           targetNamespace="http://github.com/go-juicedev/juice/schema"
+           xmlns="http://github.com/go-juicedev/juice/schema"
            elementFormDefault="qualified">
 
     <xs:element name="configuration">
