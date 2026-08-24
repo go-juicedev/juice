@@ -170,7 +170,8 @@ func (e *Engine) Raw(query string) Runner {
 	return NewRunner(query, e, e.DB())
 }
 
-// New is the alias of NewEngine
+// New creates a new Engine from the given configuration.
+// It initializes the database connections and active environment.
 func New(configuration Configuration) (*Engine, error) {
 	if configuration == nil {
 		return nil, errConfigurationRequired

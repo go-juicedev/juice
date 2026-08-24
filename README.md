@@ -5,7 +5,7 @@
 ## Juice: A SQL Mapper for Go Inspired by MyBatis
 
 [![Go Doc](https://pkg.go.dev/badge/github.com/go-juicedev/juice)](https://pkg.go.dev/github.com/go-juicedev/juice)
-[![Release](https://img.shields.io/github/v/release/eatmoreapple/juice.svg?style=flat-square)](https://github.com/go-juicedev/juice/releases)
+[![Release](https://img.shields.io/github/v/release/go-juicedev/juice.svg?style=flat-square)](https://github.com/go-juicedev/juice/releases)
 ![Go Report Card](https://goreportcard.com/badge/github.com/go-juicedev/juice)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/26401-juice.svg)](https://plugins.jetbrains.com/plugin/26401-juice)
@@ -100,7 +100,7 @@ func main() {
 		panic(err)
 	}
 
-	engine, err := juice.Default(cfg)
+	engine, err := juice.New(cfg)
 	if err != nil {
 		panic(err)
 	}
