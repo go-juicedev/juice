@@ -53,6 +53,30 @@ func TestStringValue_Conversions_settings_test(t *testing.T) {
 	}
 }
 
+func TestStringValue_ParseWith_settings_test(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		got, err := StringValue("juice").ParseWith(func(value string) (int, error) {
+			return len(value), nil
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != 5 {
+			t.Fatalf("expected parsed value 5, got %d", got)
+		}
+	})
+
+	t.Run("error", func(t *testing.T) {
+		want := errors.New("parse failed")
+		_, err := StringValue("juice").ParseWith(func(string) (struct{}, error) {
+			return struct{}{}, want
+		})
+		if !errors.Is(err, want) {
+			t.Fatalf("expected %v, got %v", want, err)
+		}
+	})
+}
+
 func TestStringValue_Unmarshaler_settings_test(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		var target textUnmarshalerStub
