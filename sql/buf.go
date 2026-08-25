@@ -18,14 +18,9 @@ package sql
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
-	_ "unsafe" // for go:linkname
 )
-
-// convertAssign links to database/sql.convertAssign so RowsBuffer follows sql.Rows.Scan assignment rules.
-//
-//go:linkname convertAssign database/sql.convertAssign
-func convertAssign(dest, src any) error
 
 // RowsBuffer is an in-memory Rows implementation.
 type RowsBuffer struct {
@@ -70,7 +65,7 @@ func (rb *RowsBuffer) Scan(dest ...any) error {
 		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(row), len(dest))
 	}
 	for i := range dest {
-		if err := convertAssign(dest[i], row[i]); err != nil {
+		if err := sql.ConvertAssign(driver.ScanContext{}, dest[i], row[i]); err != nil {
 			return err
 		}
 	}
