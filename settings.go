@@ -24,6 +24,14 @@ import (
 // StringValue is a string that can be converted to common scalar types.
 type StringValue string
 
+// ParseWith parses the string value using parse.
+//
+// It is useful for conversions that are not covered by the built-in scalar
+// helpers, while preserving the parser's original error.
+func (s StringValue) ParseWith[V any](parse func(string) (V, error)) (V, error) {
+	return parse(string(s))
+}
+
 // Bool returns true if the value is "true".
 func (s StringValue) Bool() bool {
 	value, _ := strconv.ParseBool(string(s))
