@@ -603,10 +603,13 @@ func evalSelectorExpr(exp *ast.SelectorExpr, params Parameter) (reflect.Value, e
 		return reflect.Value{}, fmt.Errorf("invalid selector expression: %s", fieldOrTagOrMethodName)
 	}
 
-	// try to find method from the type
-	if isExported && x.NumMethod() > 0 {
-		// use x directly, in case x is a pointer
-		result = x.MethodByName(fieldOrTagOrMethodName)
+	// fall back to finding a method from the type when no field, tag or
+	// map key matched; a resolved value must not be clobbered by an
+	// invalid method lookup
+	if !result.IsValid() && isExported {
+		// unpack interface wrappers only, keeping pointers so that
+		// pointer-receiver methods remain addressable
+		result = reflectlite.Unpack(x).MethodByName(fieldOrTagOrMethodName)
 	}
 
 	// we failed to find the field
