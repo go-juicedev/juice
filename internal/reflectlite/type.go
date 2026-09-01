@@ -2,6 +2,7 @@ package reflectlite
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -110,21 +111,21 @@ func (t *Type) Indirect() Type {
 // It recursively searches embedded structs if the direct field does not have the tag
 // or if the field is an anonymous struct.
 func getFieldIndexesFromTagRecursive(typ reflect.Type, tagName, tagValue string) ([]int, bool) {
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
+	for field := range typ.Fields() {
 		// Check the tag on the current field.
-		if tag := field.Tag.Get(tagName); tag == tagValue {
+		tag := field.Tag.Get(tagName)
+		if tag == tagValue {
 			return field.Index, true // Found the tag directly on this field.
 		}
 
 		// If the field is a struct, and it's either anonymous (embedded)
 		// or it does not have the searched tag itself (meaning the tag might be in a sub-field of this struct field),
 		// then recurse into this struct field.
-		if field.Type.Kind() == reflect.Struct && (field.Anonymous || field.Tag.Get(tagName) == "") {
+		if field.Type.Kind() == reflect.Struct && (field.Anonymous || tag == "") {
 			if indexes, ok := getFieldIndexesFromTagRecursive(field.Type, tagName, tagValue); ok {
 				// Prepend current field's index to the indexes found in the nested struct.
 				// This correctly builds the path to the tagged field.
-				return append(field.Index, indexes...), true
+				return slices.Concat(field.Index, indexes), true
 			}
 		}
 	}
