@@ -557,8 +557,12 @@ func (b *batchStatementHandler) ExecContext(ctx context.Context, statement State
 
 	// ensure the param is a slice or array
 	value := reflectlite.ValueOf(param)
+	paramType := reflectlite.IndirectType(value.Type())
+	if paramType == nil {
+		return nil, errSliceOrArrayRequired
+	}
 
-	switch value.IndirectType().Kind() {
+	switch paramType.Kind() {
 	case reflect.Slice, reflect.Array:
 		statementHandler = newSliceBatchStatementHandler(
 			b.engine,
