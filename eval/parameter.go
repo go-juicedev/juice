@@ -121,7 +121,7 @@ func (p *structParameter) Get(name string) (reflect.Value, bool) {
 	if !isPublic {
 		var ok bool
 		// try to find the field by tag
-		indexes, ok = reflectlite.LookupFieldIndexByTag(p.Value.Type(), defaultParamKey, name)
+		indexes, ok = reflectlite.LookupFieldIndexByTag(p.Type(), defaultParamKey, name)
 		if !ok {
 			return reflect.Value{}, false
 		}
