@@ -67,41 +67,18 @@ func IsNilable(v reflect.Value) bool {
 	}
 }
 
-// findFieldFromTagRecursive is the internal recursive implementation for LookupFieldByTag.
-// It searches for a field with the given tag name and value within the struct value,
-// recursively searching embedded or nested structs.
-func findFieldFromTagRecursive(v reflect.Value, tagName, tagValue string) (reflect.Value, bool) {
-	// Dereference pointers and interfaces to get the concrete struct value.
-	v = Unwrap(v)
-	if v.Kind() != reflect.Struct {
-		return reflect.Value{}, false
-	}
-
-	structType := v.Type()
-	for i := range v.NumField() {
-		structField := structType.Field(i)
-		field := v.Field(i)
-
-		// Check the tag on the current field.
-		if tag := structField.Tag.Get(tagName); tag == tagValue {
-			return field, true
-		}
-
-		if structField.Anonymous || structField.Tag.Get(tagName) == "" {
-			if structField.Type.Kind() == reflect.Struct {
-				if found, ok := findFieldFromTagRecursive(field, tagName, tagValue); ok {
-					return found, true
-				}
-			}
-		}
-	}
-	return reflect.Value{}, false
-}
-
 // LookupFieldByTag searches for a field within the struct value v (after
 // dereferencing pointers/interfaces) that has the tag tagName with the value
 // tagValue. It returns the field's reflect.Value and true if found, otherwise
 // an invalid reflect.Value and false.
 func LookupFieldByTag(v reflect.Value, tagName, tagValue string) (reflect.Value, bool) {
-	return findFieldFromTagRecursive(v, tagName, tagValue)
+	v = Unwrap(v)
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	indexes, ok := LookupFieldIndexByTag(v.Type(), tagName, tagValue)
+	if !ok {
+		return reflect.Value{}, false
+	}
+	return v.FieldByIndex(indexes), true
 }
