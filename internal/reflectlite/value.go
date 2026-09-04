@@ -67,110 +67,41 @@ func IsNilable(v reflect.Value) bool {
 	}
 }
 
-// IndirectKind returns the Kind of the underlying type after dereferencing pointers.
-// For example, if v is a reflect.Value of type *int, IndirectKind(v) returns reflect.Int.
-func IndirectKind(v reflect.Value) reflect.Kind {
-	// Use our own IndirectType which handles pointers, then get Kind.
-	return IndirectType(v.Type()).Kind()
-}
-
-// Value is a wrapper around reflect.Value, providing utility methods.
-type Value struct {
-	reflect.Value
-}
-
-// Unwrap returns a Value wrapper for the underlying concrete value,
-// after continuously dereferencing pointers and interfaces.
-func (v *Value) Unwrap() Value {
-	return Value{Value: Unwrap(v.Value)}
-}
-
-// IsNilable checks if the wrapped reflect.Value can be nil.
-// See the global IsNilable function for more details.
-func (v Value) IsNilable() bool {
-	return IsNilable(v.Value)
-}
-
-// IndirectType returns a Type wrapper for the underlying type of the wrapped reflect.Value,
-// after dereferencing pointers.
-func (v *Value) IndirectType() Type {
-	underlyingT := IndirectType(v.Type())
-	return *TypeFrom(underlyingT)
-}
-
-// IndirectKind returns the Kind of the underlying type of the wrapped reflect.Value,
-// after dereferencing pointers.
-func (v *Value) IndirectKind() reflect.Kind {
-	// Leverage the cached Type wrapper if available.
-	return v.IndirectType().Kind()
-}
-
-// findFieldFromTagRecursive is the internal recursive implementation for FindFieldFromTag.
-// It searches for a field with the given tag name and value within the Value's type.
-// If found, it returns a Value wrapper for that field and true. Otherwise, an invalid Value and false.
-// It recursively searches embedded or nested structs.
-func findFieldFromTagRecursive(val *Value, tagName, tagValue string) (*Value, bool) {
-	// Work with the indirect type of the current value.
-	valType := val.IndirectType() // Uses the cached Type wrapper from Value
-	if valType.Kind() != reflect.Struct {
-		return nil, false
+// findFieldFromTagRecursive is the internal recursive implementation for LookupFieldByTag.
+// It searches for a field with the given tag name and value within the struct value,
+// recursively searching embedded or nested structs.
+func findFieldFromTagRecursive(v reflect.Value, tagName, tagValue string) (reflect.Value, bool) {
+	// Dereference pointers and interfaces to get the concrete struct value.
+	v = Unwrap(v)
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}, false
 	}
 
-	// Iterate through the fields of the struct.
-	numFields := valType.NumField()
-	for i := range numFields {
-		field := valType.Field(i)         // This is a reflect.StructField
-		fieldVal := val.Unwrap().Field(i) // This is a reflect.Value for the field
+	structType := v.Type()
+	for i := range v.NumField() {
+		structField := structType.Field(i)
+		field := v.Field(i)
 
 		// Check the tag on the current field.
-		if tag := field.Tag.Get(tagName); tag == tagValue {
-			return ValueFrom(fieldVal), true
+		if tag := structField.Tag.Get(tagName); tag == tagValue {
+			return field, true
 		}
 
-		// If the field is a struct and it's either anonymous (embedded) or does not have the searched tag,
-		// recurse into this struct field.
-		if field.Type.Kind() == reflect.Struct && (field.Anonymous || field.Tag.Get(tagName) == "") {
-			// Pass a Value wrapper for the field to the recursive call.
-			if v, ok := findFieldFromTagRecursive(ValueFrom(fieldVal), tagName, tagValue); ok {
-				return v, true
+		if structField.Anonymous || structField.Tag.Get(tagName) == "" {
+			if structField.Type.Kind() == reflect.Struct {
+				if found, ok := findFieldFromTagRecursive(field, tagName, tagValue); ok {
+					return found, true
+				}
 			}
 		}
 	}
-	return nil, false // Tag not found.
+	return reflect.Value{}, false
 }
 
-// FindFieldFromTag searches for a field within the Value's underlying struct type
-// (after dereferencing pointers/interfaces) that has a tag `tagName` with the value `tagValue`.
-// It returns a Value wrapper for the field if found, and true. Otherwise, it returns an invalid Value and false.
-// Note: Caching for this function is not implemented here but could be added similarly to GetFieldIndexesFromTag in Type,
-// using a combination of the Value's type, tagName, and tagValue as the key.
-func (v *Value) FindFieldFromTag(tagName, tagValue string) (*Value, bool) {
-	// Ensure we are operating on a struct or a pointer to a struct.
-	// The recursive helper will handle the unwrapping.
-	if v.Unwrap().Kind() != reflect.Struct {
-		return nil, false
-	}
-	// TODO: Consider adding caching for FindFieldFromTag if it becomes a performance bottleneck.
-	// The cache key would likely involve v.IndirectType().Type, tagName, and tagValue.
+// LookupFieldByTag searches for a field within the struct value v (after
+// dereferencing pointers/interfaces) that has the tag tagName with the value
+// tagValue. It returns the field's reflect.Value and true if found, otherwise
+// an invalid reflect.Value and false.
+func LookupFieldByTag(v reflect.Value, tagName, tagValue string) (reflect.Value, bool) {
 	return findFieldFromTagRecursive(v, tagName, tagValue)
-}
-
-// GetFieldIndexesFromTag returns the field indexes by tag name and tag value,
-// by delegating to the cached Type wrapper.
-func (v *Value) GetFieldIndexesFromTag(tagName, tagValue string) ([]int, bool) {
-	// Use the IndirectType method which initializes and/or returns the cached Type wrapper.
-	// Then call GetFieldIndexesFromTag on that Type wrapper.
-	typeWrapper := v.IndirectType() // This ensures typeWrapper is initialized
-	return typeWrapper.GetFieldIndexesFromTag(tagName, tagValue)
-}
-
-// ValueOf returns a new Value wrapper initialized to the concrete value
-// stored in the interface i. ValueOf(nil) returns the zero Value.
-func ValueOf(v any) *Value {
-	return &Value{Value: reflect.ValueOf(v)} // Explicitly name the field
-}
-
-// ValueFrom returns a new Value initialized to the concrete value
-func ValueFrom(v reflect.Value) *Value {
-	return &Value{Value: v} // Explicitly name the field
 }
