@@ -3,7 +3,6 @@ package reflectlite
 import (
 	"reflect"
 	"slices"
-	"strings"
 )
 
 // IndirectType returns the underlying type if t is a pointer type.
@@ -19,63 +18,6 @@ func IndirectType(t reflect.Type) reflect.Type {
 	return t
 }
 
-// typeToString returns a string representation of the reflect.Type, including
-// the package path for non-built-in types. It uses strings.Builder for efficient concatenation.
-func typeToString(t reflect.Type) string {
-	var sb strings.Builder
-	writeTypeString(&sb, t)
-	return sb.String()
-}
-
-// writeTypeString is a helper recursive function for typeToString.
-func writeTypeString(sb *strings.Builder, t reflect.Type) {
-	if t == nil {
-		sb.WriteString("<nil>")
-		return
-	}
-	switch t.Kind() {
-	case reflect.Slice, reflect.Array, reflect.Pointer, reflect.Chan:
-		sb.WriteString(t.Kind().String())
-		sb.WriteString("[")
-		writeTypeString(sb, t.Elem())
-		sb.WriteString("]")
-	case reflect.Map:
-		sb.WriteString("map[")
-		writeTypeString(sb, t.Key())
-		sb.WriteString("]")
-		writeTypeString(sb, t.Elem())
-	case reflect.Struct, reflect.Interface:
-		if t.Name() == "" {
-			// This is an anonymous struct or interface.
-			sb.WriteString(t.String()) // Fallback to default String() for anonymous complex types
-		} else {
-			// For named struct and interface types, include the package path.
-			sb.WriteString(qualifiedName(t))
-		}
-	default:
-		// For other types (including basic types and named types).
-		sb.WriteString(qualifiedName(t))
-	}
-}
-
-// qualifiedName returns the name of the type with its package path if it's not a built-in type.
-// Example: "main.MyStruct" or "int".
-func qualifiedName(t reflect.Type) string {
-	if t.PkgPath() != "" && t.Name() != "" {
-		return t.PkgPath() + "." + t.Name()
-	}
-	// For built-in types or unnamed types, t.String() is usually sufficient.
-	return t.String()
-}
-
-// TypeIdentify returns a string representation of the type T, including the package path for non-built-in types.
-// This is useful for generating unique identifiers for types.
-func TypeIdentify[T any]() string {
-	// Use reflect.TypeOf((*T)(nil)).Elem() to get the type of T itself,
-	// as reflect.TypeOf(T) would result in "reflect.rtype" if T is a type.
-	return typeToString(reflect.TypeFor[T]())
-}
-
 // Type is a wrapper around reflect.Type that provides additional utility methods
 // and caching for frequently accessed derived information like indirect type.
 type Type struct {
@@ -84,13 +26,6 @@ type Type struct {
 	// This avoids repeated computations if Indirect() is called multiple times.
 	indirectType    reflect.Type
 	indirectTypeSet bool // Tracks if indirectType has been computed and cached.
-}
-
-// Identify returns a string representation of the wrapped reflect.Type,
-// including the package path for non-built-in types.
-// This is useful for logging or generating type-specific identifiers.
-func (t Type) Identify() string {
-	return typeToString(t.Type)
 }
 
 // Indirect returns a Type wrapper for the underlying type if the current type is a pointer.
