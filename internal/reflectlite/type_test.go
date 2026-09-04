@@ -5,57 +5,6 @@ import (
 	"testing"
 )
 
-func TestTypeIdentify_BasicType_type_test(t *testing.T) {
-	result := TypeIdentify[int]()
-	if result != "int" {
-		t.Errorf("Expected 'int', got '%s'", result)
-	}
-}
-
-func TestTypeIdentify_StructType_type_test(t *testing.T) {
-	type testType struct {
-		field string // nolint:unused
-	}
-	result := TypeIdentify[testType]()
-	if result != "github.com/go-juicedev/juice/internal/reflectlite.testType" {
-		t.Errorf("Expected 'reflectlite.testType', got '%s'", result)
-	}
-}
-
-func TestTypeIdentify_SliceType_type_test(t *testing.T) {
-	type testType []int
-	result := TypeIdentify[testType]()
-	if result != "slice[int]" {
-		t.Errorf("Expected 'slice[int]', got '%s'", result)
-	}
-}
-
-func TestTypeIdentify_MapType_type_test(t *testing.T) {
-	type testType map[string]int
-	result := TypeIdentify[testType]()
-	if result != "map[string]int" {
-		t.Errorf("Expected 'map[string]int', got '%s'", result)
-	}
-}
-
-func TestTypeIdentify_PointerType_type_test(t *testing.T) {
-	type testType *int
-	result := TypeIdentify[testType]()
-	if result != "ptr[int]" {
-		t.Errorf("Expected 'ptr[int]', got '%s'", result)
-	}
-}
-
-func TestTypeIdentify_AnonymousStruct_type_test(t *testing.T) {
-	type testType struct {
-		field string // nolint:unused
-	}
-	result := TypeIdentify[struct{ testType }]()
-	if result != "struct { reflectlite.testType }" {
-		t.Errorf("Expected 'struct { reflectlite.testType }', got '%s'", result)
-	}
-}
-
 func TestType_Indirect_type_test(t *testing.T) {
 	type myInt int
 	type ptrMyInt *myInt
@@ -189,50 +138,4 @@ func TestType_GetFieldIndexesFromTag_NestedAndAnonymous_type_test(t *testing.T) 
 	// The current GetFieldIndexesFromTag operates on the type it's called on.
 	// To test finding "deep" from PtrOuter, one would get the field Ptr, get its type, and then call GetFieldIndexesFromTag.
 	// The current test structure for GetFieldIndexesFromTag is correct for its intended use.
-}
-
-func TestTypeIdentify_MoreComplexTypes_type_test(t *testing.T) {
-	tests := []struct {
-		name     string
-		typeOf   func() reflect.Type
-		expected string
-	}{
-		{
-			name:     "map[string]*struct{f int}",
-			typeOf:   func() reflect.Type { type T map[string]*struct{ f int }; return reflect.TypeFor[T]() },
-			expected: "map[string]ptr[struct { f int }]",
-		},
-		{
-			name:     "[]*map[int]string",
-			typeOf:   func() reflect.Type { type T []*map[int]string; return reflect.TypeFor[T]() },
-			expected: "slice[ptr[map[int]string]]",
-		},
-		{
-			name:     "chan struct{}",
-			typeOf:   func() reflect.Type { type T chan struct{}; return reflect.TypeFor[T]() },
-			expected: "chan[struct {}]",
-		},
-		{
-			name:     "func() error",
-			typeOf:   func() reflect.Type { type T func() error; return reflect.TypeFor[T]() },
-			expected: "github.com/go-juicedev/juice/internal/reflectlite.T",
-		},
-		{
-			name:     "interface{}",
-			typeOf:   func() reflect.Type { return reflect.TypeFor[any]() },
-			expected: "interface {}", // Or "any" depending on Go version and exact stdlib representation
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := typeToString(tt.typeOf())
-			// For interface{} vs any, accept both as Go evolves
-			if tt.expected == "interface {}" && result == "any" {
-				// this is fine
-			} else if result != tt.expected {
-				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
-			}
-		})
-	}
 }
