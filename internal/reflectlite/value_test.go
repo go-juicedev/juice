@@ -5,204 +5,59 @@ import (
 	"testing"
 )
 
-func TestValue_FindFieldFromTag_value_test(t *testing.T) {
-	type A struct {
-		AName string `param:"a_name"`
-	}
-
-	type B struct {
-		BName string `param:"b_name"`
-		A
-	}
-
-	var b B
-
-	b.AName = "a_name"
-	b.BName = "b_name"
-
-	value := ValueFrom(reflect.ValueOf(b))
-
-	v, ok := value.FindFieldFromTag("param", "a_name")
-	if !ok || !v.IsValid() {
-		t.Error("expect a_name, but not found or invalid")
-	}
-	if v.String() != "a_name" {
-		t.Error("expect a_name")
-	}
-}
-
-func TestValue_GetFieldIndexesFromTag_value_test(t *testing.T) {
-	type A struct {
-		AName string `param:"a_name"`
-	}
-
-	type B struct {
-		BName string `param:"b_name"`
-		A
-	}
-
-	var b B
-
-	b.AName = "a_name"
-	b.BName = "b_name"
-
-	value := ValueFrom(reflect.ValueOf(b))
-
-	// Test finding field index by tag
-	indexes, ok := value.GetFieldIndexesFromTag("param", "a_name")
-	if !ok {
-		t.Error("expected to find a_name")
-	}
-	if len(indexes) != 2 || indexes[0] != 1 || indexes[1] != 0 {
-		t.Errorf("expected indexes [1 0], got %v", indexes)
-	}
-	t.Log(indexes)
-
-	// Test not finding field index by non-existent tag
-	indexes, ok = value.GetFieldIndexesFromTag("param", "non_existent")
-	if ok {
-		t.Error("expected not to find non_existent")
-	}
-	if indexes != nil {
-		t.Errorf("expected nil indexes, got %v", indexes)
-	}
-
-	// Test not finding field index in non-struct type
-	nonStructValue := ValueFrom(reflect.ValueOf("string"))
-	indexes, ok = nonStructValue.GetFieldIndexesFromTag("param", "a_name")
-	if ok {
-		t.Error("expected not to find a_name in non-struct type")
-	}
-	if indexes != nil {
-		t.Errorf("expected nil indexes, got %v", indexes)
-	}
-}
-
-func TestValue_Unwrap_value_test(t *testing.T) {
-	s := "hello"
-	ps := &s
-	pps := &ps
-
-	valPps := ValueOf(pps)
-
-	// Test unwrapping multiple pointers
-	unwrapped1 := valPps.Unwrap()
-	if unwrapped1.String() != "hello" {
-		t.Errorf("Expected unwrapped1 to be 'hello', got '%s'", unwrapped1.String())
-	}
-
-	// Test with non-pointer
-	valS := ValueOf(s)
-	unwrappedS := valS.Unwrap()
-	if unwrappedS.String() != "hello" {
-		t.Errorf("Expected unwrappedS to be 'hello', got '%s'", unwrappedS.String())
-	}
-
-	// Test with nil pointer
-	var nilStr *string
-	valNil := ValueOf(nilStr)
-	unwrappedNil := valNil.Unwrap()
-	if unwrappedNil.IsValid() && !unwrappedNil.IsNil() {
-		t.Errorf("Expected unwrapped nil to be nil, got valid non-nil: %v", unwrappedNil)
-	}
-}
-
-func TestValue_IndirectType_value_test(t *testing.T) {
-	s := "world"
-	ps := &s
-
-	valPs := ValueOf(ps)
-	expectedType := reflect.TypeFor[string]()
-
-	// Test IndirectType
-	type1 := valPs.IndirectType()
-	if type1.Type != expectedType {
-		t.Errorf("Expected IndirectType to be '%s', got '%s'", expectedType.String(), type1.String())
-	}
-}
-
-func TestValue_IndirectKind_value_test(t *testing.T) {
-	i := 123
-	pi := &i
-	valPi := ValueOf(pi)
-	expectedKind := reflect.Int
-
-	// Test IndirectKind
-	kind1 := valPi.IndirectKind()
-	if kind1 != expectedKind {
-		t.Errorf("Expected IndirectKind to be '%s', got '%s'", expectedKind, kind1)
-	}
-}
-
-func TestValue_FindFieldFromTag_MoreScenarios_value_test(t *testing.T) {
-	type InnerMost struct {
+func TestLookupFieldByTag_value_test(t *testing.T) {
+	type Inner struct {
 		DeepField string `tag:"deep"`
 	}
-	type Inner struct {
-		InnerMost            // Anonymous
-		MidField  int        `tag:"mid"`
-		MidPtr    *InnerMost `tag:"mid_ptr"`
-	}
 	type Outer struct {
-		InnerField Inner  `tag:"inner_field"`
-		OuterField bool   `tag:"outer"`
-		OuterPtr   *Inner `tag:"outer_ptr"`
+		Inner
+		Direct string `tag:"direct"`
 	}
 
-	im := InnerMost{DeepField: "deep_val"}
-	in := Inner{InnerMost: im, MidField: 10, MidPtr: &im}
-	instance := Outer{InnerField: in, OuterField: true, OuterPtr: &in}
-	val := ValueOf(instance)
+	t.Run("direct field", func(t *testing.T) {
+		v := reflect.ValueOf(Outer{DeepField: "deep_val", Direct: "hello"})
+		got, ok := LookupFieldByTag(v, "tag", "direct")
+		if !ok || got.String() != "hello" {
+			t.Errorf("direct field: ok = %v, got = %v", ok, got)
+		}
+	})
 
-	// Direct field
-	fieldOuter, okOuter := val.FindFieldFromTag("tag", "outer")
-	if !okOuter || !fieldOuter.IsValid() || fieldOuter.Bool() != true {
-		t.Errorf("OuterField: Expected true, ok: %v, val: %v", okOuter, fieldOuter)
-	}
+	t.Run("anonymous embedded field", func(t *testing.T) {
+		v := reflect.ValueOf(Outer{DeepField: "deep_val"})
+		got, ok := LookupFieldByTag(v, "tag", "deep")
+		if !ok || got.String() != "deep_val" {
+			t.Errorf("anonymous embedded field: ok = %v, got = %v", ok, got)
+		}
+	})
 
-	// Nested field
-	// To find "mid", we need to get "inner_field" first, then call FindFieldFromTag on it
-	innerFieldValue, okInner := val.FindFieldFromTag("tag", "inner_field")
-	if !okInner || !innerFieldValue.IsValid() {
-		t.Fatalf("Could not find 'inner_field'")
-	}
-	fieldMid, okMid := innerFieldValue.FindFieldFromTag("tag", "mid")
-	if !okMid || !fieldMid.IsValid() || fieldMid.Int() != 10 {
-		t.Errorf("MidField: Expected 10, ok: %v, val: %v", okMid, fieldMid)
-	}
+	t.Run("pointer input", func(t *testing.T) {
+		v := reflect.ValueOf(&Outer{Direct: "ptr_val"})
+		got, ok := LookupFieldByTag(v, "tag", "direct")
+		if !ok || got.String() != "ptr_val" {
+			t.Errorf("pointer input: ok = %v, got = %v", ok, got)
+		}
+	})
 
-	// Deeply nested anonymous field
-	fieldDeep, okDeep := innerFieldValue.FindFieldFromTag("tag", "deep")
-	if !okDeep || !fieldDeep.IsValid() || fieldDeep.String() != "deep_val" {
-		t.Errorf("DeepField: Expected 'deep_val', ok: %v, val: %v", okDeep, fieldDeep)
-	}
+	t.Run("not found", func(t *testing.T) {
+		_, ok := LookupFieldByTag(reflect.ValueOf(Outer{}), "tag", "missing")
+		if ok {
+			t.Error("expected not found")
+		}
+	})
 
-	// Field through a pointer field
-	outerPtrValue, okOuterPtr := val.FindFieldFromTag("tag", "outer_ptr")
-	if !okOuterPtr || !outerPtrValue.IsValid() {
-		t.Fatalf("Could not find 'outer_ptr'")
-	}
-	// Now search within the struct pointed to by outerPtrValue
-	fieldMidViaPtr, okMidViaPtr := outerPtrValue.FindFieldFromTag("tag", "mid")
-	if !okMidViaPtr || !fieldMidViaPtr.IsValid() || fieldMidViaPtr.Int() != 10 {
-		t.Errorf("MidField via OuterPtr: Expected 10, ok: %v, val: %v", okMidViaPtr, fieldMidViaPtr)
-	}
+	t.Run("invalid value", func(t *testing.T) {
+		_, ok := LookupFieldByTag(reflect.Value{}, "tag", "direct")
+		if ok {
+			t.Error("expected not found for invalid value")
+		}
+	})
 
-	// Searching for a tag on a pointer field that itself points to a struct with the tag
-	midPtrValue, okMidPtr := innerFieldValue.FindFieldFromTag("tag", "mid_ptr")
-	if !okMidPtr || !midPtrValue.IsValid() {
-		t.Fatalf("Could not find 'mid_ptr'")
-	}
-	deepViaMidPtr, okDeepViaMidPtr := midPtrValue.FindFieldFromTag("tag", "deep")
-	if !okDeepViaMidPtr || !deepViaMidPtr.IsValid() || deepViaMidPtr.String() != "deep_val" {
-		t.Errorf("DeepField via MidPtr: Expected 'deep_val', ok: %v, val: %v", okDeepViaMidPtr, deepViaMidPtr)
-	}
-
-	// Non-existent tag
-	_, okNotFound := val.FindFieldFromTag("tag", "non_existent")
-	if okNotFound {
-		t.Error("Expected 'non_existent' tag to not be found")
-	}
+	t.Run("non-struct", func(t *testing.T) {
+		_, ok := LookupFieldByTag(reflect.ValueOf(123), "tag", "direct")
+		if ok {
+			t.Error("expected not found for non-struct")
+		}
+	})
 }
 
 func TestIsNilable_value_test(t *testing.T) {

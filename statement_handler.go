@@ -556,7 +556,8 @@ func (b *batchStatementHandler) ExecContext(ctx context.Context, statement State
 	var statementHandler StatementHandler
 
 	// ensure the param is a slice or array
-	value := reflectlite.ValueOf(param)
+	value := reflectlite.Unwrap(reflect.ValueOf(param))
+
 	paramType := reflectlite.IndirectType(value.Type())
 	if paramType == nil {
 		return nil, errSliceOrArrayRequired
@@ -567,14 +568,14 @@ func (b *batchStatementHandler) ExecContext(ctx context.Context, statement State
 		statementHandler = newSliceBatchStatementHandler(
 			b.engine,
 			b.session,
-			value.Unwrap().Value,
+			value,
 			batchSize,
 		)
 	case reflect.Map:
 		statementHandler = newMapBatchStatementHandler(
 			b.engine,
 			b.session,
-			value.Unwrap().Value,
+			value,
 			batchSize,
 		)
 	default:
