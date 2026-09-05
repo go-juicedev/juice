@@ -167,7 +167,7 @@ type CompileOptions struct {
 // Compile validates and compiles a parsed document into an immutable artifact.
 // The caller must not mutate Nodes retained by the document after calling Compile.
 // Compile does not open database connections.
-func Compile(document *configparser.Document, options CompileOptions) (*CompiledConfig, error) {
+func Compile(document *configparser.Document, options CompileOptions) (Configuration, error) {
 	if document == nil {
 		return nil, errConfigurationRequired
 	}
@@ -176,7 +176,7 @@ func Compile(document *configparser.Document, options CompileOptions) (*Compiled
 		lookup = LookupEnvValueProvider
 	}
 
-	compiled := &CompiledConfig{backend: options.Backend}
+	compiled := &compiledConfig{backend: options.Backend}
 
 	var runtime *RuntimeConfig
 	if !options.IgnoreEnvironment {

@@ -133,8 +133,6 @@ func (invalidConfiguration) Sources() iter.Seq2[string, Source] {
 
 func (invalidConfiguration) Backend() configparser.Backend { return xmlparser.Backend{} }
 
-func (invalidConfiguration) GetStatement(any) (Statement, error) { return nil, nil }
-
 func (invalidConfiguration) Statement(StatementID) (Statement, error) { return nil, nil }
 
 func TestNewDBManagerRejectsNilEnvironments(t *testing.T) {
@@ -170,7 +168,6 @@ type facetConfiguration struct {
 	runtime    *RuntimeConfig
 	setCalls   int
 	backCalls  int
-	getCalls   int
 	stateCalls int
 }
 
@@ -194,11 +191,6 @@ func (c *facetConfiguration) Sources() iter.Seq2[string, Source] {
 func (c *facetConfiguration) Backend() configparser.Backend {
 	c.backCalls++
 	return c.backend
-}
-
-func (c *facetConfiguration) GetStatement(any) (Statement, error) {
-	c.getCalls++
-	return c.statement, nil
 }
 
 func (c *facetConfiguration) Statement(StatementID) (Statement, error) {
@@ -230,8 +222,8 @@ func TestEngineUsesNarrowConfigurationFacets(t *testing.T) {
 	}
 	defer func() { _ = engine.Close() }()
 
-	if cfg.setCalls != 1 || cfg.backCalls != 1 || cfg.getCalls != 0 || cfg.stateCalls != 0 {
-		t.Fatalf("initial facet calls = settings:%d backend:%d get:%d statement:%d", cfg.setCalls, cfg.backCalls, cfg.getCalls, cfg.stateCalls)
+	if cfg.setCalls != 1 || cfg.backCalls != 1 || cfg.stateCalls != 0 {
+		t.Fatalf("initial facet calls = settings:%d backend:%d statement:%d", cfg.setCalls, cfg.backCalls, cfg.stateCalls)
 	}
 
 	if engine.Settings().Get("debug") != "false" {
@@ -244,8 +236,8 @@ func TestEngineUsesNarrowConfigurationFacets(t *testing.T) {
 		t.Fatal("engine did not resolve statement through statement provider")
 	}
 
-	if cfg.setCalls != 1 || cfg.backCalls != 1 || cfg.getCalls != 0 || cfg.stateCalls != 1 {
-		t.Fatalf("runtime facet calls = settings:%d backend:%d get:%d statement:%d", cfg.setCalls, cfg.backCalls, cfg.getCalls, cfg.stateCalls)
+	if cfg.setCalls != 1 || cfg.backCalls != 1 || cfg.stateCalls != 1 {
+		t.Fatalf("runtime facet calls = settings:%d backend:%d statement:%d", cfg.setCalls, cfg.backCalls, cfg.stateCalls)
 	}
 }
 

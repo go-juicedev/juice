@@ -282,7 +282,7 @@ func TestXMLConfigurationBuildsDynamicStatement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	statement, err := configuration.GetStatement("example.UserMapper.Find")
+	statement, err := configuration.Statement(StatementID("example.UserMapper.Find"))
 	if err != nil {
 		t.Fatal(err)
 	}

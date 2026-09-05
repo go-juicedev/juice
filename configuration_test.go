@@ -266,18 +266,6 @@ func TestNewXMLConfigurationWithFSEmptyEnvValueProvider_configuration_test(t *te
 	}
 }
 
-type statementIDStub struct{}
-
-func (statementIDStub) StatementID() string {
-	return "pkg.Mapper.Statement"
-}
-
-func sampleStatementFunc() {}
-
-type emptyStatementID struct{}
-
-func (emptyStatementID) StatementID() string { return "" }
-
 func TestConfigurationMethods_configuration_test(t *testing.T) {
 	statement := &mappedStatement{
 		id:     "pkg.Mapper.Statement",
@@ -289,7 +277,7 @@ func TestConfigurationMethods_configuration_test(t *testing.T) {
 	}
 
 	settings := keyValueSettingProvider{"s": "v"}
-	conf := CompiledConfig{
+	conf := compiledConfig{
 		catalog: catalog,
 		runtime: &RuntimeConfig{
 			defaultSource: "default",
@@ -302,38 +290,4 @@ func TestConfigurationMethods_configuration_test(t *testing.T) {
 		t.Fatalf("expected settings value v, got %q", got)
 	}
 
-	if _, err := conf.GetStatement(nil); err == nil || !strings.Contains(err.Error(), "nil statement query") {
-		t.Fatalf("expected nil statement error, got %v", err)
-	}
-
-	if _, err := conf.GetStatement(statementIDStub{}); err != nil {
-		t.Fatalf("expected StatementID lookup success, got %v", err)
-	}
-
-	if _, err := conf.GetStatement("pkg.Mapper.Statement"); err != nil {
-		t.Fatalf("expected string lookup success, got %v", err)
-	}
-	if _, err := conf.GetStatement(StatementID("pkg.Mapper.Statement")); err != nil {
-		t.Fatalf("expected typed StatementID lookup success, got %v", err)
-	}
-	if _, err := conf.Statement(StatementID("pkg.Mapper.Statement")); err != nil {
-		t.Fatalf("expected catalog lookup success, got %v", err)
-	}
-
-	if _, err := conf.GetStatement(sampleStatementFunc); err == nil {
-		t.Fatalf("expected function lookup fail because id mismatch")
-	}
-
-	type localStruct struct{}
-	if _, err := conf.GetStatement(localStruct{}); !errors.Is(err, ErrNoStatementFound) {
-		t.Fatalf("expected struct lookup fail, got %v", err)
-	}
-
-	if _, err := conf.GetStatement(123); err == nil || !strings.Contains(err.Error(), "cannot extract statement ID") {
-		t.Fatalf("expected invalid type error, got %v", err)
-	}
-
-	if _, err := conf.GetStatement(emptyStatementID{}); err == nil || !strings.Contains(err.Error(), "cannot extract statement ID") {
-		t.Fatalf("expected empty statement id error, got %v", err)
-	}
 }
