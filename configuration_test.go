@@ -266,18 +266,6 @@ func TestNewXMLConfigurationWithFSEmptyEnvValueProvider_configuration_test(t *te
 	}
 }
 
-type statementIDStub struct{}
-
-func (statementIDStub) StatementID() string {
-	return "pkg.Mapper.Statement"
-}
-
-func sampleStatementFunc() {}
-
-type emptyStatementID struct{}
-
-func (emptyStatementID) StatementID() string { return "" }
-
 func TestConfigurationMethods_configuration_test(t *testing.T) {
 	statement := &mappedStatement{
 		id:     "pkg.Mapper.Statement",
