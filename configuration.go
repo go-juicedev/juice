@@ -19,6 +19,7 @@ package juice
 import (
 	"errors"
 	"fmt"
+	"github.com/go-juicedev/juice/internal/rootfs"
 	"io/fs"
 	"iter"
 	"os"
@@ -26,7 +27,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/go-juicedev/juice/internal/rootfs"
 	configparser "github.com/go-juicedev/juice/parser"
 	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
@@ -65,10 +65,10 @@ type Configuration interface {
 	BackendProvider
 }
 
-// CompiledConfig is an immutable configuration artifact produced by Compile.
+// compiledConfig is an immutable configuration artifact produced by Compile.
 // Its parsed Nodes are retained by reference and must not be mutated after compilation.
 // It contains no open database connections or other live runtime resources.
-type CompiledConfig struct {
+type compiledConfig struct {
 	// backend provides the syntax-specific script behavior.
 	backend configparser.Backend
 
@@ -79,7 +79,7 @@ type CompiledConfig struct {
 	runtime *RuntimeConfig
 }
 
-func (c *CompiledConfig) validate(ignoreEnv bool) error {
+func (c *compiledConfig) validate(ignoreEnv bool) error {
 	if c.backend == nil {
 		return errConfigurationBackendRequired
 	}
@@ -100,27 +100,27 @@ func (c *CompiledConfig) validate(ignoreEnv bool) error {
 }
 
 // Settings returns the settings.
-func (c CompiledConfig) Settings() SettingProvider {
+func (c compiledConfig) Settings() SettingProvider {
 	return c.runtime.Settings()
 }
 
 // DefaultSource returns the configured default database source.
-func (c CompiledConfig) DefaultSource() string {
+func (c compiledConfig) DefaultSource() string {
 	return c.runtime.DefaultSource()
 }
 
 // Source returns a compiled database source by name.
-func (c CompiledConfig) Source(name string) (Source, bool) {
+func (c compiledConfig) Source(name string) (Source, bool) {
 	return c.runtime.Source(name)
 }
 
 // Sources iterates over compiled database sources.
-func (c CompiledConfig) Sources() iter.Seq2[string, Source] {
+func (c compiledConfig) Sources() iter.Seq2[string, Source] {
 	return c.runtime.Sources()
 }
 
 // Backend returns the syntax backend associated with the configuration.
-func (c CompiledConfig) Backend() configparser.Backend {
+func (c compiledConfig) Backend() configparser.Backend {
 	return c.backend
 }
 
@@ -161,27 +161,17 @@ func resolveStatementID(v any) (StatementID, error) {
 }
 
 // Statement returns a compiled statement by canonical ID.
-func (c CompiledConfig) Statement(id StatementID) (Statement, error) {
+func (c compiledConfig) Statement(id StatementID) (Statement, error) {
 	return c.catalog.Statement(id)
 }
 
-// GetStatement resolves legacy string, function, and struct lookup values.
-// New code should prefer Statement with an explicit StatementID.
-func (c CompiledConfig) GetStatement(v any) (Statement, error) {
-	id, err := resolveStatementID(v)
-	if err != nil {
-		return nil, err
-	}
-	return c.Statement(id)
-}
-
 // NewXMLConfiguration parses and compiles an XML configuration file.
-func NewXMLConfiguration(filename string) (*CompiledConfig, error) {
+func NewXMLConfiguration(filename string) (Configuration, error) {
 	return newLocalXMLConfiguration(filename, false)
 }
 
 // Used by go:linkname.
-func newLocalXMLConfiguration(filename string, ignoreEnv bool) (*CompiledConfig, error) {
+func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, error) {
 	if filename == "" {
 		return nil, errConfigurationPathRequired
 	}
@@ -195,22 +185,10 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (*CompiledConfig,
 	return compileXMLConfiguration(root.FS(), filename, ignoreEnv)
 }
 
-// NewXMLConfigurationWithFS parses and compiles an XML configuration from fs.
-// The filepath parameter must be a Unix-style path (using forward slashes '/'),
-// because it is processed with path.Dir and path.Base.
-func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (*CompiledConfig, error) {
-	if filepath == "" {
-		return nil, errConfigurationPathRequired
-	}
-	root := unixpath.Dir(filepath)
-	filename := unixpath.Base(filepath)
-	return compileXMLConfiguration(rootfs.New(fs, root), filename, false)
-}
-
 // compileXMLConfiguration parses and compiles an XML file.
 // When ignoreEnv is true, the <environments> section is skipped.
 // For internal use only.
-func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (*CompiledConfig, error) {
+func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
 	parser := &xmlparser.Parser{
 		FS:                fs,
 		IgnoreEnvironment: ignoreEnv,
@@ -228,4 +206,16 @@ func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (*Compil
 	})
 }
 
-var _ Configuration = (*CompiledConfig)(nil)
+// NewXMLConfigurationWithFS parses and compiles an XML configuration from fs.
+// The filepath parameter must be a Unix-style path (using forward slashes '/'),
+// because it is processed with path.Dir and path.Base.
+func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error) {
+	if filepath == "" {
+		return nil, errConfigurationPathRequired
+	}
+	root := unixpath.Dir(filepath)
+	filename := unixpath.Base(filepath)
+	return compileXMLConfiguration(rootfs.New(fs, root), filename, false)
+}
+
+var _ Configuration = (*compiledConfig)(nil)
