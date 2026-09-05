@@ -56,7 +56,7 @@ func TestCompileBuildsRuntimeConfigWithInjectedEnvironmentProvider(t *testing.T)
 		EnvValueProviderLookup: lookup,
 	})
 	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
+		t.Fatalf("CompileMappers() error = %v", err)
 	}
 	if lookupCalls != 1 {
 		t.Fatalf("provider lookup calls = %d, want 1", lookupCalls)
@@ -93,36 +93,7 @@ func TestCompileRequiresBackend(t *testing.T) {
 		},
 	}
 	if _, err := Compile(document, CompileOptions{}); !errors.Is(err, errConfigurationBackendRequired) {
-		t.Fatalf("Compile() error = %v, want %v", err, errConfigurationBackendRequired)
-	}
-}
-
-func TestCompileIgnoreEnvironmentSkipsEnvironmentResolution(t *testing.T) {
-	document := &configparser.Document{
-		Environments: configparser.Environments{
-			Default: "primary",
-			Items: []configparser.Environment{
-				{ID: "primary", Driver: "driver", Attributes: map[string]string{"provider": "missing"}},
-			},
-		},
-	}
-	lookupCalled := false
-	compiled, err := Compile(document, CompileOptions{
-		Backend:           xmlparser.Backend{},
-		IgnoreEnvironment: true,
-		EnvValueProviderLookup: func(string) (EnvValueProvider, bool) {
-			lookupCalled = true
-			return nil, false
-		},
-	})
-	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
-	}
-	if lookupCalled {
-		t.Fatal("environment provider was resolved while environments were ignored")
-	}
-	if compiled.DefaultSource() != "" {
-		t.Fatalf("default source = %q, want empty", compiled.DefaultSource())
+		t.Fatalf("CompileMappers() error = %v, want %v", err, errConfigurationBackendRequired)
 	}
 }
 
@@ -155,11 +126,10 @@ func TestCompileValidatesMapperStatements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			document := &configparser.Document{Mappers: []configparser.Mapper{tt.mapper}}
 			_, err := Compile(document, CompileOptions{
-				Backend:           xmlparser.Backend{},
-				IgnoreEnvironment: true,
+				Backend: xmlparser.Backend{},
 			})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("Compile() error = %v, want error containing %q", err, tt.want)
+				t.Fatalf("CompileMappers() error = %v, want error containing %q", err, tt.want)
 			}
 		})
 	}
@@ -367,31 +337,5 @@ func TestXMLConfigurationRejectsInvalidExpression(t *testing.T) {
 	_, err := NewXMLConfigurationWithFS(fsys, "juice.xml")
 	if err == nil {
 		t.Fatal("expected an error")
-	}
-}
-
-func TestXMLConfigurationIgnoreEnvironmentSkipsEnvironmentParsing(t *testing.T) {
-	fsys := fstest.MapFS{
-		"juice.xml": {Data: []byte(`
-<configuration>
-    <environments default="prod">
-        <environment id="prod" provider="missing">
-            <maxOpenConnNum>not-a-number</maxOpenConnNum>
-        </environment>
-    </environments>
-    <mappers>
-        <mapper namespace="example.Mapper"><select id="One">select 1</select></mapper>
-    </mappers>
-</configuration>`)},
-	}
-	configured, err := compileXMLConfiguration(fsys, "juice.xml", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if configured.DefaultSource() != "" {
-		t.Fatalf("expected empty default source, got %q", configured.DefaultSource())
-	}
-	for name := range configured.Sources() {
-		t.Fatalf("expected no sources, got %q", name)
 	}
 }

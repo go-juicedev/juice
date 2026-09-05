@@ -79,21 +79,19 @@ type compiledConfig struct {
 	runtime *RuntimeConfig
 }
 
-func (c *compiledConfig) validate(ignoreEnv bool) error {
+func (c *compiledConfig) validate() error {
 	if c.backend == nil {
 		return errConfigurationBackendRequired
 	}
-	if !ignoreEnv {
-		if c.runtime == nil || len(c.runtime.sources) == 0 {
-			return errConfigurationEnvironmentsRequired
-		}
-		defaultSource := c.runtime.DefaultSource()
-		if defaultSource == "" {
-			return errConfigurationDefaultEnvironmentMissing
-		}
-		if _, exists := c.runtime.Source(defaultSource); !exists {
-			return fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultSource)
-		}
+	if c.runtime == nil || len(c.runtime.sources) == 0 {
+		return errConfigurationEnvironmentsRequired
+	}
+	defaultSource := c.runtime.DefaultSource()
+	if defaultSource == "" {
+		return errConfigurationDefaultEnvironmentMissing
+	}
+	if _, exists := c.runtime.Source(defaultSource); !exists {
+		return fmt.Errorf("%w: %s", errConfigurationDefaultEnvironmentUnknown, defaultSource)
 	}
 
 	return nil
@@ -167,11 +165,6 @@ func (c compiledConfig) Statement(id StatementID) (Statement, error) {
 
 // NewXMLConfiguration parses and compiles an XML configuration file.
 func NewXMLConfiguration(filename string) (Configuration, error) {
-	return newLocalXMLConfiguration(filename, false)
-}
-
-// Used by go:linkname.
-func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, error) {
 	if filename == "" {
 		return nil, errConfigurationPathRequired
 	}
@@ -182,17 +175,14 @@ func newLocalXMLConfiguration(filename string, ignoreEnv bool) (Configuration, e
 		return nil, err
 	}
 	defer func() { _ = root.Close() }()
-	return compileXMLConfiguration(root.FS(), filename, ignoreEnv)
+	return compileXMLConfiguration(root.FS(), filename)
 }
 
 // compileXMLConfiguration parses and compiles an XML file.
-// When ignoreEnv is true, the <environments> section is skipped.
+// The configuration includes runtime environment settings and mapper statements.
 // For internal use only.
-func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (Configuration, error) {
-	parser := &xmlparser.Parser{
-		FS:                fs,
-		IgnoreEnvironment: ignoreEnv,
-	}
+func compileXMLConfiguration(fs fs.FS, filepath string) (Configuration, error) {
+	parser := &xmlparser.Parser{FS: fs}
 
 	document, err := configparser.ParseFS(fs, filepath, parser)
 	if err != nil {
@@ -202,8 +192,7 @@ func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (Configu
 		return nil, err
 	}
 	return Compile(document, CompileOptions{
-		Backend:           xmlparser.Backend{},
-		IgnoreEnvironment: ignoreEnv,
+		Backend: xmlparser.Backend{},
 	})
 }
 
@@ -216,7 +205,7 @@ func NewXMLConfigurationWithFS(fs fs.FS, filepath string) (Configuration, error)
 	}
 	root := unixpath.Dir(filepath)
 	filename := unixpath.Base(filepath)
-	return compileXMLConfiguration(rootfs.New(fs, root), filename, false)
+	return compileXMLConfiguration(rootfs.New(fs, root), filename)
 }
 
 var _ Configuration = (*compiledConfig)(nil)

@@ -56,12 +56,6 @@ func (p *Parser) parseConfiguration(decoder *stdxml.Decoder, registry *sqlRegist
 				}
 				document.Settings = settings
 			case "environments":
-				if p.IgnoreEnvironment {
-					if err := skipElement(decoder, token); err != nil {
-						return nil, nil, err
-					}
-					continue
-				}
 				environments, err := parseEnvironments(decoder, token)
 				if err != nil {
 					return nil, nil, err

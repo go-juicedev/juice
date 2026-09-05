@@ -163,9 +163,6 @@ type CompileOptions struct {
 	// Backend provides syntax-specific script compilation for the resulting Engine.
 	Backend configparser.Backend
 
-	// IgnoreEnvironment skips environment compilation and validation.
-	IgnoreEnvironment bool
-
 	// EnvValueProviderLookup resolves providers referenced by environments.
 	// LookupEnvValueProvider is used when this field is nil.
 	EnvValueProviderLookup EnvValueProviderLookup
@@ -185,18 +182,9 @@ func Compile(document *configparser.Document, options CompileOptions) (Configura
 
 	compiled := &compiledConfig{backend: options.Backend}
 
-	var runtime *RuntimeConfig
-	if !options.IgnoreEnvironment {
-		var err error
-		runtime, err = adaptRuntimeConfig(document, lookup)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		runtime = &RuntimeConfig{
-			sources:  make(map[string]Source),
-			settings: adaptSettings(document.Settings),
-		}
+	runtime, err := adaptRuntimeConfig(document, lookup)
+	if err != nil {
+		return nil, err
 	}
 	compiled.runtime = runtime
 
@@ -206,7 +194,7 @@ func Compile(document *configparser.Document, options CompileOptions) (Configura
 	}
 	compiled.catalog = catalog
 
-	if err := compiled.validate(options.IgnoreEnvironment); err != nil {
+	if err := compiled.validate(); err != nil {
 		return nil, err
 	}
 	return compiled, nil
