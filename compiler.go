@@ -151,6 +151,13 @@ func compileStatementCatalog(mappers []configparser.Mapper) (*statementCatalog, 
 	return compiled, nil
 }
 
+// CompileMappers compiles parsed mappers into a statement catalog.
+// It validates mapper namespaces, statement IDs, and statement actions without
+// opening database connections or resolving runtime environments.
+func CompileMappers(mappers []configparser.Mapper) (StatementCatalog, error) {
+	return compileStatementCatalog(mappers)
+}
+
 // CompileOptions controls how a parsed document is compiled.
 type CompileOptions struct {
 	// Backend provides syntax-specific script compilation for the resulting Engine.
