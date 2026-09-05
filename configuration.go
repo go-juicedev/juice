@@ -19,7 +19,6 @@ package juice
 import (
 	"errors"
 	"fmt"
-	"github.com/go-juicedev/juice/internal/rootfs"
 	"io/fs"
 	"iter"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/go-juicedev/juice/internal/rootfs"
 	configparser "github.com/go-juicedev/juice/parser"
 	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
@@ -193,7 +193,8 @@ func compileXMLConfiguration(fs fs.FS, filepath string, ignoreEnv bool) (Configu
 		FS:                fs,
 		IgnoreEnvironment: ignoreEnv,
 	}
-	document, err := parser.ParseFile(filepath)
+
+	document, err := configparser.ParseFS(fs, filepath, parser)
 	if err != nil {
 		if errors.Is(err, xmlparser.ErrMapperRootElementNotFound) {
 			return nil, errors.Join(errMapperRootElementNotFound, err)

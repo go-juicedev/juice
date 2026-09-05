@@ -16,9 +16,23 @@ limitations under the License.
 
 package parser
 
-import "io"
+import (
+	"io"
+	"io/fs"
+)
 
 // Parser parses a configuration document into a format-independent model.
 type Parser interface {
 	Parse(io.Reader) (*Document, error)
+}
+
+// ParseFS opens name from fsys and parses it with p.
+func ParseFS(fsys fs.FS, name string, p Parser) (*Document, error) {
+	file, err := fsys.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+
+	return p.Parse(file)
 }

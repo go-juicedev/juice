@@ -38,8 +38,11 @@ type Parser struct {
 var _ parser.Parser = (*Parser)(nil)
 
 func (p *Parser) Parse(reader io.Reader) (*parser.Document, error) {
-	document, _, registry, err := p.parse(reader)
+	document, entries, registry, err := p.parse(reader)
 	if err != nil {
+		return nil, err
+	}
+	if err := p.loadMapperEntries(document, entries, registry); err != nil {
 		return nil, err
 	}
 	if err := registry.seal(); err != nil {

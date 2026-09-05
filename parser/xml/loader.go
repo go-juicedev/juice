@@ -31,29 +31,6 @@ import (
 
 var ErrUnexpectedHTTPStatus = errors.New("unexpected mapper HTTP status")
 
-func (p *Parser) ParseFile(path string) (*parser.Document, error) {
-	if p.FS == nil {
-		return nil, errors.New("xml parser filesystem is required")
-	}
-	file, err := p.FS.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = file.Close() }()
-
-	document, entries, registry, err := p.parse(file)
-	if err != nil {
-		return nil, err
-	}
-	if err := p.loadMapperEntries(document, entries, registry); err != nil {
-		return nil, err
-	}
-	if err := registry.seal(); err != nil {
-		return nil, err
-	}
-	return document, nil
-}
-
 func (p *Parser) loadMapperEntries(document *parser.Document, entries []mapperEntry, registry *sqlRegistry) error {
 	if len(entries) == 0 {
 		return nil
@@ -70,6 +47,9 @@ func (p *Parser) loadMapperEntries(document *parser.Document, entries []mapperEn
 		source := *entry.source
 		switch {
 		case source.pattern != "":
+			if p.FS == nil {
+				return errors.New("xml parser filesystem is required for mapper pattern")
+			}
 			matches, err := fs.Glob(p.FS, source.pattern)
 			if err != nil {
 				return fmt.Errorf("invalid mapper pattern %q: %w", source.pattern, err)
