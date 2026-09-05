@@ -330,3 +330,37 @@ func TestParseMapperPreservesTrimText(t *testing.T) {
 		t.Fatal("expected the XML backend to return an executable trim node")
 	}
 }
+
+func TestParseMappersIgnoresOtherConfigurationSections(t *testing.T) {
+	mappers, err := xmlparser.ParseMappers(nil, strings.NewReader(`
+<configuration>
+    <settings><setting name="debug" value="true"/></settings>
+    <environments><environment id="broken"><driver>x</driver></environment></environments>
+    <mappers>
+        <mapper namespace="example.Mapper">
+            <select id="Find">select 1</select>
+        </mapper>
+    </mappers>
+</configuration>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mappers) != 1 || mappers[0].Namespace != "example.Mapper" {
+		t.Fatalf("unexpected mappers: %#v", mappers)
+	}
+}
+
+func TestParserParseMappersLoadsResources(t *testing.T) {
+	xmlParser := &xmlparser.Parser{
+		FS: fstest.MapFS{
+			"user.xml": {Data: []byte(`<mapper namespace="example.User"><select id="Find">select 1</select></mapper>`)},
+		},
+	}
+	mappers, err := xmlParser.ParseMappers(strings.NewReader(`<configuration><mappers><mapper resource="user.xml"/></mappers></configuration>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mappers) != 1 || mappers[0].Namespace != "example.User" {
+		t.Fatalf("unexpected mappers: %#v", mappers)
+	}
+}

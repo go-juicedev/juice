@@ -114,3 +114,31 @@ func parseMapperDocument(reader io.Reader, registry *sqlRegistry) (*parser.Mappe
 		return &mapperDocument, nil
 	}
 }
+
+// ParseMappers parses only the mappers section of a configuration document.
+func (p *Parser) ParseMappers(reader io.Reader) ([]parser.Mapper, error) {
+	registry := &sqlRegistry{}
+	entries, err := p.parseMappers(reader, registry)
+	if err != nil {
+		return nil, err
+	}
+	document := &parser.Document{}
+	for _, entry := range entries {
+		if entry.mapper != nil {
+			document.Mappers = append(document.Mappers, *entry.mapper)
+		}
+	}
+	if err := p.loadMapperEntries(document, entries, registry); err != nil {
+		return nil, err
+	}
+	if err := registry.seal(); err != nil {
+		return nil, err
+	}
+	return document.Mappers, nil
+}
+
+// ParseMappers parses the mappers section using fsys for external mappers.
+func ParseMappers(fsys fs.FS, reader io.Reader) ([]parser.Mapper, error) {
+	p := &Parser{FS: fsys}
+	return p.ParseMappers(reader)
+}
