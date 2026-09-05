@@ -30,9 +30,8 @@ import (
 var ErrMapperRootElementNotFound = errors.New("mapper root element <mapper> not found")
 
 type Parser struct {
-	FS                fs.FS
-	Client            *http.Client
-	IgnoreEnvironment bool
+	FS     fs.FS
+	Client *http.Client
 }
 
 var _ parser.Parser = (*Parser)(nil)
