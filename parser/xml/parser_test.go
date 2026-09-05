@@ -2,6 +2,7 @@ package xml_test
 
 import (
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,7 +15,17 @@ import (
 	xmlparser "github.com/go-juicedev/juice/parser/xml"
 )
 
-func TestParserParseFileLoadsMapperSources(t *testing.T) {
+func parseTestFile(t *testing.T, fsys fs.FS, path string) (*parser.Document, error) {
+	t.Helper()
+	file, err := fsys.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+	return (&xmlparser.Parser{FS: fsys}).Parse(file)
+}
+
+func TestParserParseLoadsMapperSources(t *testing.T) {
 	fsys := fstest.MapFS{
 		"juice.xml": {Data: []byte(`
 <configuration>
@@ -28,7 +39,7 @@ func TestParserParseFileLoadsMapperSources(t *testing.T) {
 		"mappers/second.xml": {Data: []byte(`<mapper namespace="second"><select id="One">select 1</select></mapper>`)},
 	}
 
-	document, err := (&xmlparser.Parser{FS: fsys}).ParseFile("juice.xml")
+	document, err := parseTestFile(t, fsys, "juice.xml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +51,7 @@ func TestParserParseFileLoadsMapperSources(t *testing.T) {
 	}
 }
 
-func TestParserParseFileRejectsMissingInclude(t *testing.T) {
+func TestParserParseRejectsMissingInclude(t *testing.T) {
 	fsys := fstest.MapFS{
 		"juice.xml": {Data: []byte(`
 <configuration>
@@ -52,7 +63,7 @@ func TestParserParseFileRejectsMissingInclude(t *testing.T) {
 </configuration>`)},
 	}
 
-	_, err := (&xmlparser.Parser{FS: fsys}).ParseFile("juice.xml")
+	_, err := parseTestFile(t, fsys, "juice.xml")
 	if err == nil || !strings.Contains(err.Error(), `SQL node "example.Mapper.missing" not found`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,9 +82,7 @@ func TestParseConfigurationDocument(t *testing.T) {
             <maxOpenConnNum>20</maxOpenConnNum>
         </environment>
     </environments>
-    <mappers pattern="mappers/*.xml">
-        <mapper resource="mappers/user.xml"/>
-        <mapper url="https://example.com/order.xml"/>
+    <mappers>
         <mapper namespace="example.Inline">
             <select id="Ping">select 1</select>
         </mapper>
@@ -254,7 +263,7 @@ func TestParseMapperRejectsMissingStatementID(t *testing.T) {
 	}
 }
 
-func TestParserParseFileLoadsRemoteMapper(t *testing.T) {
+func TestParserParseLoadsRemoteMapper(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		_, _ = response.Write([]byte(`<mapper namespace="remote"><select id="One">select 1</select></mapper>`))
 	}))
@@ -263,7 +272,7 @@ func TestParserParseFileLoadsRemoteMapper(t *testing.T) {
 	fsys := fstest.MapFS{
 		"juice.xml": {Data: []byte(`<configuration><mappers><mapper url="` + server.URL + `"/></mappers></configuration>`)},
 	}
-	document, err := (&xmlparser.Parser{FS: fsys}).ParseFile("juice.xml")
+	document, err := parseTestFile(t, fsys, "juice.xml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +281,7 @@ func TestParserParseFileLoadsRemoteMapper(t *testing.T) {
 	}
 }
 
-func TestParserParseFileRejectsRemoteHTTPStatus(t *testing.T) {
+func TestParserParseRejectsRemoteHTTPStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		http.Error(response, "missing", http.StatusNotFound)
 	}))
@@ -281,7 +290,7 @@ func TestParserParseFileRejectsRemoteHTTPStatus(t *testing.T) {
 	fsys := fstest.MapFS{
 		"juice.xml": {Data: []byte(`<configuration><mappers><mapper url="` + server.URL + `"/></mappers></configuration>`)},
 	}
-	_, err := (&xmlparser.Parser{FS: fsys}).ParseFile("juice.xml")
+	_, err := parseTestFile(t, fsys, "juice.xml")
 	if !errors.Is(err, xmlparser.ErrUnexpectedHTTPStatus) {
 		t.Fatalf("unexpected error: %v", err)
 	}
