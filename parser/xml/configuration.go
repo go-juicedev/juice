@@ -240,3 +240,55 @@ func parseMappers(decoder *stdxml.Decoder, start stdxml.StartElement, document *
 		}
 	}
 }
+
+func (p *Parser) parseMappers(reader io.Reader, registry *sqlRegistry) ([]mapperEntry, error) {
+	decoder := stdxml.NewDecoder(reader)
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err == io.EOF {
+				return nil, fmt.Errorf("configuration root element not found")
+			}
+			return nil, err
+		}
+		start, ok := token.(stdxml.StartElement)
+		if !ok {
+			continue
+		}
+		if start.Name.Local != "configuration" {
+			return nil, wrap(start.Name.Local, fmt.Errorf("expected <configuration> root element"))
+		}
+		return p.parseMappersFromConfiguration(decoder, registry)
+	}
+}
+
+func (p *Parser) parseMappersFromConfiguration(decoder *stdxml.Decoder, registry *sqlRegistry) ([]mapperEntry, error) {
+	var entries []mapperEntry
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err == io.EOF {
+				return nil, fmt.Errorf("element <configuration> is not closed")
+			}
+			return nil, err
+		}
+		switch token := token.(type) {
+		case stdxml.StartElement:
+			if token.Name.Local == "mappers" {
+				mapped, err := parseMappers(decoder, token, &parser.Document{}, registry)
+				if err != nil {
+					return nil, err
+				}
+				entries = append(entries, mapped...)
+				continue
+			}
+			if err := skipElement(decoder, token); err != nil {
+				return nil, err
+			}
+		case stdxml.EndElement:
+			if token.Name.Local == "configuration" {
+				return entries, nil
+			}
+		}
+	}
+}
