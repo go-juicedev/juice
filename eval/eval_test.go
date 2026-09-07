@@ -866,7 +866,7 @@ func BenchmarkStaticExprOptimizer(b *testing.B) {
 		{"complex_bool", "(1 < 2) && (3 > 2) || false", true},
 	}
 
-	optimizer := &StaticExprOptimizer{}
+	optimizer := &staticExprOptimizer{}
 	// Test optimization performance only
 	b.Run("optimization_only", func(b *testing.B) {
 		for _, bm := range benchmarks {
