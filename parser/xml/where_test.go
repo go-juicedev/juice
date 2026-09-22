@@ -79,7 +79,7 @@ func TestWhereNode_Accept_Comprehensive_where_test(t *testing.T) {
 		{
 			name: "ChildNodesProduceEmptyQuery",
 			nodes: Group{
-				&IfNode{Nodes: Group{NewTextNode("ID = #{ID}")}},
+				newTestIf(t, "1 == 0", NewTextNode("ID = #{ID}")),
 			},
 			params:        emptyParams,
 			expectedQuery: "",
@@ -180,22 +180,6 @@ func TestWhereNode_Accept_Comprehensive_where_test(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, n := range tt.nodes {
-				if ifNode, ok := n.(*IfNode); ok {
-					if tt.name == "ChildNodesProduceEmptyQuery" {
-						if err := ifNode.Parse("1 == 0"); err != nil {
-							t.Fatalf("Failed to parse IfNode condition for test %s: %v", tt.name, err)
-						}
-					} else {
-						if ifNode.expr == nil {
-							if parseErr := ifNode.Parse("true"); parseErr != nil {
-								t.Logf("Default parsing for IfNode in test %s failed: %v", tt.name, parseErr)
-							}
-						}
-					}
-				}
-			}
-
 			node := WhereNode{Nodes: tt.nodes}
 			query, args, err := node.Accept(translator, tt.params)
 

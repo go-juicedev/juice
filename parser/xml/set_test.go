@@ -46,7 +46,7 @@ func TestSetNode_Accept_Comprehensive_set_test(t *testing.T) {
 		{
 			name: "ChildNodesProduceEmptyQuery",
 			nodes: Group{
-				&IfNode{Nodes: Group{NewTextNode("ID = #{ID},")}},
+				newTestIf(t, "1 == 0", NewTextNode("ID = #{ID},")),
 			},
 			params:        emptyParams,
 			expectedQuery: "",
@@ -131,8 +131,8 @@ func TestSetNode_Accept_Comprehensive_set_test(t *testing.T) {
 		{
 			name: "AssignmentsWithIfNodes",
 			nodes: Group{
-				&IfNode{Nodes: Group{NewTextNode("name = #{name},")}, expr: parseExprNoError(t, `name != ""`)},
-				&IfNode{Nodes: Group{NewTextNode("age = #{age},")}, expr: parseExprNoError(t, "age > 0")},
+				newTestIf(t, `name != ""`, NewTextNode("name = #{name},")),
+				newTestIf(t, "age > 0", NewTextNode("age = #{age},")),
 				NewTextNode("modified_at = NOW()"),
 			},
 			params:        eval.NewGenericParam(eval.H{"name": "Valid Name", "age": 0}, ""),
@@ -142,18 +142,8 @@ func TestSetNode_Accept_Comprehensive_set_test(t *testing.T) {
 		{
 			name: "TrailingDynamicAssignmentIsEmpty",
 			nodes: Group{
-				&IfNode{
-					Nodes: Group{
-						NewTextNode("name = #{name},"),
-					},
-					expr: parseExprNoError(t, `name != ""`),
-				},
-				&IfNode{
-					Nodes: Group{
-						NewTextNode("age = #{age},"),
-					},
-					expr: parseExprNoError(t, "age > 0"),
-				},
+				newTestIf(t, `name != ""`, NewTextNode("name = #{name},")),
+				newTestIf(t, "age > 0", NewTextNode("age = #{age},")),
 			},
 			params: eval.NewGenericParam(eval.H{
 				"name": "Valid Name",
@@ -166,13 +156,6 @@ func TestSetNode_Accept_Comprehensive_set_test(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "ChildNodesProduceEmptyQuery" {
-				ifNode := tt.nodes[0].(*IfNode)
-				if err := ifNode.Parse("1 == 0"); err != nil {
-					t.Fatalf("Failed to parse IfNode condition for test %s: %v", tt.name, err)
-				}
-			}
-
 			node := SetNode{Nodes: tt.nodes}
 			query, args, err := node.Accept(translator, tt.params)
 

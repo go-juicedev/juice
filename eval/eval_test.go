@@ -16,6 +16,22 @@ func testEval(expr string, v any) (result reflect.Value, err error) {
 	return Eval(expr, param)
 }
 
+func TestCompileRetainsSource(t *testing.T) {
+	for _, source := range []string{"a and b", "1 == 1"} {
+		expression, err := Compile(source)
+		if err != nil {
+			t.Fatalf("Compile(%q) error = %v", source, err)
+		}
+		sourced, ok := expression.(SourceExpression)
+		if !ok {
+			t.Fatalf("Compile(%q) result does not implement SourceExpression", source)
+		}
+		if sourced.Source() != source {
+			t.Fatalf("Source() = %q, want %q", sourced.Source(), source)
+		}
+	}
+}
+
 func TestEval_eval_test(t *testing.T) {
 	param := H{
 		"id":   1,

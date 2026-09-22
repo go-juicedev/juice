@@ -54,6 +54,15 @@ type Expression interface {
 	Execute(params Parameter) (Value, error)
 }
 
+// SourceExpression is an Expression that retains the source text passed to Compile.
+// The text is the original input, before alias rewriting and constant folding.
+type SourceExpression interface {
+	Expression
+
+	// Source returns the source text passed to Compile.
+	Source() string
+}
+
 func Eval(expr string, params Parameter) (Value, error) {
 	expression, err := Compile(expr)
 	if err != nil {
