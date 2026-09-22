@@ -95,6 +95,7 @@ type goExprCompiler struct{}
 
 // Compile parses and optimizes an expression.
 func (e *goExprCompiler) Compile(expr string) (Expression, error) {
+	source := expr
 	// Convert logical aliases (and, or, not) to Go operators (&&, ||, !).
 	lexer := NewLexer(expr)
 	// Tokenize the expression while preserving non-operator tokens.
@@ -117,17 +118,23 @@ func (e *goExprCompiler) Compile(expr string) (Expression, error) {
 		return nil, err
 	}
 
-	return &goExpression{Expr: optimizedExp}, nil
+	return &goExpression{Expr: optimizedExp, source: source}, nil
 }
 
 // goExpression evaluates a parsed Go AST expression.
 type goExpression struct {
 	ast.Expr
+	source string
 }
 
 // Execute evaluates the expression and returns the value.
 func (e *goExpression) Execute(params Parameter) (Value, error) {
 	return eval(e.Expr, params)
+}
+
+// Source returns the source text passed to Compile.
+func (e *goExpression) Source() string {
+	return e.source
 }
 
 // defaultCompiler is the default expression compiler used by the package.
@@ -150,4 +157,7 @@ func Compile(expr string) (Expression, error) {
 	return defaultCompiler.Compile(expr)
 }
 
-var _ ExprCompiler = (*goExprCompiler)(nil)
+var (
+	_ ExprCompiler     = (*goExprCompiler)(nil)
+	_ SourceExpression = (*goExpression)(nil)
+)

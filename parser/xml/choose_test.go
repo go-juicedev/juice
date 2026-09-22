@@ -31,14 +31,7 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 
 	// Helper to create a WhenNode for testing
 	newTestWhenNode := func(condition string, content string) *WhenNode {
-		cn := &WhenNode{
-			Nodes: Group{NewTextNode(content)},
-		}
-		err := cn.Parse(condition)
-		if err != nil {
-			panic("Failed to parse condition in test setup: " + err.Error())
-		}
-		return cn
+		return newTestWhen(t, condition, NewTextNode(content))
 	}
 
 	// Helper to create an OtherwiseNode for testing
@@ -52,10 +45,7 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 		return eval.NewGenericParam(eval.H{"choice": choice, "name": "TestName"}, "")
 	}
 
-	errorWhenNode := &WhenNode{Nodes: Group{&mockErrorNode{}}}
-	if err := errorWhenNode.Parse("true"); err != nil {
-		panic("Failed to parse condition for errorWhenNode: " + err.Error())
-	}
+	errorWhenNode := newTestWhen(t, "true", &mockErrorNode{})
 	errorOtherwiseNode := &OtherwiseNode{Nodes: Group{&mockErrorNode{}}}
 
 	tests := []struct {
@@ -146,22 +136,6 @@ func TestChooseNode_Accept_choose_test(t *testing.T) {
 			},
 			params:        paramsWithChoice(2),
 			expectedQuery: "",
-		},
-		{
-			name: "WhenNodeConditionParseError",
-			whenNodes: []*WhenNode{
-				func() *WhenNode {
-					cn := &WhenNode{Nodes: Group{NewTextNode("content")}}
-					err := cn.Parse("invalid condition syntax @#$")
-					if err == nil {
-						panic("Expected parse error for test setup but got none")
-					}
-					return cn
-				}(),
-			},
-			params:         emptyParams,
-			expectError:    true,
-			expectedErrMsg: ErrNilExpression.Error(),
 		},
 		{
 			name: "MatchedWhenWithEmptyBodyStopsSelection",

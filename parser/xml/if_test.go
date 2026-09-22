@@ -26,13 +26,7 @@ import (
 func TestIfNode_Accept_if_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("select * from user where ID = #{ID}")
-	node := &IfNode{
-		Nodes: []Node{node1},
-	}
-
-	if err := node.Parse("ID > 0"); err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
+	node := newTestIf(t, "ID > 0", node1)
 
 	paramsTrue := eval.H{"ID": 1}
 	query, args, err := node.Accept(drv.Translator(), paramsTrue)

@@ -23,11 +23,22 @@ func (*mockErrorNode) Accept(driver.Translator, eval.Parameter) (string, []any, 
 
 func equalArgs(a, b []any) bool { return reflect.DeepEqual(a, b) }
 
-func parseExprNoError(t *testing.T, expression string) eval.Expression {
+func newTestIf(t *testing.T, test string, nodes ...node.Node) *IfNode {
 	t.Helper()
-	compiled, err := eval.Compile(expression)
+	compiled, err := NewIfNode(test)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("NewIfNode(%q) error = %v", test, err)
 	}
+	compiled.Nodes = nodes
+	return compiled
+}
+
+func newTestWhen(t *testing.T, test string, nodes ...node.Node) *WhenNode {
+	t.Helper()
+	compiled, err := NewWhenNode(test)
+	if err != nil {
+		t.Fatalf("NewWhenNode(%q) error = %v", test, err)
+	}
+	compiled.Nodes = nodes
 	return compiled
 }

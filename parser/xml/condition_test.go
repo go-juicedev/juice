@@ -17,6 +17,7 @@ limitations under the License.
 package xml
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/go-juicedev/juice/driver"
@@ -140,12 +141,38 @@ func TestConditionNode_Accept_condition_test(t *testing.T) {
 			expectError:    true,
 			expectedErrMsg: "mock error",
 		},
+		{
+			name:             "MatchError_StringIsNotBool",
+			condition:        "text",
+			params:           paramsTrue,
+			nodes:            Group{trueNode},
+			expectError:      true,
+			matchShouldError: true,
+			expectedErrMsg:   "juice: condition must evaluate to a bool, got string: text",
+		},
+		{
+			name:             "MatchError_NumberIsNotBool",
+			condition:        "number",
+			params:           paramsTrue,
+			nodes:            Group{trueNode},
+			expectError:      true,
+			matchShouldError: true,
+			expectedErrMsg:   "juice: condition must evaluate to a bool, got int: number",
+		},
+		{
+			name:             "MatchError_NilIdentifier",
+			condition:        "nil",
+			params:           paramsTrue,
+			nodes:            Group{trueNode},
+			expectError:      true,
+			matchShouldError: true,
+			expectedErrMsg:   "juice: condition must evaluate to a bool, got invalid: nil",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			node := &ConditionNode{Nodes: tt.nodes}
-			err := node.Parse(tt.condition)
+			node, err := NewConditionNode(tt.condition)
 
 			if tt.parseShouldError {
 				if err == nil {
@@ -158,8 +185,9 @@ func TestConditionNode_Accept_condition_test(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("Parse() error = %v", err)
+				t.Fatalf("NewConditionNode() error = %v", err)
 			}
+			node.Nodes = tt.nodes
 
 			query, args, err := node.Accept(translator, tt.params)
 
@@ -198,5 +226,36 @@ func TestConditionNode_Accept_condition_test(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConditionNode_Match_BoolOnly(t *testing.T) {
+	flag := true
+	node, err := NewConditionNode("flag")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matched, err := node.Match(eval.NewGenericParam(eval.H{"flag": &flag}, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !matched {
+		t.Fatal("expected pointer to true to match")
+	}
+
+	flag = false
+	matched, err = node.Match(eval.NewGenericParam(eval.H{"flag": &flag}, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matched {
+		t.Fatal("expected pointer to false to not match")
+	}
+
+	var missing *bool
+	_, err = node.Match(eval.NewGenericParam(eval.H{"flag": missing}, ""))
+	if !errors.Is(err, ErrConditionNotBool) || err.Error() != "juice: condition must evaluate to a bool, got ptr: flag" {
+		t.Fatalf("nil pointer error = %v", err)
 	}
 }

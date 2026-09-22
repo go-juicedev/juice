@@ -18,17 +18,23 @@ package xml
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 
 	"github.com/go-juicedev/juice/driver"
 	"github.com/go-juicedev/juice/eval"
+	"github.com/go-juicedev/juice/internal/reflectlite"
 	"github.com/go-juicedev/juice/node"
 )
 
-var ErrNilExpression = errors.New("juice: nil expression")
+var (
+	ErrNilExpression    = errors.New("juice: nil expression")
+	ErrConditionNotBool = errors.New("juice: condition must evaluate to a bool")
+)
 
 // ConditionNode is the shared implementation behind XML <if> and <when>
 // elements. It renders its child nodes only when its expression evaluates to
-// a non-zero value.
+// true.
 //
 // It is not an XML element in its own right: IfNode and WhenNode use this
 // implementation because they have the same condition-evaluation behavior.
@@ -38,11 +44,15 @@ type ConditionNode struct {
 	BindNodes bindNodeGroup
 }
 
-// Parse compiles the XML test attribute into an evaluable expression.
+// NewConditionNode compiles test into a condition node.
 // For example: "ID != nil", "age >= 18", or `status == "ACTIVE"`.
-func (c *ConditionNode) Parse(test string) (err error) {
-	c.expr, err = eval.Compile(test)
-	return err
+// Child nodes and bind nodes are assigned by the caller.
+func NewConditionNode(test string) (*ConditionNode, error) {
+	expr, err := eval.Compile(test)
+	if err != nil {
+		return nil, err
+	}
+	return &ConditionNode{expr: expr}, nil
 }
 
 // Accept renders the child nodes when the condition matches.
@@ -60,7 +70,9 @@ func (c *ConditionNode) Accept(translator driver.Translator, p eval.Parameter) (
 	return c.Nodes.Accept(translator, p)
 }
 
-// Match evaluates the compiled expression against p. A non-zero result matches.
+// Match evaluates the compiled expression against p.
+// The expression must evaluate to a bool. An invalid value or any other kind
+// returns ErrConditionNotBool.
 func (c *ConditionNode) Match(p eval.Parameter) (bool, error) {
 	if c.expr == nil {
 		return false, ErrNilExpression
@@ -70,7 +82,31 @@ func (c *ConditionNode) Match(p eval.Parameter) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return !value.IsZero(), nil
+	value = reflectlite.Unwrap(value)
+	if !value.IsValid() || value.Kind() != reflect.Bool {
+		return false, c.conditionTypeError(value)
+	}
+	return value.Bool(), nil
+}
+
+func (c *ConditionNode) conditionTypeError(value reflect.Value) error {
+	err := fmt.Errorf("%w, got %s", ErrConditionNotBool, conditionKind(value))
+	sourced, ok := c.expr.(eval.SourceExpression)
+	if !ok {
+		return err
+	}
+	source := sourced.Source()
+	if source == "" {
+		return err
+	}
+	return fmt.Errorf("%w: %s", err, source)
+}
+
+func conditionKind(value reflect.Value) string {
+	if !value.IsValid() {
+		return "invalid"
+	}
+	return value.Kind().String()
 }
 
 var _ node.Node = (*ConditionNode)(nil)

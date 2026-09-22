@@ -149,10 +149,12 @@ func parseIf(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *inclu
 			children.nodes = append(children.nodes, n)
 		case stdxml.EndElement:
 			if token.Name.Local == "if" {
-				compiled := &IfNode{Nodes: children.nodes, BindNodes: children.binds}
-				if err := compiled.Parse(test); err != nil {
+				compiled, err := NewIfNode(test)
+				if err != nil {
 					return nil, err
 				}
+				compiled.Nodes = children.nodes
+				compiled.BindNodes = children.binds
 				return compiled, nil
 			}
 		}
@@ -305,13 +307,12 @@ func parseWhen(decoder *stdxml.Decoder, start stdxml.StartElement, resolver *inc
 			children.nodes = append(children.nodes, n)
 		case stdxml.EndElement:
 			if token.Name.Local == "when" {
-				when := &WhenNode{
-					Nodes:     children.nodes,
-					BindNodes: children.binds,
-				}
-				if err := when.Parse(test); err != nil {
+				when, err := NewWhenNode(test)
+				if err != nil {
 					return nil, err
 				}
+				when.Nodes = children.nodes
+				when.BindNodes = children.binds
 				return when, nil
 			}
 		}

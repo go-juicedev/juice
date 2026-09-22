@@ -16,9 +16,11 @@ limitations under the License.
 
 package xml
 
+import "github.com/go-juicedev/juice/node"
+
 // WhenNode represents an XML <when> branch inside <choose>.
-// It is an alias because a <when> uses ConditionNode's conditional-rendering
-// behavior; ChooseNode controls the first-matching-branch rule.
+// It renders its children when its test expression evaluates to true.
+// ChooseNode decides which matching branch runs.
 //
 // Example XML:
 //
@@ -30,4 +32,18 @@ package xml
 //	    AND membership_level IN ('BASIC', 'STANDARD')
 //	  </when>
 //	</choose>
-type WhenNode = ConditionNode
+type WhenNode struct {
+	ConditionNode
+}
+
+// NewWhenNode compiles test into a <when> branch.
+// Child nodes and bind nodes are assigned by the caller.
+func NewWhenNode(test string) (*WhenNode, error) {
+	condition, err := NewConditionNode(test)
+	if err != nil {
+		return nil, err
+	}
+	return &WhenNode{ConditionNode: *condition}, nil
+}
+
+var _ node.Node = (*WhenNode)(nil)

@@ -114,7 +114,7 @@ func TestTrimNode_Accept_Comprehensive_trim_test(t *testing.T) {
 		},
 		{
 			name:          "ChildNodesReturnEmptyQuery",
-			nodes:         Group{&IfNode{}},
+			nodes:         Group{newTestIf(t, "false")},
 			prefix:        "PRE-",
 			suffix:        "-SUF",
 			params:        emptyParams,
@@ -172,14 +172,6 @@ func TestTrimNode_Accept_Comprehensive_trim_test(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, n := range tt.nodes {
-				if ifNode, ok := n.(*IfNode); ok {
-					if err := ifNode.Parse("false"); err != nil {
-						t.Fatalf("Failed to parse IfNode condition for test %s: %v", tt.name, err)
-					}
-				}
-			}
-
 			node := TrimNode{
 				Nodes:           tt.nodes,
 				Prefix:          tt.prefix,
@@ -222,13 +214,7 @@ func TestTrimNode_Accept_Comprehensive_trim_test(t *testing.T) {
 func TestTrimNode_Accept_trim_test(t *testing.T) {
 	drv := driver.MySQLDriver{}
 	node1 := NewTextNode("name,")
-	ifNode := &IfNode{
-		Nodes: []Node{node1},
-	}
-	if err := ifNode.Parse("ID > 0"); err != nil {
-		t.Error(err)
-		return
-	}
+	ifNode := newTestIf(t, "ID > 0", node1)
 	node := &TrimNode{
 		Nodes: []Node{
 			ifNode,

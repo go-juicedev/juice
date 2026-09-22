@@ -16,13 +16,28 @@ limitations under the License.
 
 package xml
 
+import "github.com/go-juicedev/juice/node"
+
 // IfNode represents an XML <if> element.
-// It is an alias because <if> uses ConditionNode's shared conditional-rendering
-// behavior.
+// It renders its children when its test expression evaluates to true.
 //
 // Example:
 //
 //	<if test="ID > 0">
 //	    AND ID = #{ID}
 //	</if>
-type IfNode = ConditionNode
+type IfNode struct {
+	ConditionNode
+}
+
+// NewIfNode compiles test into an <if> node.
+// Child nodes and bind nodes are assigned by the caller.
+func NewIfNode(test string) (*IfNode, error) {
+	condition, err := NewConditionNode(test)
+	if err != nil {
+		return nil, err
+	}
+	return &IfNode{ConditionNode: *condition}, nil
+}
+
+var _ node.Node = (*IfNode)(nil)
