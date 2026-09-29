@@ -58,7 +58,7 @@ func (SingleRowResultMap) MapTo(rv reflect.Value, rows Rows) error {
 		return sql.ErrNoRows
 	}
 
-	if rowScanner, ok := rv.Interface().(RowScanner); ok {
+	if rowScanner, ok := reflect.TypeAssert[RowScanner](rv); ok {
 		if err := rowScanner.ScanRow(rows); err != nil {
 			return fmt.Errorf("failed to scan row using RowScanner: %w", err)
 		}
@@ -188,7 +188,7 @@ func (m MultiRowsResultMap) resolveTypes(elementType reflect.Type) (bool, bool) 
 	if !isPointer {
 		pointerType = reflect.PointerTo(elementType)
 	}
-	return isPointer, isImplementsRowScanner(pointerType)
+	return isPointer, pointerType.Implements(rowScannerType)
 }
 
 // mapRows maps the rows to a slice of reflect.Values
