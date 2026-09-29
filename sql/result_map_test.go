@@ -655,41 +655,6 @@ func TestRowDestination_Destination_Error_MultiColumnNonceStruct_result_map_test
 	}
 }
 
-func TestIsImplementsRowScanner_result_map_test(t *testing.T) {
-	rt := reflect.TypeFor[*RowScannerStruct]() // reflect.TypeOf((*RowScannerStruct)(nil))
-	if !isImplementsRowScanner(rt) {
-		t.Errorf("Expected *RowScannerStruct to implement RowScanner")
-	}
-
-	st := reflect.TypeFor[*SimpleStruct]() // reflect.TypeOf((*SimpleStruct)(nil))
-	if isImplementsRowScanner(st) {
-		t.Errorf("Expected *SimpleStruct to not implement RowScanner")
-	}
-
-	// Test with non-pointer type that has pointer receiver for RowScanner
-	// isImplementsRowScanner expects a pointer type as input from its call site in MultiRowsResultMap.resolveTypes
-	// but let's test the underlying logic of Implements if it were passed a non-pointer.
-	// reflect.Type.Implements() works correctly regardless of whether the type itself is a pointer or not,
-	// as long as the method set is correct.
-	// However, isImplementsRowScanner specifically checks reflect.PointerTo(elementType).Implements(rowScannerType)
-	// or elementType.Implements(rowScannerType) if elementType is already a pointer.
-	// So we should test with what it expects.
-
-	rsNonPointer := reflect.TypeFor[RowScannerStruct]()
-	if isImplementsRowScanner(rsNonPointer) { // This should be false because RowScanner has pointer receiver
-		t.Errorf("Expected RowScannerStruct (non-pointer) to NOT directly implement RowScanner for isImplementsRowScanner check")
-	}
-	// The actual check in MultiRowsResultMap.resolveTypes does:
-	// pointerType := elementType; if !isPointer { pointerType = reflect.PointerTo(elementType) }
-	// isImplementsRowScanner(pointerType)
-	// So if elementType is RowScannerStruct{}, pointerType becomes *RowScannerStruct, which implements it.
-
-	vt := reflect.TypeFor[*int]()
-	if isImplementsRowScanner(vt) {
-		t.Errorf("Expected *int to not implement RowScanner")
-	}
-}
-
 // benchEmbedded is embedded to exercise the recursive findFromStruct path.
 type benchEmbedded struct {
 	CreatedAt string `column:"created_at"`

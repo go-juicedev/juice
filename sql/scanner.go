@@ -16,10 +16,7 @@ limitations under the License.
 
 package sql
 
-import (
-	"reflect"
-	"sync"
-)
+import "reflect"
 
 // RowScanner provides a custom mechanism for mapping the current database row
 // to a Go value. It serves as an extension point in the data binding system,
@@ -49,22 +46,4 @@ type RowScanner interface {
 	ScanRow(row Row) error
 }
 
-// rowScannerType is the type of the RowScanner interface
 var rowScannerType = reflect.TypeFor[RowScanner]()
-
-// rowScannerTypeImplementations is a thread-safe cache that stores information about
-// whether types implement the RowScanner interface.
-// It uses sync.Map instead of a regular map to avoid read/write conflicts in concurrent environments.
-var rowScannerTypeImplementations = sync.Map{}
-
-// isImplementsRowScanner checks if the given reflection type implements the RowScanner interface.
-func isImplementsRowScanner(t reflect.Type) bool {
-	value, exists := rowScannerTypeImplementations.Load(t)
-	if exists {
-		return value.(bool)
-	}
-	// this operation does not need to be atomic
-	implements := t.Implements(rowScannerType)
-	rowScannerTypeImplementations.Store(t, implements)
-	return implements
-}
