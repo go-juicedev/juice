@@ -315,11 +315,7 @@ type rowDestination struct {
 
 // Destination returns scan destinations for the given reflect.Value and columns.
 func (s *rowDestination) Destination(rv reflect.Value, columns []string) ([]any, error) {
-	dest, err := s.destination(rv, columns)
-	if err != nil {
-		return nil, err
-	}
-	return dest, nil
+	return s.destination(rv, columns)
 }
 
 func (s *rowDestination) destinationForOneColumn(rv reflect.Value, columns []string) ([]any, error) {
@@ -361,14 +357,14 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	}
 
 	for i, indexes := range s.indexes {
-		if len(indexes) == 0 {
-			s.dest[i] = &s.sink
-		} else {
+		if len(indexes) > 0 {
 			field := rv.FieldByIndex(indexes)
 			if !field.CanAddr() || !field.CanSet() {
 				return nil, fmt.Errorf("column %q maps to an unexported or unsettable field", columns[i])
 			}
 			s.dest[i] = field.Addr().Interface()
+		} else {
+			s.dest[i] = &s.sink
 		}
 	}
 	return s.dest, nil
