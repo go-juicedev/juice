@@ -20,7 +20,7 @@ import "reflect"
 
 // FromInt returns a reflect.Value for the given int, using a cache for small integers (0-255).
 func FromInt(i int) reflect.Value {
-	if i >= 0 && i < 256 {
+	if i >= 0 && i < len(intCache) {
 		return intCache[i]
 	}
 	return reflect.ValueOf(i)
@@ -29,7 +29,7 @@ func FromInt(i int) reflect.Value {
 var intCache [256]reflect.Value
 
 func init() {
-	for i := range 256 {
+	for i := range intCache {
 		intCache[i] = reflect.ValueOf(i)
 	}
 }
