@@ -640,6 +640,27 @@ func TestRowDestination_Destination_SingleColumn_Scanner_result_map_test(t *test
 	}
 }
 
+func TestRowDestination_DuplicateColumnUsesLast_result_map_test(t *testing.T) {
+	dest := &rowDestination{}
+	var s SimpleStruct
+	rv := reflect.ValueOf(&s).Elem()
+	columns := []string{"id", "id"}
+
+	scanDest, err := dest.Destination(rv, columns)
+	if err != nil {
+		t.Fatalf("Destination failed: %v", err)
+	}
+	if scanDest[0] != &dest.sink {
+		t.Fatalf("first duplicate column should be discarded, got %T", scanDest[0])
+	}
+	if _, ok := scanDest[1].(*int); !ok {
+		t.Fatalf("last duplicate column should map to ID, got %T", scanDest[1])
+	}
+	if scanDest[1] != &s.ID {
+		t.Fatal("last duplicate column does not point at ID")
+	}
+}
+
 func TestRowDestination_Destination_Error_MultiColumnNonceStruct_result_map_test(t *testing.T) {
 	dest := &rowDestination{}
 	var i int
