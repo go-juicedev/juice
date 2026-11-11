@@ -321,14 +321,23 @@ func (s *rowDestination) Destination(rv reflect.Value, columns []string) ([]any,
 func (s *rowDestination) destinationForOneColumn(rv reflect.Value, columns []string) ([]any, error) {
 	// if type is time.Time or implements sql.Scanner, we can scan it directly
 	if rv.Elem().Type() == timeType || rv.Type().Implements(scannerType) {
-		return []any{rv.Interface()}, nil
+		return s.one(rv.Interface()), nil
 	}
 
 	if reflect.Indirect(rv).Kind() == reflect.Struct {
 		return s.destinationForStruct(rv, columns)
 	}
 	// default behavior
-	return []any{rv.Interface()}, nil
+	return s.one(rv.Interface()), nil
+}
+
+func (s *rowDestination) one(v any) []any {
+	if cap(s.dest) == 0 {
+		s.dest = make([]any, 1)
+	}
+	s.dest = s.dest[:1]
+	s.dest[0] = v
+	return s.dest
 }
 
 func (s *rowDestination) destination(rv reflect.Value, columns []string) ([]any, error) {
@@ -350,9 +359,10 @@ func (s *rowDestination) destinationForStruct(rv reflect.Value, columns []string
 	}
 
 	// initialize dest if it's nil or clear it
-	if s.dest == nil {
+	if cap(s.dest) < len(columns) {
 		s.dest = make([]any, len(columns))
 	} else {
+		s.dest = s.dest[:len(columns)]
 		clear(s.dest)
 	}
 
