@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -87,6 +88,58 @@ func TestDBManagerCloseIgnoresUninitializedPlaceholder(t *testing.T) {
 	}
 	if !manager.closed.Load() {
 		t.Fatalf("Close() did not mark manager as closed")
+	}
+}
+
+func TestDBManagerGetRetriesAfterFailedConnect(t *testing.T) {
+	driverName := fmt.Sprintf("juice_db_manager_test_%d", atomic.AddUint64(&shSQLDriverSeq, 1))
+	jdriver.Register(driverName, dbManagerDriver{name: driverName})
+
+	manager := &DBManager{
+		sources: map[string]Source{
+			"primary": {Driver: driverName},
+		},
+	}
+	t.Cleanup(func() { _ = manager.Close() })
+
+	const getters = 8
+	errCh := make(chan error, getters)
+	for range getters {
+		go func() {
+			_, _, err := manager.Get("primary")
+			errCh <- err
+		}()
+	}
+	for range getters {
+		err := <-errCh
+		if err == nil || !strings.Contains(err.Error(), "unknown driver") {
+			t.Fatalf("Get error = %v, want unknown driver", err)
+		}
+	}
+
+	sql.Register(driverName, &shSQLDriver{state: &shSQLDriverState{}})
+	db, drv, err := manager.Get("primary")
+	if err != nil {
+		t.Fatalf("Get(primary) after driver registration error = %v", err)
+	}
+	if db == nil || drv == nil {
+		t.Fatal("Get(primary) returned an uninitialized connection")
+	}
+
+	loaded, ok := manager.conns.Load("primary")
+	if !ok {
+		t.Fatal("successful connection was not stored")
+	}
+	if loaded.(*conn).db != db {
+		t.Fatal("manager kept a different connection")
+	}
+
+	again, _, err := manager.Get("primary")
+	if err != nil {
+		t.Fatalf("Get(primary) after retry error = %v", err)
+	}
+	if again != db {
+		t.Fatal("Get(primary) returned a different connection")
 	}
 }
 

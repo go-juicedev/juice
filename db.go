@@ -119,7 +119,9 @@ func (m *DBManager) connect(name string, source Source) (db *sql.DB, drv driver.
 	})
 
 	if c.err != nil {
-		m.conns.Delete(name)
+		// Remove only this attempt. Another Get may already have replaced it
+		// with a newer conn after an earlier failure was cleared.
+		m.conns.CompareAndDelete(name, c)
 		return nil, nil, c.err
 	}
 
